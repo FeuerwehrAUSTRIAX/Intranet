@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Telefonbuch – Freiwillige Feuerwehr Wiener Neustadt - AX</title>
+  <!-- PapaParse zum Einlesen der CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+  <style>
+    /* Grundlegendes Seitenlayout (Dark Theme) */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #212121; /* Seitenhintergrund */
+      color: #f0f0f0;
+      font-family: Arial, sans-serif;
+    }
+    /* Kopfbereich */
+    header {
+      background-color: #333333;
+      padding: 20px;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.8em;
+    }
+    header p {
+      margin: 5px 0 0 0;
+      font-size: 0.95em;
+      line-height: 1.4em;
+    }
+    /* Trennlinie unter dem Header */
+    .header-separator {
+      width: 100%;
+      height: 5px;
+      background-color: #c62828;
+      margin-bottom: 20px;
+    }
+    /* --- Neuer Wrapper für den gesamten Hauptinhalt --- */
+    .main-content {
+      margin: 0 auto 40px auto;
+      padding: 20px;
+      background-color: #2b2b2b;
+      border-radius: 8px;
+      border: 1px solid #444444;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+      max-width: 1200px;
+    }
+    /* Suchfeld im dunklen Stil */
+    .search-container {
+      margin-bottom: 20px;
+    }
+    .search-container input {
+      width: 100%;
+      padding: 10px;
+      font-size: 1em;
+      background-color: #333333;
+      border: 1px solid #444444;
+      border-radius: 4px;
+      color: #f0f0f0;
+    }
+    /* Tabellenstil */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background-color: #2a2a2a;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.7);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    table thead {
+      background-color: #3a3a3a;
+    }
+    table thead th {
+      padding: 10px;
+      text-align: left;
+    }
+    table tbody tr {
+      border-bottom: 1px solid #444444;
+    }
+    table tbody tr:nth-child(even) {
+      background-color: #333333;
+    }
+    table td {
+      padding: 10px;
+    }
+    table tbody tr:hover {
+      background-color: #444444;
+      cursor: pointer;
+    }
+    /* Überschriften der Abschnitte */
+    h2 {
+      margin-top: 40px;
+      font-size: 1.4em;
+      border-bottom: 2px solid #444444;
+      padding-bottom: 5px;
+      color: #f0f0f0;
+    }
+    /* Modal (Overlay) */
+    #modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    /* Modal-Inhalt (Kontaktkarte) */
+    #modalContent {
+      background: #333333;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 90%;
+      position: relative;
+    }
+    #modalContent h3 {
+      margin-top: 0;
+    }
+    #modalContent p {
+      margin: 8px 0;
+    }
+    /* Schließen-Button */
+    #modalClose {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      background: #c62828;
+      color: #fff;
+      border: none;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Kopfbereich -->
+  <header>
+    <h1>Freiwillige Feuerwehr Wiener Neustadt - AX</h1>
+    <p>
+      Wienerstraße 122 | 1047 Wiener Neustadt<br>
+      E-Mail: feuerwehr_wiener_neustadt@example.at<br>
+      Telefon: 02622 / 06122 | Fax: +430622206320
+    </p>
+  </header>
+  <div class="header-separator"></div>
+
+  <!-- Hauptinhalt in neuem Wrapper -->
+  <div class="main-content">
+    <!-- Suchfeld -->
+    <div class="search-container">
+      <input type="text" id="searchInput" placeholder="Suche..." />
+    </div>
+
+    <!-- Bereich: Kommando -->
+    <h2>Kommando</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mitglieds-Nr</th>
+          <th>Dgrd</th>
+          <th>Vorname</th>
+          <th>Nachname</th>
+          <th>Telefonnummer</th>
+          <th>D-Mail</th>
+          <th>Funktion</th>
+        </tr>
+      </thead>
+      <tbody id="kommandoTbody">
+        <!-- Kommando-Einträge -->
+      </tbody>
+    </table>
+
+    <!-- Bereich: Verwaltung -->
+    <h2>Verwaltung</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mitglieds-Nr</th>
+          <th>Dgrd</th>
+          <th>Vorname</th>
+          <th>Nachname</th>
+          <th>Telefonnummer</th>
+          <th>D-Mail</th>
+          <th>Funktion</th>
+        </tr>
+      </thead>
+      <tbody id="verwaltungTbody">
+        <!-- Verwaltungs-Einträge -->
+      </tbody>
+    </table>
+
+    <!-- Bereich: Charge -->
+    <h2>Charge</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mitglieds-Nr</th>
+          <th>Dgrd</th>
+          <th>Vorname</th>
+          <th>Nachname</th>
+          <th>Telefonnummer</th>
+          <th>D-Mail</th>
+          <th>Funktion</th>
+        </tr>
+      </thead>
+      <tbody id="chargeTbody">
+        <!-- Charge-Einträge -->
+      </tbody>
+    </table>
+
+    <!-- Bereich: Mannschaft -->
+    <h2>Mannschaft</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mitglieds-Nr</th>
+          <th>Dgrd</th>
+          <th>Vorname</th>
+          <th>Nachname</th>
+          <th>Telefonnummer</th>
+          <th>D-Mail</th>
+          <th>Funktion</th>
+        </tr>
+      </thead>
+      <tbody id="mannschaftTbody">
+        <!-- Mannschafts-Einträge -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal (Kontaktkarte) -->
+  <div id="modal">
+    <div id="modalContent">
+      <button id="modalClose">Schließen</button>
+      <div id="modalDetails">
+        <!-- Kontaktkartendaten werden hier eingefügt -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // CSV-URL aus Google Sheets (ggf. anpassen)
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=294937836&single=true&output=csv";
+
+    // Mapping: Dienstgrade zu den Icon-URLs
+    const dienstgradIcons = {
+      "PFM": "https://i.postimg.cc/ZRjqKjH4/Dgrd-pfm-noe-svg.png",
+      "FM": "https://i.postimg.cc/hjqrx4bs/Dgrd-fm-noe-svg.png",
+      "OFM": "https://i.postimg.cc/63j8KY3Z/Dgrd-ofm-noe-svg.png",
+      "HFM": "https://i.postimg.cc/T1536xB8/Dgrd-hfm-noe-svg.png",
+      "LM": "https://i.postimg.cc/sDRMrQfw/Dgrd-lm-noe-svg.png",
+      "OLM": "https://i.postimg.cc/Bv13bpMD/Dgrd-olm-noe-svg.png",
+      "HLM": "https://i.postimg.cc/Gtggkwpp/Dgrd-hlm-noe-svg.png",
+      "BM": "https://i.postimg.cc/rs5CwBtb/Dgrd-bm-noe-svg.png",
+      "OBM": "https://i.postimg.cc/C54BtS8F/Dgrd-obm-noe-svg.png",
+      "HBM": "https://i.postimg.cc/wT6sNRK3/Dgrd-hbm-noe-svg.png",
+      "BI": "https://i.postimg.cc/HxZFt7ZH/Dgrd-bi-noe-svg-Kopie.png",
+      "OBI": "https://i.postimg.cc/TYYJ643k/Dgrd-obi-noe-svg.png",
+      "HBI": "https://i.postimg.cc/Rh06j2LK/Dgrd-hbi-noe-svg.png",
+      "ABI": "https://i.postimg.cc/j2v9jnfB/Dgrd-abi2-bgld-svg.png",
+      "BR": "https://i.postimg.cc/gcf4vDz4/Dgrd-br2-noe-svg.png",
+      "OBR": "https://i.postimg.cc/3NH4wdhj/Dgrd-obr-noe-svg.png",
+      "LFR": "https://i.postimg.cc/fTss8Y5j/Dgrd-lfr-noe-svg.png",
+      "LBDSTV": "https://i.postimg.cc/LXFQm3Jx/Dgrd-lbdstv-noe-svg.png",
+      "LBD": "https://i.postimg.cc/fbcjfnbv/Dgrd-lbd-noe-svg.png",
+      "VM": "https://i.postimg.cc/Y9jfFXvr/Dgrd-vm-noe-svg.png",
+      "OVM": "https://i.postimg.cc/4dhHZjK9/Dgrd-ovm-noe-svg.png",
+      "HVM": "https://i.postimg.cc/PJTXc71h/Dgrd-hvm-noe-svg.png",
+      "V": "https://i.postimg.cc/YSM8mfYh/Dgrd-v-noe-svg.png",
+      "OV": "https://i.postimg.cc/R0wzBRS0/Dgrd-ov-noe-svg.png",
+      "HV": "https://i.postimg.cc/44S2WcG2/Dgrd-hv-noe-svg.png",
+      "VI": "https://i.postimg.cc/DzvR9KMx/Dgrd-vi-noe-svg.png",
+      "VR": "https://i.postimg.cc/V6SZwsBW/Dgrd-vr-noe-svg.png",
+      "SB": "https://i.postimg.cc/855Q6Vd7/Dgrd-sb-noe-svg.png",
+      "ASB": "https://i.postimg.cc/Y0zsnnz5/Dgrd-asb-noe-svg.png",
+      "BSB": "https://i.postimg.cc/zfq34VN4/Dgrd-bsb-noe-svg.png",
+      "FARZT": "https://i.postimg.cc/Y0FWMZsP/Dgrd-farzt-noe-svg.png",
+      "BFARZT": "https://i.postimg.cc/13mfj8s2/Dgrd-bfarzt-noe-svg.png",
+      "LFARZT": "https://i.postimg.cc/SRGm6G2s/Dgrd-lfarzt-noe-svg.png",
+      "FJUR": "https://i.postimg.cc/3JST3N2P/Dgrd-fjur-noe-svg.png",
+      "BFJUR": "https://i.postimg.cc/fTg66FNs/Dgrd-bfjur-noe-svg.png",
+      "LFJUR": "https://i.postimg.cc/XJVHZcbx/Dgrd-lfjur-noe-svg.png",
+      "FKUR": "https://i.postimg.cc/j5L8QqDJ/Dgrd-fkur-noe-svg.png",
+      "BFKUR": "https://i.postimg.cc/qqmvfLkF/Dgrd-lfkur2-tirol-svg.png",
+      "LFKUR": "https://i.postimg.cc/1XVjPRPZ/Dgrd-lfkur-noe-svg.png",
+      "FT": "https://i.postimg.cc/5NMh1vH7/Dgrd-ft-noe-svg.png"
+    };
+
+    // Aktualisierte (gestürzte) Sortierreihenfolgen:
+    // Kommando: V, OV, HV, BI, OBI, HBI
+    // Verwaltung: VM, OVM, HVM
+    // Charge: LM, OLM, HLM, BM, OBM, HBM
+    // Mannschaft: PFM, FM, OFM, HFM, LM, HLM, OLM – danach alle anderen ohne Zuordnung
+    const orderings = {
+      kommando: { order: ["V", "OV", "HV", "BI", "OBI", "HBI"], ascending: false },
+      verwaltung: { order: ["VM", "OVM", "HVM"], ascending: false },
+      charge: { order: ["LM", "OLM", "HLM", "BM", "OBM", "HBM"], ascending: false },
+      mannschaft: { order: ["PFM", "FM", "OFM", "HFM", "LM", "HLM", "OLM"], ascending: false }
+    };
+
+    function createRow(member) {
+      const dienstgrad = member["Aktueller Dienstgrad"] ? member["Aktueller Dienstgrad"].trim().toUpperCase() : "";
+      const iconUrl = dienstgradIcons[dienstgrad];
+      let dienstgradHTML = dienstgrad;
+      if (iconUrl) {
+        dienstgradHTML = `<img src="${iconUrl}" alt="${dienstgrad}" title="${dienstgrad}" style="width:24px; height:24px; vertical-align:middle; margin-right: 8px;"> ${dienstgrad}`;
+      }
+      
+      const memberData = encodeURIComponent(JSON.stringify(member));
+      return `
+        <tr class="clickable-row" data-member="${memberData}">
+          <td>${member["Mitgliedsnummer"] || ""}</td>
+          <td>${dienstgradHTML}</td>
+          <td>${member["Namen"] || ""}</td>
+          <td>${member["Nachnamen"] || ""}</td>
+          <td>${member["Telefonnummer"] || ""}</td>
+          <td>${member["D-Mail Adresse"] || ""}</td>
+          <td>${member["Funktion"] || ""}</td>
+        </tr>
+      `;
+    }
+
+    function getGroup(funktion) {
+      const f = (funktion || "").trim().toLowerCase();
+      if (f === "kommando") return "kommando";
+      if (f === "verwaltung") return "verwaltung";
+      if (f === "charge") return "charge";
+      return "mannschaft";
+    }
+
+    function compareMembers(a, b, group) {
+      const groupOrdering = orderings[group];
+      const ordering = groupOrdering.order;
+      const ascending = groupOrdering.ascending;
+
+      let gradeA = (a["Aktueller Dienstgrad"] || "").trim().toUpperCase();
+      let gradeB = (b["Aktueller Dienstgrad"] || "").trim().toUpperCase();
+
+      let indexA = ordering.indexOf(gradeA);
+      let indexB = ordering.indexOf(gradeB);
+
+      if (indexA === -1) indexA = Infinity;
+      if (indexB === -1) indexB = Infinity;
+
+      if (indexA !== indexB) {
+        return ascending ? indexA - indexB : indexB - indexA;
+      } else {
+        let nameA = (a["Namen"] || "").trim().toLowerCase();
+        let nameB = (b["Namen"] || "").trim().toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+    }
+
+    // Modal anzeigen
+    function showContactCard(member) {
+      const modal = document.getElementById("modal");
+      const modalDetails = document.getElementById("modalDetails");
+      const headerText = `${member["Aktueller Dienstgrad"] ? member["Aktueller Dienstgrad"] + " - " : ""}${member["Namen"] || ""} ${member["Nachnamen"] || ""}`;
+
+      let detailsHTML = `
+        <h3>${headerText}</h3>
+        <p><strong>Mitglieds-Nr:</strong> ${member["Mitgliedsnummer"] || ""}</p>
+        <p><strong>D-Mail:</strong> ${member["D-Mail Adresse"] || ""}</p>
+        <p><strong>Telefon:</strong> ${member["Telefonnummer"] || ""}</p>
+        <p><strong>Funktion:</strong> ${member["Funktion"] || ""}</p>
+      `;
+
+      // Ausbildner?
+      if ((member["Ausbildner?"] || "").trim().toLowerCase() === "ja") {
+        if (member["Ausbildner für"] && member["Ausbildner für"].trim() !== "") {
+          detailsHTML += `<p><strong>Ausbildner für:</strong> ${member["Ausbildner für"]}</p>`;
+        }
+      }
+
+      modalDetails.innerHTML = detailsHTML;
+      modal.style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+
+    function attachRowClickEvents() {
+      const rows = document.querySelectorAll(".clickable-row");
+      rows.forEach(row => {
+        row.addEventListener("click", function() {
+          const memberData = this.getAttribute("data-member");
+          if (memberData) {
+            const member = JSON.parse(decodeURIComponent(memberData));
+            showContactCard(member);
+          }
+        });
+      });
+    }
+
+    // Live-Suchfunktion
+    document.getElementById("searchInput").addEventListener("input", function() {
+      const filter = this.value.toLowerCase();
+      const rows = document.querySelectorAll("tbody tr");
+      rows.forEach(function(row) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.indexOf(filter) > -1 ? "" : "none";
+      });
+    });
+
+    // CSV laden
+    Papa.parse(csvUrl, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        const data = results.data;
+        const activeMembers = data.filter(row =>
+          (row["Aktives Mitglied?"] || "").trim().toLowerCase() === "ja"
+        );
+
+        const groups = {
+          kommando: [],
+          verwaltung: [],
+          charge: [],
+          mannschaft: []
+        };
+
+        activeMembers.forEach(member => {
+          const group = getGroup(member["Funktion"]);
+          groups[group].push(member);
+        });
+
+        Object.keys(groups).forEach(group => {
+          groups[group].sort((a, b) => compareMembers(a, b, group));
+        });
+
+        groups["kommando"].forEach(member => {
+          document.getElementById("kommandoTbody").innerHTML += createRow(member);
+        });
+        groups["verwaltung"].forEach(member => {
+          document.getElementById("verwaltungTbody").innerHTML += createRow(member);
+        });
+        groups["charge"].forEach(member => {
+          document.getElementById("chargeTbody").innerHTML += createRow(member);
+        });
+        groups["mannschaft"].forEach(member => {
+          document.getElementById("mannschaftTbody").innerHTML += createRow(member);
+        });
+
+        attachRowClickEvents();
+      },
+      error: function(err) {
+        console.error("Fehler beim Laden der CSV:", err);
+      }
+    });
+
+    // Modal schließen
+    document.getElementById("modalClose").addEventListener("click", closeModal);
+    window.addEventListener("click", function(event) {
+      const modal = document.getElementById("modal");
+      if (event.target === modal) {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>
