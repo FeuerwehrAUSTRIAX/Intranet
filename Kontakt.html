@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Telefonbuch – Freiwillige Feuerwehr Wiener Neustadt - AX</title>
+  <title>Kontakt – Freiwillige Feuerwehr Wiener Neustadt</title>
   <!-- PapaParse zum Einlesen der CSV -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
   <style>
@@ -46,18 +46,31 @@
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
       max-width: 1200px;
     }
-    /* Suchfeld im dunklen Stil */
+    /* Suchfeld und Home-Button in einer Zeile */
     .search-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 20px;
     }
     .search-container input {
-      width: 100%;
+      flex: 1;
       padding: 10px;
       font-size: 1em;
       background-color: #333333;
       border: 1px solid #444444;
       border-radius: 4px;
       color: #f0f0f0;
+    }
+    /* Home-Button mit Häuschen */
+    #homeButton {
+      background-color: #c62828;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 1em;
     }
     /* Tabellenstil */
     table {
@@ -142,18 +155,19 @@
   <header>
     <h1>Freiwillige Feuerwehr Wiener Neustadt - AX</h1>
     <p>
-      Wienerstraße 122 | 1047 Wiener Neustadt<br>
-      E-Mail: feuerwehr_wiener_neustadt@example.at<br>
-      Telefon: 02622 / 06122 | Fax: +430622206320
+      Fischauergasse 122 | 1042 Wiener Neustadt<br>
+      E-Mail: feuerwehr.wienerneustadt.ax@gmail.com<br>
+      Telefon: 02622 / 22244 | Fax: +430622206320
     </p>
   </header>
   <div class="header-separator"></div>
 
   <!-- Hauptinhalt in neuem Wrapper -->
   <div class="main-content">
-    <!-- Suchfeld -->
+    <!-- Suchfeld + Home-Button -->
     <div class="search-container">
       <input type="text" id="searchInput" placeholder="Suche..." />
+      <button id="homeButton" onclick="window.location.href='Startseite.html'">🏠</button>
     </div>
 
     <!-- Bereich: Kommando -->
