@@ -14,21 +14,58 @@
       color: #f0f0f0;
       font-family: Arial, sans-serif;
     }
-    /* Kopfbereich */
+
+    /* Kopfbereich (Flexbox) */
     header {
+      display: flex;
+      align-items: center;
       background-color: #333333;
       padding: 20px;
-      text-align: center;
     }
-    header h1 {
+
+    /* Haus-Icon-Link mit rundem Hintergrund */
+    #homeLink {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;         /* Durchmesser */
+      height: 44px;
+      margin-right: 20px;  /* Abstand zum Header-Text */
+      background-color: #444; 
+      border-radius: 50%;  /* Rundes Icon */
+      text-decoration: none;
+      transition: background-color 0.3s;
+    }
+    /* Hover-Effekt für das Icon */
+    #homeLink:hover {
+      background-color: #555;
+    }
+    /* Das SVG-Icon (Outline-Stil) */
+    #homeLink svg {
+      width: 26px;
+      height: 26px;
+      stroke: #fff;       /* Outline-Farbe */
+      stroke-width: 2;
+      fill: none;         /* Kein Füllbereich */
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Header-Text (Titel und Kontaktinfos) */
+    .header-text {
+      flex: 1;                    /* Nimmt den restlichen Platz ein */
+      text-align: center;         /* Zentrierter Text */
+    }
+    .header-text h1 {
       margin: 0;
       font-size: 1.8em;
     }
-    header p {
+    .header-text p {
       margin: 5px 0 0 0;
       font-size: 0.95em;
       line-height: 1.4em;
     }
+
     /* Trennlinie unter dem Header */
     .header-separator {
       width: 100%;
@@ -36,6 +73,7 @@
       background-color: #c62828;
       margin-bottom: 20px;
     }
+
     /* --- Neuer Wrapper für den gesamten Hauptinhalt --- */
     .main-content {
       margin: 0 auto 40px auto;
@@ -46,15 +84,13 @@
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
       max-width: 1200px;
     }
-    /* Suchfeld und Home-Button in einer Zeile */
+
+    /* Suchfeld im dunklen Stil */
     .search-container {
-      display: flex;
-      align-items: center;
-      gap: 10px;
       margin-bottom: 20px;
     }
     .search-container input {
-      flex: 1;
+      width: 100%;
       padding: 10px;
       font-size: 1em;
       background-color: #333333;
@@ -62,16 +98,7 @@
       border-radius: 4px;
       color: #f0f0f0;
     }
-    /* Home-Button mit Häuschen */
-    #homeButton {
-      background-color: #c62828;
-      color: #fff;
-      border: none;
-      padding: 10px 20px;
-      cursor: pointer;
-      border-radius: 4px;
-      font-size: 1em;
-    }
+
     /* Tabellenstil */
     table {
       width: 100%;
@@ -102,6 +129,7 @@
       background-color: #444444;
       cursor: pointer;
     }
+
     /* Überschriften der Abschnitte */
     h2 {
       margin-top: 40px;
@@ -110,6 +138,7 @@
       padding-bottom: 5px;
       color: #f0f0f0;
     }
+
     /* Modal (Overlay) */
     #modal {
       position: fixed;
@@ -153,21 +182,32 @@
 <body>
   <!-- Kopfbereich -->
   <header>
-    <h1>Freiwillige Feuerwehr Wiener Neustadt - AX</h1>
-    <p>
-      Fischauergasse 122 | 1042 Wiener Neustadt<br>
-      E-Mail: feuerwehr.wienerneustadt.ax@gmail.com<br>
-      Telefon: 02622 / 22244 | Fax: +430622206320
-    </p>
+    <!-- Haus-Icon (Outline) -->
+    <a href="index.html" id="homeLink" title="Startseite">
+      <!-- Minimalistisches Outline-Haus -->
+      <svg viewBox="0 0 24 24">
+        <path d="M3 9.5L12 3l9 6.5v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <path d="M9 22V12h6v10"/>
+      </svg>
+    </a>
+
+    <!-- Header-Text (Titel und Kontaktinfos) -->
+    <div class="header-text">
+      <h1>Freiwillige Feuerwehr Wiener Neustadt - AX</h1>
+      <p>
+        Fischauergasse 122 | 1047 Wiener Neustadt<br>
+        E-Mail: feuerwehr.wienerneustadt.ax@gmail.com<br>
+        Telefon: 02622 / 06122 | Fax: +430622206320
+      </p>
+    </div>
   </header>
   <div class="header-separator"></div>
 
   <!-- Hauptinhalt in neuem Wrapper -->
   <div class="main-content">
-    <!-- Suchfeld + Home-Button -->
+    <!-- Suchfeld -->
     <div class="search-container">
       <input type="text" id="searchInput" placeholder="Suche..." />
-      <button id="homeButton" onclick="window.location.href='Startseite.html'">🏠</button>
     </div>
 
     <!-- Bereich: Kommando -->
@@ -305,11 +345,7 @@
       "FT": "https://i.postimg.cc/5NMh1vH7/Dgrd-ft-noe-svg.png"
     };
 
-    // Aktualisierte (gestürzte) Sortierreihenfolgen:
-    // Kommando: V, OV, HV, BI, OBI, HBI
-    // Verwaltung: VM, OVM, HVM
-    // Charge: LM, OLM, HLM, BM, OBM, HBM
-    // Mannschaft: PFM, FM, OFM, HFM, LM, HLM, OLM – danach alle anderen ohne Zuordnung
+    // Sortierreihenfolgen
     const orderings = {
       kommando: { order: ["V", "OV", "HV", "BI", "OBI", "HBI"], ascending: false },
       verwaltung: { order: ["VM", "OVM", "HVM"], ascending: false },
@@ -324,7 +360,7 @@
       if (iconUrl) {
         dienstgradHTML = `<img src="${iconUrl}" alt="${dienstgrad}" title="${dienstgrad}" style="width:24px; height:24px; vertical-align:middle; margin-right: 8px;"> ${dienstgrad}`;
       }
-      
+
       const memberData = encodeURIComponent(JSON.stringify(member));
       return `
         <tr class="clickable-row" data-member="${memberData}">
