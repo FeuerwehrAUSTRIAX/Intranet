@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mehrstufiges Formular – Einsatzdaten</title>
+  <!-- Font Awesome für Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+  <!-- PapaParse für CSV-Verarbeitung -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    /* Basis-Stile für das Multi-Step-Formular */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #212121;
+      color: #f0f0f0;
+      margin: 0;
+      padding-top: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* Progress-Bar */
+    .progress-wrapper {
+      width: 100%;
+      max-width: 1015px;
+      margin: 0 auto 40px auto;
+    }
+    .progress-container {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      background-color: #2a2a2a;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+    }
+    .step {
+      flex-grow: 1;
+      padding: 20px;
+      background-color: #3a3a3a;
+      color: #999;
+      text-align: center;
+      font-weight: bold;
+      border-right: 1px solid #555;
+      cursor: pointer;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .step.active, .step.completed {
+      background-color: #AB2328;
+      color: #fff;
+    }
+    .step:first-child {
+      border-top-left-radius: 8px;
+      border-bottom-left-radius: 8px;
+    }
+    .step:last-child {
+      border-top-right-radius: 8px;
+      border-bottom-right-radius: 8px;
+      border-right: none;
+    }
+    /* Container für die einzelnen Schritte */
+    .container {
+      width: 100%;
+      max-width: 960px;
+      background-color: #2a2a2a;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+      margin: 20px;
+      display: none;
+      position: relative;
+    }
+    .container.active {
+      display: block;
+    }
+    h2 {
+      background-color: #AB2328;
+      color: #fff;
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .form-group input,
+    .address-row input {
+      width: 100%;
+      height: 40px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+    }
+    /* Dropdown im Teammodal */
+    #teamModal select#modalRoleSelect {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+    .row .column {
+      flex: 1;
+    }
+    .searchable-select {
+      position: relative;
+    }
+    .searchable-select input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+    }
+    .options-container {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #444;
+      border-radius: 5px;
+      background-color: #3a3a3a;
+      display: none;
+      position: absolute;
+      width: 100%;
+      z-index: 10;
+    }
+    .option {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .option:hover {
+      background-color: #555;
+    }
+    .grid-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 600px) {
+      .grid-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    /* Radio-Buttons */
+    .radio-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .radio-buttons.single-select .radio-button {
+      flex: 1;
+    }
+    .radio-button {
+      background-color: #555;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+    .radio-button:hover {
+      background-color: #666;
+    }
+    .radio-button.active {
+      background-color: #AB2328;
+      transform: scale(1.02);
+    }
+    /* Anzeige ausgewählter Optionen als Chips */
+    .selected-wrapper {
+      position: relative;
+    }
+    .selected-options {
+      background-color: #444;
+      border-radius: 5px;
+      padding: 5px;
+      min-height: 30px;
+      line-height: 1.5;
+      padding-right: 50px;
+    }
+    .chip {
+      display: inline-block;
+      background-color: #AB2328;
+      color: #fff;
+      padding: 5px 10px;
+      margin: 2px;
+      border-radius: 16px;
+      font-size: 0.9em;
+    }
+    .chip .remove-chip {
+      margin-left: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .select-tile {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #555;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .select-tile:hover {
+      background-color: #666;
+    }
+    .textareas-container {
+      margin-top: 40px;
+    }
+    .textareas-container .form-group textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+      overflow: auto;
+      resize: none;
+    }
+    .button-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    #section1 form {
+      display: flex;
+      flex-direction: column;
+      min-height: 400px;
+    }
+    #section1 .button-container {
+      margin-top: auto;
+      justify-content: flex-end;
+    }
+    .weiter-button, .zurueck-button {
+      background-color: #AB2328;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    .weiter-button:active, .zurueck-button:active {
+      background-color: #921b22;
+    }
+
+
+/* Container für alle Fahrzeug-Karten */
+#vehicleList {
+  display: grid; 
+  grid-template-columns: 1fr;
+  gap: 10px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+
+
+
+
+/* Einzelne Fahrzeug-Karte */
+.vehicle-card {
+  /* width: 220px;  <-- Entfernen, damit die Karte im Grid flexibel ist */
+  background-color: #2a2a2a;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+
+    .vehicle-card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .vehicle-card.selected {
+      border-color: #b32428;
+      background-color: #3a3a3a;
+      transform: scale(1.03);
+      box-shadow: 0 0 15px rgba(179,36,40,0.8);
+    }
+    .select-vehicle-button {
+      margin-top: 10px;
+      padding: 8px 12px;
+      font-size: 0.9em;
+      background-color: #b32428;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .select-vehicle-button:hover {
+      background-color: #8a1e23;
+    }
+    #assignmentContainer {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .vehicle-assignment {
+      border: 1px solid #444;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      padding: 10px;
+    }
+    .vehicle-assignment h2 {
+      margin: 0 0 5px 0;
+    }
+    .vehicle-assignment h2 small {
+      font-size: 0.8em;
+      color: #bbb;
+      display: block;
+    }
+    .slot-display {
+      margin-top: 5px;
+      font-size: 0.9em;
+    }
+    .seat-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .seat {
+      padding: 10px;
+      border: 1px dashed #777;
+      border-radius: 4px;
+      background-color: #1a1a1a;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .seat button {
+      background-color: transparent;
+      border: none;
+      color: #007BFF;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    .assigned-member {
+      display: flex;
+      align-items: center;
+      padding: 5px;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .member-name {
+      white-space: nowrap;
+    }
+    .member-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+    }
+    .member-role {
+      margin-right: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .remove-assignment {
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .role-einsatzleiter {
+      background-color: #f1c40f;
+      color: #000;
+    }
+    .role-maschinist {
+  background-color: #B0B0B0 !important; /* Silber/Grau */
+  color: #000 !important; /* Schwarzer Text */
+  border: 1px solid #999 !important; /* Rahmen für bessere Sichtbarkeit */
+}
+
+    .role-gruppenkommandant {
+      background-color: #3498db;
+      color: #fff;
+    }
+    .role-mannschaft {
+      background-color: #e74c3c;
+      color: #fff;
+    }
+    /* Modale Fenster */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal.active {
+      display: flex;
+    }
+    .modal-content {
+      background-color: #2a2a2a;
+      padding: 20px;
+      border: 1px solid #444;
+      width: 90%;
+      max-width: 500px;
+      border-radius: 8px;
+      position: relative;
+    }
+    .close, .close-modal {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .modal-content h3 {
+      text-align: center;
+      margin-top: 0;
+    }
+    .modal-content ul {
+      list-style: none;
+      padding-left: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+    .modal-content li {
+      margin-bottom: 10px;
+    }
+    .modal-content li label {
+      display: flex;
+      align-items: center;
+      padding: 6px;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    .modal-content li label:hover {
+      background-color: #3a3a3a;
+    }
+    .modal-content input[type="checkbox"] {
+      accent-color: #AB2328;
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .modal-buttons button {
+      background-color: #AB2328;
+      border: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    .modal-buttons button:hover {
+      background-color: #921b22;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+    }
+    .modal-team-list {
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background-color: #3a3a3a;
+      margin-top: 10px;
+    }
+    .modal-team-item {
+      padding: 8px;
+      border-bottom: 1px solid #444;
+      cursor: pointer;
+    }
+    .modal-team-item:hover {
+      background-color: #444;
+    }
+    /* Übersicht – Modernes, schlichtes Design */
+    .overview-container {
+      max-width: 800px;
+      margin: 20px auto;
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .overview-header h1 {
+      color: #AB2328;
+      font-size: 1.8em;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .overview-section {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #333;
+      border-radius: 4px;
+    }
+    .overview-section h2 {
+      font-size: 1.2em;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .overview-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #444;
+    }
+    .overview-item:last-child {
+      border-bottom: none;
+    }
+    .overview-item .label {
+      font-weight: 600;
+      margin-right: 10px;
+      color: #ccc;
+    }
+    .overview-item span[contenteditable] {
+      outline: none;
+    }
+    /* Zusätzliche Styles für den Speichervorgang */
+    .saving-container {
+      text-align: center;
+      font-size: 1.7em;
+      font-weight: bold;
+      color: #AB2328;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+    }
+    .loader {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #AB2328;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .success-message {
+      text-align: center;
+      font-size: 1.7em;
+      font-weight: bold;
+      color: #32cd32;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 80vh;
+    }
+    .success-checkmark {
+      width: 80px;
+      height: 80px;
+      position: relative;
+      animation: fadeInCheck 0.5s ease-in-out forwards;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+ /* Container für jede Fahrzeug-Kategorie */
+/* Container für jede Fahrzeug-Kategorie */
+.vehicle-category-container {
+  width: 100%;              /* immer volle Breite */
+  max-width: 1200px;        /* … aber maximal 1200 px */
+  margin: 0 auto;           /* zentriert den Container */
+  box-sizing: border-box;
+  border: 1px solid #444;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #2a2a2a;
+}
+
+fieldset.group-box {
+  background-color: #2a2a2a;   /* oder #333, falls du es dunkler möchtest */
+  border: 1px solid #444;      /* etwas dunklerer Rand */
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+/* Die Legend-Überschrift mit kontrastierendem Hintergrund oder Schriftfarbe */
+fieldset.group-box legend {
+  padding: 0 10px;
+  font-weight: bold;
+  color: #fff;
+  /* Wenn du möchtest, dass der Legend-Bereich selbst auch eine andere Farbe hat:
+     background-color: #AB2328; 
+     border-radius: 4px;
+     padding: 5px 10px;
+  */
+}
+  
+.vehicle-category-title {
+  display: block;
+  width: 100%;
+  background-color: #AB2328;
+  color: #fff;
+  font-weight: bold;
+  padding: 8px 0;
+  border-radius: 4px;
+  margin-bottom: 20px; /* Mehr Abstand unter der Überschrift */
+  font-size: 1.2em;
+}
+
+  
+.vehicle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+
+.vehicle-card {
+  /* width: 220px;  // diese Zeile entfernen oder überschreiben */
+  flex: 0 0 calc(33.333% - 10px);   /* 3 Karten je Zeile, abzüglich gap */
+  background-color: #2a2a2a;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+     
+    @keyframes drawCheck {
+      0% { stroke-dasharray: 0, 52; stroke-dashoffset: 52; }
+      100% { stroke-dasharray: 52, 0; stroke-dashoffset: 0; }
+    }
+    @keyframes fadeInCheck {
+      0% { opacity: 0; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    /* Neue Styles für die Erfolgsscreen-Buttons */
+    .button-container-success {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 5px;
+    }
+    .success-button {
+      background-color: #AB2328;
+      color: #fff;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.2em;
+      transition: background-color 0.3s, transform 0.2s;
+      margin-bottom: 10px; /* Verringert den Abstand zu den Buttons */
+    }
+    .success-button:hover {
+      background-color: #921b22;
+      transform: scale(1.05);
+    }
+
+    .horizontal-group {
+  display: flex;    /* sorgt dafür, dass die Kindelemente nebeneinander stehen */
+  gap: 10px;        /* Abstand zwischen den Feldern */
+  margin-bottom: 20px; /* optionaler Abstand nach unten */
+}
+
+.form-group {
+  flex: 1;          /* verteilt den Platz gleichmäßig auf die drei Felder */
+  margin-bottom: 0; /* damit unter den Feldern kein zusätzlicher Abstand entsteht */
+}
+  </style>
+</head>
+<body>
+  <!-- Progress-Bar -->
+  <div class="progress-wrapper">
+    <div class="progress-container">
+      <div class="step active" id="step1">Grundinformationen</div>
+      <div class="step" id="step2">Einsatzdetails</div>
+      <div class="step" id="step3">Fahrzeuge</div>
+      <div class="step" id="step4">Mannschaft</div>
+      <div class="step" id="step5">Übersicht</div>
+    </div>
+  </div>
+  
+  <!-- Step 1: Grundinformationen -->
+  <div class="container active" id="section1">
+    <form>
+        <!-- Gruppe 1: Grundangaben -->
+        <fieldset class="group-box">
+          <legend>Grundangaben</legend>
+          <div class="form-group">
+            <label>Eigener Einsatzbereich:</label>
+            <div class="radio-buttons single-select" id="einsatzbereich-buttons">
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzbereich')">Ja</button>
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzbereich')">Nein</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="berichtErstelltDurch">Bericht erstellt durch:</label>
+            <div class="searchable-select">
+              <input type="text" id="berichtErstelltDurch" placeholder="Namen eingeben...">
+              <div class="options-container" id="berichtErstellerOptionsContainer"></div>
+            </div>
+          </div>
+        </fieldset>
+    
+        <!-- Gruppe 2: Alarmierung & Einsatzende -->
+        <fieldset class="group-box">
+          <legend>Alarmierung & Einsatzende</legend>
+          <div class="horizontal-group">
+            <div class="form-group">
+              <label for="datum">Datum (Alarmierung):</label>
+              <input type="date" id="datum" required>
+            </div>
+            <div class="form-group">
+              <label for="uhrzeitAlarmierung">Uhrzeit (Alarmierung):</label>
+              <input type="time" id="uhrzeitAlarmierung">
+            </div>
+          </div>
+          <div class="horizontal-group">
+            <div class="form-group">
+              <label for="einsatzEnde">Datum (Einsatzende):</label>
+              <input type="date" id="einsatzEnde">
+            </div>
+            <div class="form-group">
+              <label for="uhrzeitRueckkehr">Uhrzeit (Einsatzende):</label>
+              <input type="time" id="uhrzeitRueckkehr">
+            </div>
+          </div>
+        </fieldset>
+    
+        <!-- Gruppe 3: Einsatzort & Objekt -->
+        <fieldset class="group-box">
+          <legend>Einsatzort & Objekt</legend>
+          <div class="horizontal-group">
+            <div class="form-group">
+              <label for="objektSelect">Objekt:</label>
+              <div class="searchable-select">
+                <input type="text" id="objektSelect" placeholder="Objekt eingeben...">
+                <div class="options-container" id="objekteOptionsContainer"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="einsatzortBezirk">Einsatzort Bezirk:</label>
+              <div class="searchable-select">
+                <input type="text" id="einsatzortBezirk" placeholder="Bezirk">
+                <div class="options-container" id="bezirkOptionsContainer"></div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="column">
+              <div class="form-group">
+                <label for="einsatzortStrasse">Einsatzort Straße:</label>
+                <div class="searchable-select">
+                  <input type="text" id="einsatzortStrasse" placeholder="Straße eingeben...">
+                  <div class="options-container" id="strassenOptionsContainer"></div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+                <div class="column">
+                  <div class="form-group">
+                    <label for="hausnummer">Hausnummer:</label>
+                    <input type="text" id="hausnummer" placeholder="Hausnummer eingeben...">
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="form-group">
+                    <label for="einsatzortPLZ">Postleitzahl:</label>
+                    <input type="text" id="einsatzortPLZ" placeholder="Postleitzahl eingeben..." required>
+                  </div>
+                </div>
+              </div>
+        </fieldset>
+    
+        <!-- Gruppe 4: Einsatzart & Stichwort -->
+        <fieldset class="group-box">
+          <legend>Einsatzart & Stichwort</legend>
+          <div class="form-group">
+            <label>Art des Einsatzes:</label>
+            <div class="radio-buttons single-select" id="einsatzart-buttons">
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzart')">Brandeinsatz</button>
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzart')">Technischer Einsatz</button>
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzart')">Schadstoff Einsatz</button>
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzart')">Sonstiger Einsatz</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="einsatzStichwort">Einsatzstichwort:</label>
+            <div class="searchable-select">
+              <input type="text" id="searchInput" placeholder="Suchbegriff eingeben...">
+              <div class="options-container" id="optionsContainer"></div>
+            </div>
+          </div>
+        </fieldset>
+    
+        <div class="button-container">
+          <button type="button" class="weiter-button" onclick="nextSection(1)">Weiter</button>
+        </div>
+      </form>
+    </div>
+    
+  
+  <!-- Step 2: Einsatzdetails -->
+  <div class="container" id="section2">
+    <!-- Gruppe 1: Auswahlfelder -->
+    <fieldset class="group-box">
+      <legend>Informationen</legend>
+      <div class="grid-container popout">
+        <div class="popout-group">
+          <label>Meldung</label>
+          <div class="selected-wrapper">
+            <div id="selected-meldung" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('meldung')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+        <div class="popout-group">
+          <label>Alarmierung</label>
+          <div class="selected-wrapper">
+            <div id="selected-alarmierung" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('alarmierung')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+        <div class="popout-group">
+          <label>Anwesend</label>
+          <div class="selected-wrapper">
+            <div id="selected-anwesend" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('anwesend')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+        <div class="popout-group">
+          <label>Wetter</label>
+          <div class="selected-wrapper">
+            <div id="selected-wetter" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('wetter')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+        <div class="popout-group" style="grid-column: span 2;">
+          <label>Gefahrenklasse</label>
+          <div class="selected-wrapper">
+            <div id="selected-gefahrenklasse" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('gefahrenklasse')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  
+    <!-- Gruppe 2: Einsatznotizen -->
+    <fieldset class="group-box">
+      <legend>Einsatznotizen</legend>
+      <div class="textareas-container">
+        <div class="form-group">
+          <label>Lage beim Eintreffen</label>
+          <textarea id="lageEintreffen" rows="5" placeholder="Beschreiben Sie die Lage beim Eintreffen..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Maßnahmen am Einsatzort</label>
+          <textarea id="massnahmenEinsatzort" rows="5" placeholder="Beschreiben Sie die Maßnahmen..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Bemerkungen</label>
+          <textarea id="bemerkungen" rows="5" placeholder="Zusätzliche Bemerkungen..."></textarea>
+        </div>
+      </div>
+    </fieldset>
+  
+    <!-- Gruppe 3: Verletzte -->
+    <fieldset class="group-box">
+      <legend>Verletzte</legend>
+      <!-- Verletzte Personen -->
+      <div class="form-group">
+        <label>Verletzte Personen:</label>
+        <div class="radio-buttons single-select" id="verletztePersonen-buttons">
+          <button type="button" class="radio-button" onclick="toggleVerletzte('personen', true, this)">Ja</button>
+          <button type="button" class="radio-button active" onclick="toggleVerletzte('personen', false, this)">Nein</button>
+        </div>
+      </div>
+<!-- Container, der nur angezeigt wird, wenn „Ja“ geklickt wurde -->
+<div class="additional-fields" id="additional-personen" style="display:none;">
+    <div class="horizontal-group">
+      <div class="form-group">
+        <label>Anzahl Verletzte Personen:</label>
+        <input type="number" id="verletztePersonen" min="0">
+      </div>
+      <div class="form-group">
+        <label>Anzahl Getötete Personen:</label>
+        <input type="number" id="getoetetePersonen" min="0">
+      </div>
+      <div class="form-group">
+        <label>Anzahl Gerettete Personen:</label>
+        <input type="number" id="gerettetePersonen" min="0">
+      </div>
+    </div>
+  </div>
+  
+      <!-- Verletzte Feuerwehrmitglieder -->
+      <div class="form-group">
+        <label>Verletzte Feuerwehrmitglieder:</label>
+        <div class="radio-buttons single-select" id="verletzteFeuerwehr-buttons">
+          <button type="button" class="radio-button" onclick="toggleVerletzte('feuerwehr', true, this)">Ja</button>
+          <button type="button" class="radio-button active" onclick="toggleVerletzte('feuerwehr', false, this)">Nein</button>
+        </div>
+      </div>
+      <div class="additional-fields" id="additional-feuerwehr" style="display:none;">
+        <div class="horizontal-group">
+          <div class="form-group">
+            <label>Anzahl Verletzte Feuerwehrmitglieder:</label>
+            <input type="number" id="verletzteFeuerwehr" min="0">
+          </div>
+          <div class="form-group">
+            <label>Anzahl Getötete Feuerwehrmitglieder:</label>
+            <input type="number" id="getoeteteFeuerwehr" min="0">
+          </div>
+          <div class="form-group">
+            <label>Anzahl Gerettete Feuerwehrmitglieder:</label>
+            <input type="number" id="geretteteFeuerwehr" min="0">
+          </div>
+        </div>
+      </div>
+      <!-- Verletzte Tiere -->
+      <div class="form-group">
+        <label>Verletzte Tiere:</label>
+        <div class="radio-buttons single-select" id="verletzteTiere-buttons">
+          <button type="button" class="radio-button" onclick="toggleVerletzte('tiere', true, this)">Ja</button>
+          <button type="button" class="radio-button active" onclick="toggleVerletzte('tiere', false, this)">Nein</button>
+        </div>
+      </div>
+      <div class="additional-fields" id="additional-tiere" style="display:none;">
+        <div class="horizontal-group">
+          <div class="form-group">
+            <label>Anzahl Verletzte Tiere:</label>
+            <input type="number" id="verletzteTiere" min="0">
+          </div>
+          <div class="form-group">
+            <label>Anzahl Getötete Tiere:</label>
+            <input type="number" id="getoeteteTiere" min="0">
+          </div>
+          <div class="form-group">
+            <label>Anzahl Gerettete Tiere:</label>
+            <input type="number" id="geretteteTiere" min="0">
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  
+    <div class="button-container">
+      <button type="button" class="zurueck-button" onclick="prevSection(2)">Zurück</button>
+      <button type="button" class="weiter-button" onclick="nextSection(2)">Weiter</button>
+    </div>
+  </div>
+  
+  <!-- Step 3: Fahrzeuge -->
+  <div class="container" id="section3">
+    <div id="vehicleList"></div>
+    <div class="button-container">
+      <button type="button" class="zurueck-button" onclick="prevSection(3)">Zurück</button>
+      <button type="button" class="weiter-button" onclick="prepareTeamAssignment()">Weiter</button>
+    </div>
+  </div>
+  
+  <!-- Step 4: Mannschaft -->
+  <div class="container" id="section4">
+    <div id="assignmentContainer"></div>
+    <div class="button-container">
+      <button type="button" class="zurueck-button" onclick="prevSection(4)">Zurück</button>
+      <button type="button" class="weiter-button" onclick="nextSection(4)">Weiter</button>
+    </div>
+  </div>
+  
+  <!-- Step 5: Übersicht -->
+  <div class="container" id="section5">
+    <div id="summaryContainer"></div>
+    <div class="button-container">
+      <button type="button" class="zurueck-button" onclick="prevSection(5)">Zurück</button>
+      <!-- Hier wird der Submit-Button angepasst -->
+      <button type="button" class="weiter-button" onclick="submitData()">Absenden</button>
+    </div>
+  </div>
+  
+  <!-- Modale Fenster -->
+  <!-- Modal für Meldung -->
+  <div id="modal-meldung" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('meldung')">&times;</span>
+      <h3>Meldung auswählen</h3>
+      <ul>
+        <li><label><input type="checkbox" value="Florian Wiener Neustadt" class="meldung-option"> Florian Wiener Neustadt</label></li>
+        <li><label><input type="checkbox" value="Brandmelder" class="meldung-option"> Brandmelder</label></li>
+        <li><label><input type="checkbox" value="Gemeinde" class="meldung-option"> Gemeinde</label></li>
+        <li><label><input type="checkbox" value="Polizei" class="meldung-option"> Polizei</label></li>
+        <li><label><input type="checkbox" value="Privatperson" class="meldung-option"> Privatperson</label></li>
+        <li><label><input type="checkbox" value="Sonstiges" class="meldung-option"> Sonstiges</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('meldung')">Speichern</button>
+        <button type="button" onclick="closeModal('meldung')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal für Alarmierung -->
+  <div id="modal-alarmierung" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('alarmierung')">&times;</span>
+      <h3>Alarmierung auswählen</h3>
+      <ul>
+        <li><label><input type="checkbox" value="Sirene Florian" class="alarmierung-option"> Sirene Florian</label></li>
+        <li><label><input type="checkbox" value="Rufmeldeempfänger" class="alarmierung-option"> Rufmeldeempfänger</label></li>
+        <li><label><input type="checkbox" value="Persönlich" class="alarmierung-option"> Persönlich</label></li>
+        <li><label><input type="checkbox" value="Telefon" class="alarmierung-option"> Telefon</label></li>
+        <li><label><input type="checkbox" value="SMS" class="alarmierung-option"> SMS</label></li>
+        <li><label><input type="checkbox" value="Sonstige" class="alarmierung-option"> Sonstige</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('alarmierung')">Speichern</button>
+        <button type="button" onclick="closeModal('alarmierung')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal für Anwesend -->
+  <div id="modal-anwesend" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('anwesend')">&times;</span>
+      <h3>Anwesend auswählen</h3>
+      <!-- Suchfeld -->
+      <input type="text" id="anwesendSearch" class="search-input" placeholder="Suche...">
+      <ul>
+        <li><label><input type="checkbox" value="Berufsfeuerwehr" class="anwesend-option"> Berufsfeuerwehr</label></li>
+        <li><label><input type="checkbox" value="Bezirkshauptmannschaft" class="anwesend-option"> Bezirkshauptmannschaft</label></li>
+        <li><label><input type="checkbox" value="BFKDT/AFKDT" class="anwesend-option"> BFKDT/AFKDT</label></li>
+        <li><label><input type="checkbox" value="Bundesheer" class="anwesend-option"> Bundesheer</label></li>
+        <li><label><input type="checkbox" value="EVU" class="anwesend-option"> EVU</label></li>
+        <li><label><input type="checkbox" value="Firmeninhaber" class="anwesend-option"> Firmeninhaber</label></li>
+        <li><label><input type="checkbox" value="Gemeinde" class="anwesend-option"> Gemeinde</label></li>
+        <li><label><input type="checkbox" value="Chemialarmdienst" class="anwesend-option"> Chemiealarmdienst</label></li>
+        <li><label><input type="checkbox" value="Polizei" class="anwesend-option"> Polizei</label></li>
+        <li><label><input type="checkbox" value="Rettungsdienst" class="anwesend-option"> Rettungsdienst</label></li>
+        <li><label><input type="checkbox" value="ASFiNAG" class="anwesend-option"> ASFiNAG</label></li>
+        <li><label><input type="checkbox" value="Magistrat Wien" class="anwesend-option"> Magistrat Wien</label></li>
+        <li><label><input type="checkbox" value="Bergrettung" class="anwesend-option"> Bergrettung</label></li>
+        <li><label><input type="checkbox" value="Bundesfeuerwehrpräsident" class="anwesend-option"> Bundesfeuerwehrpräsident</label></li>
+        <li><label><input type="checkbox" value="Sonstige" class="anwesend-option"> Sonstige</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('anwesend')">Speichern</button>
+        <button type="button" onclick="closeModal('anwesend')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal für Wetter -->
+  <div id="modal-wetter" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('wetter')">&times;</span>
+      <h3>Wetter auswählen</h3>
+      <!-- Suchfeld -->
+      <input type="text" id="wetterSearch" class="search-input" placeholder="Suche...">
+      <ul>
+        <li><label><input type="checkbox" value="Sonne" class="wetter-option"> Sonne</label></li>
+        <li><label><input type="checkbox" value="Glatteis" class="wetter-option"> Glatteis</label></li>
+        <li><label><input type="checkbox" value="Nebel" class="wetter-option"> Nebel</label></li>
+        <li><label><input type="checkbox" value="Regen" class="wetter-option"> Regen</label></li>
+        <li><label><input type="checkbox" value="Schnee" class="wetter-option"> Schnee</label></li>
+        <li><label><input type="checkbox" value="Wind/Sturm" class="wetter-option"> Wind/Sturm</label></li>
+        <li><label><input type="checkbox" value="Glätte" class="wetter-option"> Glätte</label></li>
+        <li><label><input type="checkbox" value="Sonstiges" class="wetter-option"> Sonstiges</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('wetter')">Speichern</button>
+        <button type="button" onclick="closeModal('wetter')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- Modal für Gefahrenklasse -->
+  <div id="modal-gefahrenklasse" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('gefahrenklasse')">&times;</span>
+      <h3>Gefahrenklasse auswählen</h3>
+      <ul>
+        <li><label><input type="checkbox" value="1 Sprengtoff" class="gefahrenklasse-option"> 1 Sprengtoff</label></li>
+        <li><label><input type="checkbox" value="2 Gase" class="gefahrenklasse-option"> 2 Gase</label></li>
+        <li><label><input type="checkbox" value="3 Brennbare Flüssigkeiten" class="gefahrenklasse-option"> 3 Brennbare Flüssigkeiten</label></li>
+        <li><label><input type="checkbox" value="4 brennbare Feste Stoffe" class="gefahrenklasse-option"> 4 brennbare Feste Stoffe</label></li>
+        <li><label><input type="checkbox" value="5 brandfördernde Stoffe" class="gefahrenklasse-option"> 5 brandfördernde Stoffe</label></li>
+        <li><label><input type="checkbox" value="6 Gifte" class="gefahrenklasse-option"> 6 Gifte</label></li>
+        <li><label><input type="checkbox" value="7 radioakives Material" class="gefahrenklasse-option"> 7 radioakives Material</label></li>
+        <li><label><input type="checkbox" value="8 ätzende Stoffe" class="gefahrenklasse-option"> 8 ätzende Stoffe</label></li>
+        <li><label><input type="checkbox" value="9 sonstige gefährliche Stoffe" class="gefahrenklasse-option"> 9 sonstige gefährliche Stoffe</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('gefahrenklasse')">Speichern</button>
+        <button type="button" onclick="closeModal('gefahrenklasse')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal für Mannschaft (Team) -->
+  <div id="teamModal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" id="closeTeamModal">&times;</span>
+      <h3>Mannschaftsmitglied auswählen</h3>
+      <label for="modalRoleSelect" style="display:block; margin-bottom:5px;">Funktion:</label>
+      <select id="modalRoleSelect">
+        <option value="Einsatzleiter">Einsatzleiter</option>
+        <option value="Maschinist">Maschinist</option>
+        <option value="Gruppenkommandant">Gruppenkommandant</option>
+        <option value="Mannschaft" selected>Mannschaft</option>
+      </select>
+      <input type="text" id="teamSearch" class="search-input" placeholder="Suche...">
+      <div id="modalTeamList" class="modal-team-list"></div>
+    </div>
+  </div>
+  
+  <script>
+    /* CSV-Parsing-Funktionen */
+    function parseCSV(csvText) {
+      const rows = csvText.split("\n").slice(1);
+      return rows.map(row => {
+        const cells = row.split(",");
+        return cells.slice(0, 2).map(cell => cell.replace(/^"|"$/g, "").trim());
+      });
+    }
+    function parseCSVFull(csvText) {
+      const rows = csvText.split("\n").slice(1);
+      return rows.map(row => row.split(",").map(cell => cell.replace(/^"|"$/g, "").trim()));
+    }
+    
+    /* ---------------- Einsatzstichwörter laden ---------------- */
+    const sheetURLs = {
+      "Brandeinsatz": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=83995234&single=true&output=csv",
+      "Technischer Einsatz": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=280055268&single=true&output=csv",
+      "Schadstoff Einsatz": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=248619428&single=true&output=csv",
+      "Sonstiger Einsatz": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=1802989842&single=true&output=csv"
+    };
+    let loadedData = {};
+    async function preloadData() {
+      const keys = Object.keys(sheetURLs);
+      for (const key of keys) {
+        const url = sheetURLs[key];
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            console.error(`Fehler beim Abrufen der Daten für ${key}: ${response.statusText}`);
+            continue;
+          }
+          const csvText = await response.text();
+          loadedData[key] = parseCSV(csvText);
+        } catch (error) {
+          console.error(`Fehler beim Laden von ${key}:`, error);
+        }
+      }
+      console.log("Einsatzstichwörter geladen:", loadedData);
+    }
+    function displayOptions(data) {
+      const optionsContainer = document.getElementById("optionsContainer");
+      optionsContainer.innerHTML = "";
+      data.forEach(row => {
+        if (row.length < 2) return;
+        const colA = row[0];
+        const colB = row[1];
+        const option = document.createElement("div");
+        option.className = "option";
+        option.textContent = `${colB} - ${colA}`;
+        option.addEventListener("click", () => {
+          document.getElementById("searchInput").value = option.textContent;
+          optionsContainer.style.display = "none";
+        });
+        optionsContainer.appendChild(option);
+      });
+      optionsContainer.style.display = "block";
+    }
+    function showDataForActiveButton() {
+      const activeButton = document.querySelector("#einsatzart-buttons .radio-button.active");
+      if (activeButton) {
+        const sheetName = activeButton.textContent.trim();
+        if (loadedData[sheetName]) {
+          displayOptions(loadedData[sheetName]);
+        } else {
+          console.error(`Keine Daten für ${sheetName} gefunden.`);
+        }
+      } else {
+        console.error("Bitte eine Einsatzart auswählen.");
+      }
+    }
+    document.getElementById("searchInput").addEventListener("focus", showDataForActiveButton);
+    document.getElementById("searchInput").addEventListener("blur", () => {
+      setTimeout(() => { document.getElementById("optionsContainer").style.display = "none"; }, 200);
+    });
+    document.getElementById("searchInput").addEventListener("input", () => {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      document.querySelectorAll(".option").forEach(option => {
+        option.style.display = option.textContent.toLowerCase().includes(query) ? "block" : "none";
+      });
+    });
+    window.addEventListener("load", () => {
+      preloadData().then(() => {
+        console.log("Alle Einsatzarten wurden geladen und sind verfügbar.");
+      });
+    });
+    
+    /* ---------------- Autovervollständigung: Straße ---------------- */
+    const strassenSheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=300833420&single=true&output=csv";
+    let strassenListe = [];
+    async function loadStrassenData() {
+      try {
+        const response = await fetch(strassenSheetURL);
+        if (!response.ok) throw new Error(`Fehler beim Laden der Straßen: ${response.statusText}`);
+        const csvText = await response.text();
+        strassenListe = parseCSV(csvText).map(row => row[0].trim());
+      } catch (error) {
+        console.error("Fehler beim Abrufen der Straßen-Daten:", error);
+      }
+    }
+    function updateStreetSuggestions() {
+      const input = document.getElementById("einsatzortStrasse");
+      const optionsContainer = document.getElementById("strassenOptionsContainer");
+      const query = input.value.toLowerCase().trim();
+      optionsContainer.innerHTML = "";
+      if (query.length < 2) return;
+      const matchingStrassen = strassenListe.filter(street => street.toLowerCase().includes(query));
+      if (matchingStrassen.length === 0) {
+        optionsContainer.style.display = "none";
+        return;
+      }
+      matchingStrassen.slice(0, 10).forEach(street => {
+        const option = document.createElement("div");
+        option.className = "option";
+        option.textContent = street;
+        option.addEventListener("click", () => {
+          input.value = street;
+          optionsContainer.style.display = "none";
+        });
+        optionsContainer.appendChild(option);
+      });
+      optionsContainer.style.display = "block";
+    }
+    document.getElementById("einsatzortStrasse").addEventListener("input", updateStreetSuggestions);
+    document.addEventListener("click", (e) => {
+      if (!document.getElementById("einsatzortStrasse").contains(e.target)) {
+        document.getElementById("strassenOptionsContainer").style.display = "none";
+      }
+    });
+    window.addEventListener("load", async () => { await loadStrassenData(); });
+    
+    /* ---------------- Autovervollständigung: Bezirk ---------------- */
+    const bezirkeSheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=502308633&single=true&output=csv";
+    let bezirkeListe = [];
+    async function loadBezirkeData() {
+      try {
+        const response = await fetch(bezirkeSheetURL);
+        if (!response.ok) throw new Error(`Fehler beim Laden der Bezirke: ${response.statusText}`);
+        const csvText = await response.text();
+        bezirkeListe = parseCSV(csvText).map(row => row[0].trim());
+      } catch (error) {
+        console.error("Fehler beim Abrufen der Bezirke:", error);
+      }
+    }
+    function updateBezirkSuggestions() {
+      const input = document.getElementById("einsatzortBezirk");
+      const optionsContainer = document.getElementById("bezirkOptionsContainer");
+      const query = input.value.toLowerCase().trim();
+      optionsContainer.innerHTML = "";
+      if (query.length < 1) return;
+      const matchingBezirke = bezirkeListe.filter(bezirk => bezirk.toLowerCase().includes(query));
+      if (matchingBezirke.length === 0) {
+        optionsContainer.style.display = "none";
+        return;
+      }
+      matchingBezirke.slice(0, 10).forEach(bezirk => {
+        const option = document.createElement("div");
+        option.className = "option";
+        option.textContent = bezirk;
+        option.addEventListener("click", () => {
+          input.value = bezirk;
+          optionsContainer.style.display = "none";
+        });
+        optionsContainer.appendChild(option);
+      });
+      optionsContainer.style.display = "block";
+    }
+    document.getElementById("einsatzortBezirk").addEventListener("input", updateBezirkSuggestions);
+    document.getElementById("einsatzortBezirk").addEventListener("blur", () => {
+      setTimeout(() => { document.getElementById("bezirkOptionsContainer").style.display = "none"; }, 200);
+    });
+    window.addEventListener("load", async () => { await loadBezirkeData(); });
+    
+    /* ---------------- Autovervollständigung: Objekt ---------------- */
+    const objektSheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=1389818837&single=true&output=csv";
+    let objekteListe = [];
+    async function loadObjekteData() {
+      try {
+        const response = await fetch(objektSheetURL);
+        if (!response.ok) throw new Error(`Fehler beim Laden der Objekte: ${response.statusText}`);
+        const csvText = await response.text();
+        objekteListe = Papa.parse(csvText, { header: true, skipEmptyLines: true }).data;
+        console.log("Objekte geladen:", objekteListe);
+      } catch (error) {
+        console.error("Fehler beim Abrufen der Objekt-Daten:", error);
+      }
+    }
+    function updateObjektSuggestions() {
+      const input = document.getElementById("objektSelect");
+      const optionsContainer = document.getElementById("objekteOptionsContainer");
+      const query = input.value.toLowerCase().trim();
+      if (query === "") {
+        document.getElementById("einsatzortStrasse").removeAttribute("readonly");
+        document.getElementById("einsatzortPLZ").removeAttribute("readonly");
+        document.getElementById("einsatzortBezirk").removeAttribute("readonly");
+        optionsContainer.innerHTML = "";
+        optionsContainer.style.display = "none";
+        return;
+      }
+      optionsContainer.innerHTML = "";
+      const matchingObjekte = objekteListe.filter(obj => obj["POI"]?.toLowerCase().includes(query));
+      if (matchingObjekte.length === 0) {
+        optionsContainer.style.display = "none";
+        return;
+      }
+      matchingObjekte.slice(0, 10).forEach(obj => {
+        const option = document.createElement("div");
+        option.className = "option";
+        option.textContent = obj["POI"] || "Unbekanntes Objekt";
+        option.addEventListener("click", () => {
+          input.value = obj["POI"] || "k.A.";
+          optionsContainer.style.display = "none";
+          document.getElementById("einsatzortStrasse").value = obj["Adresse Straße"] || "k.A.";
+          document.getElementById("hausnummer").value = obj["Hausnummer"] || "k.A.";
+          document.getElementById("einsatzortPLZ").value = obj["Adresse PLZ"] || "k.A.";
+          document.getElementById("einsatzortBezirk").value = obj["Adresse Bezirk"] || "k.A.";
+          document.getElementById("einsatzortStrasse").setAttribute("readonly", true);
+          document.getElementById("einsatzortPLZ").setAttribute("readonly", true);
+          document.getElementById("einsatzortBezirk").setAttribute("readonly", true);
+        });
+        optionsContainer.appendChild(option);
+      });
+      optionsContainer.style.display = "block";
+    }
+    document.getElementById("objektSelect").addEventListener("focus", updateObjektSuggestions);
+    document.getElementById("objektSelect").addEventListener("input", updateObjektSuggestions);
+    document.getElementById("objektSelect").addEventListener("blur", () => {
+      setTimeout(() => { document.getElementById("objekteOptionsContainer").style.display = "none"; }, 200);
+    });
+    window.addEventListener("load", async () => { await loadObjekteData(); });
+    
+    /* ---------------- Gemeinsame Funktion für Radio-Buttons ---------------- */
+    function toggleButton(button, group) {
+      const buttonGroup = document.getElementById(`${group}-buttons`).querySelectorAll('.radio-button');
+      buttonGroup.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+    }
+    
+    /* ---------------- Navigation und Progress Bar ---------------- */
+    let currentStep = 1;
+    const totalSteps = 5;
+    function nextSection(step) {
+        if (step < totalSteps) {
+            document.getElementById(`section${step}`).classList.remove("active");
+            document.getElementById(`section${step+1}`).classList.add("active");
+            updateProgress(step+1);
+            currentStep = step+1;
+    
+            // Scrollt zum Seitenanfang mit `scrollIntoView`
+            document.body.scrollIntoView({ behavior: "smooth", block: "start" });
+    
+            if (currentStep === 5) {
+                updateSummary();
+            }
+        }
+    }
+    
+    
+    
+    function prevSection(step) {
+        if (step > 1) {
+            document.getElementById(`section${step}`).classList.remove("active");
+            document.getElementById(`section${step-1}`).classList.add("active");
+            updateProgress(step-1);
+            currentStep = step-1;
+    
+            // Scrollt zum Seitenanfang mit `scrollIntoView`
+            document.body.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    }
+    
+    function updateProgress(step) {
+      document.querySelectorAll(".step").forEach((el, index) => {
+        if (index+1 === step) {
+          el.classList.add("active");
+          el.classList.remove("completed");
+        } else if (index+1 < step) {
+          el.classList.add("completed");
+          el.classList.remove("active");
+        } else {
+          el.classList.remove("active", "completed");
+        }
+      });
+    }
+    
+    /* ---------------- Modalfunktionen ---------------- */
+    function openModal(type) {
+      document.getElementById('modal-' + type).classList.add("active");
+    }
+    function closeModal(type) {
+      document.getElementById('modal-' + type).classList.remove("active");
+    }
+    function saveSelection(type) {
+      const checkboxes = document.querySelectorAll('.' + type + '-option');
+      const container = document.getElementById('selected-' + type);
+      container.innerHTML = "";
+      checkboxes.forEach(cb => {
+        if (cb.checked) {
+          const chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.textContent = cb.value;
+          const remove = document.createElement('span');
+          remove.className = 'remove-chip';
+          remove.innerHTML = '&times;';
+          remove.onclick = () => {
+            chip.remove();
+            cb.checked = false;
+          };
+          chip.appendChild(remove);
+          container.appendChild(chip);
+        }
+      });
+      closeModal(type);
+    }
+    
+    /* ---------------- Funktionen für Verletzte (Step 2) ---------------- */
+    function toggleVerletzte(category, isYes, btn) {
+      let containerId = "additional-" + category;
+      let container = document.getElementById(containerId);
+      container.style.display = isYes ? "block" : "none";
+      let groupId;
+      if (category === "personen") {
+        groupId = "verletztePersonen-buttons";
+      } else if (category === "feuerwehr") {
+        groupId = "verletzteFeuerwehr-buttons";
+      } else if (category === "tiere") {
+        groupId = "verletzteTiere-buttons";
+      }
+      let buttons = document.getElementById(groupId).querySelectorAll('.radio-button');
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    
+    /* ---------------- Fahrzeug- & Mannschaftszuweisung ---------------- */
+    const vehicleCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=38083317&single=true&output=csv" + "&t=" + new Date().getTime();
+    const teamCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=294937836&single=true&output=csv" + "&t=" + new Date().getTime();
+    
+    let vehiclesData = [];
+    let teamData = [];
+    let globalAssigned = [];
+    var savedAssignments = {};
+    let currentSeatBox = null;
+    
+    // Globales Mapping: Kennzeichen → Fahrzeugbezeichnung
+    let vehicleMapping = {};
+    
+    document.addEventListener("DOMContentLoaded", function() {
+      fetch(vehicleCsvUrl)
+        .then(res => res.text())
+        .then(text => {
+          const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+          vehiclesData = parsed.data;
+          renderVehicleList();
+        })
+        .catch(err => console.error("Fehler beim Laden der Fahrzeugdaten:", err));
+      
+      fetch(teamCsvUrl)
+        .then(res => res.text())
+        .then(text => {
+          const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+          teamData = parsed.data.filter(m => m["Aktives Mitglied?"] && m["Aktives Mitglied?"].toLowerCase() === "ja");
+        })
+        .catch(err => console.error("Fehler beim Laden der Teamdaten:", err));
+    });
+
+    const rolePermissions = {
+  "Mannschaft": ["PFM", "FM", "OFM", "HFM", "SB", "LM", "OLM", "HLM", "BM", "OBM", "HBM", "BI", "OBI", "HBI", "ABI", "BR", "OBR", "LFR", "LBDSTV", "LBD", "VM", "OVM", "HVM", "V", "OV", "HV", "VI", "VR", "ASB", "BSB", "FARZT", "BFARZT", "LFARZT", "FJUR", "BFJUR", "LFJUR", "FKUR", "BFKUR", "LFKUR", "FT"],
+  "Gruppenkommandant": ["LM", "OLM", "HLM", "BM", "OBM", "HBM", "BI", "OBI", "HBI", "ABI", "BR", "OBR", "LFR", "LBDSTV", "LBD", "VM", "OVM", "HVM", "V", "OV", "HV", "VI", "VR", "ASB", "BSB", "FARZT", "BFARZT", "LFARZT", "FJUR", "BFJUR", "LFJUR", "FKUR", "BFKUR", "LFKUR", "FT"],
+  "Einsatzleiter": ["BM", "OBM", "HBM", "BI", "OBI", "HBI", "ABI", "BR", "OBR", "LFR", "LBDSTV", "LBD", "VM", "OVM", "HVM", "V", "OV", "HV", "VI", "VR", "ASB", "BSB", "FARZT", "BFARZT", "LFARZT", "FJUR", "BFJUR", "LFJUR", "FKUR", "BFKUR", "LFKUR", "FT"],
+  "Maschinist": ["PFM", "FM", "OFM", "HFM", "SB", "LM", "OLM", "HLM", "BM", "OBM", "HBM", "BI", "OBI", "HBI", "ABI", "BR", "OBR", "LFR", "LBDSTV", "LBD", "VM", "OVM", "HVM", "V", "OV", "HV", "VI", "VR", "ASB", "BSB", "FARZT", "BFARZT", "LFARZT", "FJUR", "BFJUR", "LFJUR", "FKUR", "BFKUR", "LFKUR", "FT"]
+};
+
+
+    
+    function renderVehicleList() {
+        const container = document.getElementById("vehicleList");
+        container.innerHTML = "";
+      
+        // Kategorien definieren: Key = Typ in der CSV
+        const categories = {
+          FZG: { header: "Fahrzeuge", vehicles: [] },
+          AHG: { header: "Anhänger", vehicles: [] },
+          Gebäude: { header: "Gebäude", vehicles: [] }
+        };
+      
+        // Fahrzeuge anhand ihres Typs in die jeweiligen Kategorien einsortieren
+        vehiclesData.forEach(vehicle => {
+          const type = vehicle["Type"] ? vehicle["Type"].trim() : "";
+          if (categories.hasOwnProperty(type)) {
+            categories[type].vehicles.push(vehicle);
+          } else {
+            // Optional: Fahrzeuge mit unbekanntem Typ in "Sonstige" packen oder ignorieren
+          }
+        });
+      
+        // Für jede Kategorie: Container + Überschrift + Fahrzeugkarten
+        Object.keys(categories).forEach(categoryKey => {
+          const category = categories[categoryKey];
+          if (category.vehicles.length > 0) {
+            // 1) Container für diese Kategorie
+            const categoryContainer = document.createElement("div");
+            categoryContainer.classList.add("vehicle-category-container");
+      
+            // 2) Überschrift hinzufügen (über gesamte Breite)
+            const titleEl = document.createElement("h2");
+            titleEl.classList.add("vehicle-category-title");
+            titleEl.textContent = category.header;
+            categoryContainer.appendChild(titleEl);
+      
+            // 3) Grid-Element für die Fahrzeugkarten
+            const gridEl = document.createElement("div");
+            gridEl.classList.add("vehicle-grid");
+            categoryContainer.appendChild(gridEl);
+      
+            // 4) Fahrzeugkarten erstellen
+            category.vehicles.forEach(vehicle => {
+              const kennzeichen = vehicle["Kennzeichen"] || "Unbekannt";
+              const funkrufname = vehicle["Funkrufname"] || "Ohne Funkrufname";
+              vehicleMapping[kennzeichen] = funkrufname; // falls du es später brauchst
+      
+              const status = vehicle["Status"] ? vehicle["Status"].trim() : "";
+              const seats = vehicle["Anzahl-Sitzplätze"] ? parseInt(vehicle["Anzahl-Sitzplätze"]) : 0;
+      
+              // Die vorhandene vehicle-card
+              const card = document.createElement("div");
+              card.classList.add("vehicle-card");
+              card.setAttribute("data-seats", seats);
+              card.setAttribute("data-selected", "false");
+      
+              // Status farblich kennzeichnen
+              if (status === "NEB") {
+                card.classList.add("disabled");
+                card.style.borderColor = "red";
+              } else if (status === "BEB") {
+                card.style.borderColor = "orange";
+              } else if (status === "EB") {
+                card.style.borderColor = "green";
+              }
+      
+              // Inneres HTML der Karte
+              card.innerHTML = `
+                <div class="vehicle-info">
+                  <strong>${funkrufname}</strong><br>
+                  <small>${kennzeichen}</small>
+                </div>
+                <button class="select-vehicle-button">Auswählen</button>
+              `;
+      
+              // Event-Listener für "Auswählen"-Button
+              const btn = card.querySelector(".select-vehicle-button");
+              btn.addEventListener("click", function(e) {
+                e.stopPropagation();
+                if (!card.classList.contains("disabled")) {
+                  toggleVehicleSelection(card);
+                }
+              });
+      
+              // Event-Listener für Klick auf die Karte selbst
+              card.addEventListener("click", function(e) {
+                if (!e.target.classList.contains("select-vehicle-button") && !card.classList.contains("disabled")) {
+                  toggleVehicleSelection(card);
+                }
+              });
+      
+              // Karte in das Grid einfügen
+              gridEl.appendChild(card);
+            });
+      
+            // Kategorie-Container in den Haupt-Container einfügen
+            container.appendChild(categoryContainer);
+          }
+        });
+      }
+      
+      
+      
+      
+    
+    function toggleVehicleSelection(card) {
+      const isSelected = card.getAttribute("data-selected") === "true";
+      const kennzeichen = card.querySelector(".vehicle-info small").innerText;
+      if (isSelected) {
+        card.setAttribute("data-selected", "false");
+        card.classList.remove("selected");
+        card.querySelector(".select-vehicle-button").textContent = "Auswählen";
+        delete savedAssignments[kennzeichen];
+      } else {
+        card.setAttribute("data-selected", "true");
+        card.classList.add("selected");
+        card.querySelector(".select-vehicle-button").textContent = "Ausgewählt";
+      }
+    }
+    
+    function prepareTeamAssignment() {
+      const container = document.getElementById("assignmentContainer");
+      container.innerHTML = "";
+      globalAssigned = [];
+      const selectedCards = Array.from(document.querySelectorAll(".vehicle-card"))
+                                .filter(card => card.getAttribute("data-selected") === "true");
+      if (selectedCards.length === 0) {
+        alert("Bitte wählen Sie mindestens ein Fahrzeug aus.");
+        return;
+      }
+      selectedCards.forEach(card => {
+        const kennzeichen = card.querySelector(".vehicle-info small").innerText;
+        if (savedAssignments[kennzeichen]) {
+          Object.values(savedAssignments[kennzeichen]).forEach(assignment => {
+            globalAssigned.push(assignment.memberId);
+          });
+        }
+      });
+      renderAssignmentAccordions(selectedCards);
+      nextSection(3);
+    }
+    
+    function renderAssignmentAccordions(selectedCards) {
+      const container = document.getElementById("assignmentContainer");
+      selectedCards.forEach(card => {
+        const kennzeichen = card.querySelector(".vehicle-info small").innerText;
+        const funkrufname = card.querySelector(".vehicle-info strong").innerText;
+        const seats = parseInt(card.getAttribute("data-seats"));
+        const acc = document.createElement("div");
+        acc.classList.add("vehicle-assignment");
+        acc.innerHTML = `<h2>${funkrufname}<br><small>${kennzeichen}</small></h2>
+          <div class="slot-display">Sitzplätze: 0 / ${seats}</div>
+          <div class="seat-container" data-seats="${seats}" id="seat-${kennzeichen.replace(/\s/g, '')}"></div>`;
+        const seatContainer = acc.querySelector(".seat-container");
+        for (let i = 0; i < seats; i++) {
+          const seat = document.createElement("div");
+          seat.classList.add("seat");
+          seat.setAttribute("data-vehicle", kennzeichen);
+          seat.setAttribute("data-seat-index", i);
+          if (savedAssignments[kennzeichen] && savedAssignments[kennzeichen][i]) {
+            const assignment = savedAssignments[kennzeichen][i];
+            seat.innerHTML = `<div class="assigned-member">
+              <span class="member-name">${assignment.displayText}</span>
+              <div class="member-right">
+                <span class="member-role" onclick="editRole(this)">${assignment.role}</span>
+                <span class="remove-assignment" onclick="removeAssignmentFromButton(event, this)">&times;</span>
+              </div>
+            </div>`;
+            seat.setAttribute("data-assigned", "true");
+            seat.setAttribute("data-role", assignment.role);
+            seat.setAttribute("data-member-id", assignment.memberId);
+            updateSeatColor(seat, assignment.role);
+          } else {
+            seat.innerHTML = `<button onclick="openTeamModal(this)">Zuweisen</button>`;
+          }
+          seatContainer.appendChild(seat);
+        }
+        container.appendChild(acc);
+      });
+      document.querySelectorAll(".vehicle-assignment").forEach(va => updateGlobalSlotDisplay(va));
+    }
+    
+    function openTeamModal(button) {
+      currentSeatBox = button.parentElement;
+      document.getElementById("teamModal").classList.add("active");
+      document.getElementById("teamSearch").value = "";
+      renderTeamModalList("");
+    }
+    
+    document.getElementById("closeTeamModal").addEventListener("click", function() {
+      document.getElementById("teamModal").classList.remove("active");
+    });
+    
+    document.getElementById("teamSearch").addEventListener("input", function() {
+      const query = this.value.toLowerCase().trim();
+      renderTeamModalList(query);
+    });
+    
+    function renderTeamModalList(query) {
+  const listContainer = document.getElementById("modalTeamList");
+  listContainer.innerHTML = "";
+
+  const selectedRole = document.getElementById("modalRoleSelect").value;
+  const allowedRanks = rolePermissions[selectedRole] || [];
+
+  teamData.forEach(member => {
+    const id = member["Mitgliedsnummer"] || "";
+    if (globalAssigned.includes(id)) return;
+
+    const dienstgrad = member["Aktueller Dienstgrad"] || "";
+    const vorname = member["Namen"] || "";
+    const nachname = member["Nachnamen"] || "";
+    const displayText = `${dienstgrad} - ${vorname} ${nachname}`;
+
+    // Überprüfen, ob der Dienstgrad zur gewählten Rolle passt
+    if (
+      allowedRanks.includes(dienstgrad) && 
+      displayText.toLowerCase().includes(query)
+    ) {
+      const item = document.createElement("div");
+      item.classList.add("modal-team-item");
+      item.textContent = displayText;
+
+      item.addEventListener("click", function() {
+        assignTeamMember(id, displayText, selectedRole);
+        document.getElementById("teamModal").classList.remove("active");
+      });
+
+      listContainer.appendChild(item);
+    }
+  });
+}
+
+document.getElementById("modalRoleSelect").addEventListener("change", function() {
+  const searchQuery = document.getElementById("teamSearch").value.toLowerCase();
+  renderTeamModalList(searchQuery);
+});
+
+
+    
+    function assignTeamMember(memberId, displayText, role) {
+      if (!currentSeatBox) return;
+      currentSeatBox.innerHTML = `<div class="assigned-member">
+          <span class="member-name">${displayText}</span>
+          <div class="member-right">
+            <span class="member-role" onclick="editRole(this)">${role}</span>
+            <span class="remove-assignment" onclick="removeAssignmentFromButton(event, this)">&times;</span>
+          </div>
+        </div>`;
+      currentSeatBox.setAttribute("data-assigned", "true");
+      currentSeatBox.setAttribute("data-role", role);
+      currentSeatBox.setAttribute("data-member-id", memberId);
+      updateSeatColor(currentSeatBox, role);
+      const vehicleKey = currentSeatBox.getAttribute("data-vehicle");
+      const seatIndex = currentSeatBox.getAttribute("data-seat-index");
+      if (!savedAssignments[vehicleKey]) savedAssignments[vehicleKey] = {};
+      savedAssignments[vehicleKey][seatIndex] = { memberId, displayText, role };
+      globalAssigned.push(memberId);
+      updateGlobalSlotDisplay(currentSeatBox.closest(".vehicle-assignment"));
+      sortAssignments(currentSeatBox.parentElement);
+    }
+    
+    function removeAssignment(seat) {
+      const vehicleKey = seat.getAttribute("data-vehicle");
+      const seatIndex = seat.getAttribute("data-seat-index");
+      const memberId = seat.getAttribute("data-member-id");
+      if (savedAssignments[vehicleKey] && savedAssignments[vehicleKey][seatIndex]) {
+        delete savedAssignments[vehicleKey][seatIndex];
+      }
+      const index = globalAssigned.indexOf(memberId);
+      if (index !== -1) globalAssigned.splice(index, 1);
+      seat.innerHTML = `<button onclick="openTeamModal(this)">Zuweisen</button>`;
+      seat.removeAttribute("data-assigned");
+      seat.removeAttribute("data-role");
+      seat.removeAttribute("data-member-id");
+      seat.classList.remove("role-einsatzleiter", "role-maschinist", "role-gruppenkommandant", "role-mannschaft");
+      updateGlobalSlotDisplay(seat.closest(".vehicle-assignment"));
+      sortAssignments(seat.parentElement);
+    }
+    
+    function removeAssignmentFromButton(e, btn) {
+      e.stopPropagation();
+      const seat = btn.closest('.seat');
+      removeAssignment(seat);
+    }
+    
+    function editRole(roleSpan) {
+      const currentRole = roleSpan.textContent;
+      const select = document.createElement("select");
+      select.innerHTML = `
+        <option value="Einsatzleiter" ${currentRole === "Einsatzleiter" ? "selected" : ""}>Einsatzleiter</option>
+        <option value="Maschinist" ${currentRole === "Maschinist" ? "selected" : ""}>Maschinist</option>
+        <option value="Gruppenkommandant" ${currentRole === "Gruppenkommandant" ? "selected" : ""}>Gruppenkommandant</option>
+        <option value="Mannschaft" ${currentRole === "Mannschaft" ? "selected" : ""}>Mannschaft</option>
+      `;
+      roleSpan.parentElement.replaceChild(select, roleSpan);
+      select.focus();
+      select.addEventListener("change", function() { updateRole(select); });
+      select.addEventListener("blur", function() { updateRole(select); });
+    }
+    
+    function updateRole(selectElement) {
+  const newRole = selectElement.value;
+  const seat = selectElement.closest('.seat');
+  const memberId = seat.getAttribute("data-member-id");
+  const vehicleKey = seat.getAttribute("data-vehicle");
+  const seatIndex = seat.getAttribute("data-seat-index");
+
+  // Finde das Mitglied in den Daten
+  const member = teamData.find(m => m["Mitgliedsnummer"] === memberId);
+  const dienstgrad = member ? member["Aktueller Dienstgrad"] : "";
+
+  // Prüfe, ob der Dienstgrad für die gewählte Rolle erlaubt ist
+  if (!rolePermissions[newRole].includes(dienstgrad)) {
+    alert(`Der Dienstgrad ${dienstgrad} ist nicht für die Rolle ${newRole} freigegeben.`);
+    selectElement.value = seat.getAttribute("data-role"); // Setzt die alte Rolle zurück
+    return;
+  }
+
+  const newSpan = document.createElement("span");
+  newSpan.classList.add("member-role");
+  newSpan.textContent = newRole;
+  newSpan.setAttribute("onclick", "editRole(this)");
+
+  if (savedAssignments[vehicleKey] && savedAssignments[vehicleKey][seatIndex]) {
+    savedAssignments[vehicleKey][seatIndex].role = newRole;
+  }
+
+  selectElement.parentElement.replaceChild(newSpan, selectElement);
+  seat.setAttribute("data-role", newRole);
+  updateSeatColor(seat, newRole);
+  updateSummary();
+}
+
+    
+function updateSeatColor(seat, role) {
+  seat.classList.remove("role-einsatzleiter", "role-maschinist", "role-gruppenkommandant", "role-mannschaft");
+
+  if (role === "Einsatzleiter") {
+    seat.style.backgroundColor = "#f1c40f";  // Gelb
+  } else if (role === "Maschinist") {
+    seat.style.backgroundColor = "#B0B0B0";  // Grau
+    seat.style.color = "#000";  // Schwarz
+  } else if (role === "Gruppenkommandant") {
+    seat.style.backgroundColor = "#3498db";  // Blau
+  } else {
+    seat.style.backgroundColor = "#e74c3c";  // Rot
+  }
+
+  console.log("Manuelle Farbänderung:", seat.style.backgroundColor);
+}
+
+
+
+
+    
+    function sortAssignments(seatContainer) {
+      const rolePriority = { "Einsatzleiter": 1, "Maschinist": 2, "Gruppenkommandant": 3, "Mannschaft": 4 };
+      const children = Array.from(seatContainer.children);
+      const assigned = children.filter(child => child.getAttribute("data-assigned") === "true");
+      const unassigned = children.filter(child => child.getAttribute("data-assigned") !== "true");
+      assigned.sort((a, b) => {
+        const roleA = a.getAttribute("data-role");
+        const roleB = b.getAttribute("data-role");
+        return rolePriority[roleA] - rolePriority[roleB];
+      });
+      seatContainer.innerHTML = "";
+      assigned.forEach(child => seatContainer.appendChild(child));
+      unassigned.forEach(child => seatContainer.appendChild(child));
+    }
+    
+    function updateGlobalSlotDisplay(assignmentBox) {
+      const seatContainer = assignmentBox.querySelector(".seat-container");
+      const total = seatContainer.children.length;
+      const assignedCount = Array.from(seatContainer.children).filter(child => child.getAttribute("data-assigned") === "true").length;
+      const slotDisplay = assignmentBox.querySelector(".slot-display");
+      slotDisplay.textContent = `Sitzplätze: ${assignedCount} / ${total}`;
+    }
+    
+    /* ---------------- Übersicht (Step 5) – Zusammenfassung aller Daten ---------------- */
+    function updateSummary() {
+      let datum = document.getElementById("datum").value.trim();
+      let uhrzeitAlarmierung = document.getElementById("uhrzeitAlarmierung").value.trim();
+      let einsatzEnde = document.getElementById("einsatzEnde").value.trim();
+      let uhrzeitRueckkehr = document.getElementById("uhrzeitRueckkehr").value.trim();
+      let objekt = document.getElementById("objektSelect").value.trim();
+      let einsatzortBezirk = document.getElementById("einsatzortBezirk").value.trim();
+      let einsatzortStrasse = document.getElementById("einsatzortStrasse").value.trim();
+      let hausnummer = document.getElementById("hausnummer").value.trim();
+      let einsatzortPLZ = document.getElementById("einsatzortPLZ").value.trim();
+      let eigenerEinsatzbereich = document.querySelector("#einsatzbereich-buttons .radio-button.active")?.textContent.trim() || "";
+      let einsatzStichwort = document.getElementById("searchInput").value.trim();
+      let meldung = getChipValues("selected-meldung");
+      let alarmierung = getChipValues("selected-alarmierung");
+      let anwesend = getChipValues("selected-anwesend");
+      let wetter = getChipValues("selected-wetter");
+      let gefahrenklasse = getChipValues("selected-gefahrenklasse");
+      let lageEintreffen = document.getElementById("lageEintreffen").value.trim();
+      let massnahmenEinsatzort = document.getElementById("massnahmenEinsatzort").value.trim();
+      let bemerkungen = document.getElementById("bemerkungen").value.trim();
+      let verletztePersonen = document.getElementById("verletztePersonen")?.value.trim() || "";
+      let getoetetePersonen = document.getElementById("getoetetePersonen")?.value.trim() || "";
+      let gerettetePersonen = document.getElementById("gerettetePersonen")?.value.trim() || "";
+      let verletzteFeuerwehr = document.getElementById("verletzteFeuerwehr")?.value.trim() || "";
+      let getoeteteFeuerwehr = document.getElementById("getoeteteFeuerwehr")?.value.trim() || "";
+      let geretteteFeuerwehr = document.getElementById("geretteteFeuerwehr")?.value.trim() || "";
+      let verletzteTiere = document.getElementById("verletzteTiere")?.value.trim() || "";
+      let getoeteteTiere = document.getElementById("getoeteteTiere")?.value.trim() || "";
+      let geretteteTiere = document.getElementById("geretteteTiere")?.value.trim() || "";
+      let vehicleCards = document.querySelectorAll(".vehicle-card[data-selected='true']");
+      let fahrzeugeHtml = "";
+      vehicleCards.forEach(card => {
+         let kennzeichen = card.querySelector(".vehicle-info small").innerText;
+         let fahrzeugName = vehicleMapping[kennzeichen] || kennzeichen;
+         fahrzeugeHtml += `<div class="overview-item"><span class="label">Fahrzeug:</span><span contenteditable="true" onblur="updateEditable(this, null)">${fahrzeugName}</span></div>`;
+      });
+      let teamAssignments = [];
+      for (let vehicle in savedAssignments) {
+         for (let seat in savedAssignments[vehicle]) {
+            let ass = savedAssignments[vehicle][seat];
+            teamAssignments.push({ memberId: ass.memberId, displayText: ass.displayText, role: ass.role, vehicle: vehicleMapping[vehicle] || vehicle });
+         }
+      }
+      let uniqueMannschaft = {};
+      teamAssignments.forEach(a => { uniqueMannschaft[a.memberId] = a; });
+      let mannschaftHtml = "";
+      for (let id in uniqueMannschaft) {
+          let a = uniqueMannschaft[id];
+          mannschaftHtml += `<li contenteditable="true" onblur="updateEditable(this, null)">${a.displayText} – ${a.role}</li>`;
+      }
+      if(mannschaftHtml) {
+        mannschaftHtml = "<ul>" + mannschaftHtml + "</ul>";
+      }
+      let summaryHtml = `<div class="overview-container">
+          <div class="overview-header"></div>`;
+      summaryHtml += `<div class="overview-section">
+          <h2>Grundinformationen</h2>
+          <div class="overview-item"><span class="label">Eigener Einsatzbereich:</span><span contenteditable="true" onblur="updateEditable(this, 'einsatzbereich')">${eigenerEinsatzbereich}</span></div>
+          <div class="overview-item"><span class="label">Einsatzstichwort:</span><span contenteditable="true" onblur="updateEditable(this, 'searchInput')">${einsatzStichwort}</span></div>
+        </div>`;
+      if(meldung) {
+        summaryHtml += `<div class="overview-section">
+            <h2>Meldung</h2>
+            <div class="overview-item"><span class="label">Meldung:</span><span contenteditable="true" onblur="updateEditable(this, 'selected-meldung')">${meldung}</span></div>
+          </div>`;
+      }
+      summaryHtml += `<div class="overview-section">
+          <h2>Einsatzdetails</h2>
+          <div class="overview-item"><span class="label">Datum:</span><span contenteditable="true" onblur="updateEditable(this, 'datum')">${datum}</span></div>
+          <div class="overview-item"><span class="label">Alarmierungszeit:</span><span contenteditable="true" onblur="updateEditable(this, 'uhrzeitAlarmierung')">${uhrzeitAlarmierung}</span></div>
+          <div class="overview-item"><span class="label">Einsatzendedatum:</span><span contenteditable="true" onblur="updateEditable(this, 'einsatzEnde')">${einsatzEnde}</span></div>
+          <div class="overview-item"><span class="label">Einsatzendezeit:</span><span contenteditable="true" onblur="updateEditable(this, 'uhrzeitRueckkehr')">${uhrzeitRueckkehr}</span></div>
+        </div>`;
+      summaryHtml += `<div class="overview-section">
+          <h2>Einsatzort & Objekt</h2>
+          <div class="overview-item"><span class="label">Objekt:</span><span contenteditable="true" onblur="updateEditable(this, 'objektSelect')">${objekt}</span></div>
+          <div class="overview-item"><span class="label">Straße/Hausnr.:</span><span contenteditable="true" onblur="updateEditable(this, 'einsatzortStrasse')">${einsatzortStrasse} ${hausnummer}</span></div>
+          <div class="overview-item"><span class="label">PLZ:</span><span contenteditable="true" onblur="updateEditable(this, 'einsatzortPLZ')">${einsatzortPLZ}</span></div>
+          <div class="overview-item"><span class="label">Bezirk:</span><span contenteditable="true" onblur="updateEditable(this, 'einsatzortBezirk')">${einsatzortBezirk}</span></div>
+        </div>`;
+      summaryHtml += `<div class="overview-section">
+          <h2>Alarmierung & Infos</h2>
+          <div class="overview-item"><span class="label">Alarmierung:</span><span contenteditable="true" onblur="updateEditable(this, 'selected-alarmierung')">${alarmierung}</span></div>
+          <div class="overview-item"><span class="label">Anwesend:</span><span contenteditable="true" onblur="updateEditable(this, 'selected-anwesend')">${anwesend}</span></div>
+          <div class="overview-item"><span class="label">Wetter:</span><span contenteditable="true" onblur="updateEditable(this, 'selected-wetter')">${wetter}</span></div>
+          <div class="overview-item"><span class="label">Gefahrenklasse:</span><span contenteditable="true" onblur="updateEditable(this, 'selected-gefahrenklasse')">${gefahrenklasse}</span></div>
+        </div>`;
+      if(fahrzeugeHtml) {
+        summaryHtml += `<div class="overview-section">
+            <h2>Fahrzeuge</h2>
+            ${fahrzeugeHtml}
+          </div>`;
+      }
+      if(mannschaftHtml) {
+        summaryHtml += `<div class="overview-section">
+            <h2>Mannschaft</h2>
+            ${mannschaftHtml}
+          </div>`;
+      }
+      let injuredHtml = "";
+      if (verletztePersonen || getoetetePersonen || gerettetePersonen) {
+        injuredHtml += `<div class="overview-item"><span class="label">Personen:</span><span>Verletzt: ${verletztePersonen || '-'}, Getötet: ${getoetetePersonen || '-'}, Gerettet: ${gerettetePersonen || '-'}</span></div>`;
+      }
+      if (verletzteFeuerwehr || getoeteteFeuerwehr || geretteteFeuerwehr) {
+        injuredHtml += `<div class="overview-item"><span class="label">Feuerwehr:</span><span>Verletzt: ${verletzteFeuerwehr || '-'}, Getötet: ${getoeteteFeuerwehr || '-'}, Gerettet: ${geretteteFeuerwehr || '-'}</span></div>`;
+      }
+      if (verletzteTiere || getoeteteTiere || geretteteTiere) {
+        injuredHtml += `<div class="overview-item"><span class="label">Tiere:</span><span>Verletzt: ${verletzteTiere || '-'}, Getötet: ${getoeteteTiere || '-'}, Gerettet: ${geretteteTiere || '-'}</span></div>`;
+      }
+      if(injuredHtml) {
+        summaryHtml += `<div class="overview-section">
+            <h2>Verletzte</h2>
+            ${injuredHtml}
+          </div>`;
+      }
+      let notizenHtml = "";
+      if(lageEintreffen) { notizenHtml += `<div class="overview-item"><span class="label">Lage beim Eintreffen:</span><span contenteditable="true" onblur="updateEditable(this, 'lageEintreffen')">${lageEintreffen}</span></div>`; }
+      if(massnahmenEinsatzort) { notizenHtml += `<div class="overview-item"><span class="label">Maßnahmen:</span><span contenteditable="true" onblur="updateEditable(this, 'massnahmenEinsatzort')">${massnahmenEinsatzort}</span></div>`; }
+      if(bemerkungen) { notizenHtml += `<div class="overview-item"><span class="label">Bemerkungen:</span><span contenteditable="true" onblur="updateEditable(this, 'bemerkungen')">${bemerkungen}</span></div>`; }
+      if(notizenHtml) {
+        summaryHtml += `<div class="overview-section">
+            <h2>Einsatznotizen</h2>
+            ${notizenHtml}
+          </div>`;
+      }
+      summaryHtml += `</div>`;
+      document.getElementById("summaryContainer").innerHTML = summaryHtml;
+    }
+    
+    function updateEditable(span, fieldId) {
+      let newValue = span.textContent.trim();
+      if(fieldId && document.getElementById(fieldId)) {
+        if(document.getElementById(fieldId).tagName === "INPUT" ||
+           document.getElementById(fieldId).tagName === "TEXTAREA") {
+             document.getElementById(fieldId).value = newValue;
+        } else {
+             document.getElementById(fieldId).innerText = newValue;
+        }
+      }
+    }
+    
+    /* ---------------- Generische Suchfunktion für Modale ---------------- */
+    function filterModalOptions(modalId, searchInputId) {
+      const modal = document.getElementById(modalId);
+      const searchInput = document.getElementById(searchInputId);
+      const filter = searchInput.value.toLowerCase();
+      const options = modal.querySelectorAll("ul li");
+      options.forEach(option => {
+        option.style.display = option.textContent.toLowerCase().includes(filter) ? "" : "none";
+      });
+    }
+    
+    function getChipValues(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return "";
+      const chips = container.querySelectorAll(".chip");
+      let values = [];
+      chips.forEach(chip => {
+        let textOhneX = chip.textContent.replaceAll("×", "").trim();
+        values.push(textOhneX);
+      });
+      return values.join(", ");
+    }
+    
+    /* ---------------- Neue Funktionen für Absenden & Speichern ---------------- */
+    
+// Sammelt alle relevanten Formulardaten in einem Objekt
+function gatherFormData() {
+  // Hier werden die ausgewählten Fahrzeuge gesammelt
+  const selectedVehicles = [];
+  document.querySelectorAll(".vehicle-card[data-selected='true']").forEach(card => {
+    const kennzeichen = card.querySelector(".vehicle-info small").innerText;
+    const fahrzeugName = vehicleMapping[kennzeichen] || kennzeichen;
+    selectedVehicles.push({ kennzeichen, fahrzeugName });
+  });
+
+  return {
+    // Grundinformationen (Step 1)
+    datum: formatDate(document.getElementById("datum").value.trim()),
+    uhrzeitAlarmierung: document.getElementById("uhrzeitAlarmierung").value.trim(),
+    einsatzEnde: formatDate(document.getElementById("einsatzEnde").value.trim()),
+    uhrzeitRueckkehr: document.getElementById("uhrzeitRueckkehr").value.trim(),
+    objekt: document.getElementById("objektSelect").value.trim(),
+    einsatzortBezirk: document.getElementById("einsatzortBezirk").value.trim(),
+    einsatzortStrasse: document.getElementById("einsatzortStrasse").value.trim(),
+    hausnummer: document.getElementById("hausnummer").value.trim(),
+    einsatzortPLZ: document.getElementById("einsatzortPLZ").value.trim(),
+    eigenerEinsatzbereich: document.querySelector("#einsatzbereich-buttons .radio-button.active")?.textContent.trim() || "",
+    einsatzStichwort: document.getElementById("searchInput").value.trim(),
+    berichtErstelltDurch: document.getElementById("berichtErstelltDurch").value.trim(),
+
+    // Einsatzdetails (Step 2)
+    meldung: getChipValues("selected-meldung"),
+    alarmierung: getChipValues("selected-alarmierung"),
+    anwesend: getChipValues("selected-anwesend"),
+    wetter: getChipValues("selected-wetter"),
+    gefahrenklasse: getChipValues("selected-gefahrenklasse"),
+    lageEintreffen: document.getElementById("lageEintreffen").value.trim(),
+    massnahmenEinsatzort: document.getElementById("massnahmenEinsatzort").value.trim(),
+    bemerkungen: document.getElementById("bemerkungen").value.trim(),
+
+    // Verletzte Angaben (Step 2 – Verletzte)
+    verletztePersonen: document.getElementById("verletztePersonen") ? document.getElementById("verletztePersonen").value.trim() : "",
+    getoetetePersonen: document.getElementById("getoetetePersonen") ? document.getElementById("getoetetePersonen").value.trim() : "",
+    gerettetePersonen: document.getElementById("gerettetePersonen") ? document.getElementById("gerettetePersonen").value.trim() : "",
+    verletzteFeuerwehr: document.getElementById("verletzteFeuerwehr") ? document.getElementById("verletzteFeuerwehr").value.trim() : "",
+    getoeteteFeuerwehr: document.getElementById("getoeteteFeuerwehr") ? document.getElementById("getoeteteFeuerwehr").value.trim() : "",
+    geretteteFeuerwehr: document.getElementById("geretteteFeuerwehr") ? document.getElementById("geretteteFeuerwehr").value.trim() : "",
+    verletzteTiere: document.getElementById("verletzteTiere") ? document.getElementById("verletzteTiere").value.trim() : "",
+    getoeteteTiere: document.getElementById("getoeteteTiere") ? document.getElementById("getoeteteTiere").value.trim() : "",
+    geretteteTiere: document.getElementById("geretteteTiere") ? document.getElementById("geretteteTiere").value.trim() : "",
+
+    // Fahrzeuge (Step 3) – hier werden auch die Fahrzeugnamen übergeben
+    fahrzeuge: selectedVehicles,
+
+    // Teamzuweisungen (Step 4)
+    savedAssignments: savedAssignments
+  };
+}
+    
+    // Wird beim Klick auf den "Absenden"-Button aufgerufen
+    function submitData() {
+      let formData = gatherFormData();
+      submitFormData(formData);
+      showSavingScreen();
+    }
+    
+// Entferne eine der beiden submitFormData-Definitionen!
+function submitFormData(formData) {
+  const scriptUrl = "https://script.google.com/macros/s/AKfycbyN32KBNiF57gYzYiOGPlSxt5ffdodFKV-98VDUJU5T9tLlg_1LfRYoAOA-thakV6FB/exec";
+  const script = document.createElement('script');
+  const callbackName = `handleResponse_${Date.now()}`;
+  window[callbackName] = function(response) {
+    console.log("Daten erfolgreich gesendet:", response);
+    document.body.removeChild(script);
+    delete window[callbackName];
+  };
+  script.src = `${scriptUrl}?callback=${callbackName}&formData=${encodeURIComponent(JSON.stringify(formData))}`;
+  document.body.appendChild(script);
+}
+
+
+
+
+    // Zeigt einen Ladebildschirm, der nach 3 Sekunden in den Erfolgsscreen wechselt
+    function showSavingScreen() {
+      document.body.innerHTML = `
+        <div class="saving-container">
+          <div class="loader"></div>
+          Deine Daten werden gespeichert...
+        </div>
+      `;
+      setTimeout(() => {
+        document.body.innerHTML = `
+          <div class="success-message">
+            <div class="success-checkmark">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" width="80" height="80">
+                <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none" stroke="#32cd32" stroke-width="4" />
+                <path class="checkmark" fill="none" stroke="#32cd32" stroke-width="4" d="M14 27l8 8 16-16" stroke-dasharray="52" stroke-dashoffset="52" />
+              </svg>
+            </div>
+            <p>Deine Daten wurden erfolgreich gespeichert!</p>
+          </div>
+          <div class="button-container-success">
+            <button class="success-button" onclick="returnToHome()">Zur Startseite</button>
+            <button class="success-button" onclick="createNewReport()">Weiteren Einsatzbericht erstellen</button>
+          </div>
+        `;
+        const checkmark = document.querySelector(".checkmark");
+        if (checkmark) {
+          checkmark.style.animation = "drawCheck 1s ease forwards";
+        }
+      }, 3000);
+    }
+    
+
+    // Öffnet die Startseite in einem neuen Tab und schließt das aktuelle Fenster
+    function returnToHome() {
+      window.open('https://sites.google.com/view/intranet-feuerwehr-austriax/startseite', '_blank');
+      window.close();
+    }
+    
+    function createNewReport() {
+        window.scrollTo(0, 0);  // Scrollt nach oben
+        setTimeout(() => location.reload(), 500); // Wartet kurz und lädt dann neu
+    }
+    
+    
+    document.getElementById("anwesendSearch").addEventListener("input", function() {
+      filterModalOptions("modal-anwesend", "anwesendSearch");
+    });
+    document.getElementById("wetterSearch").addEventListener("input", function() {
+      filterModalOptions("modal-wetter", "wetterSearch");
+    });
+
+    // Annahme: teamData wurde bereits via loadTeamData() geladen.
+document.getElementById("berichtErstelltDurch").addEventListener("input", function() {
+  const query = this.value.trim().toLowerCase();
+  const cont = document.getElementById("berichtErstellerOptionsContainer");
+  cont.innerHTML = "";
+  if (!query) { 
+    cont.style.display = "none"; 
+    return; 
+  }
+  // Filtere nur aktive Mitglieder (so wie in deinem Team-Modal)
+  const results = teamData.filter(member => {
+    const dg = member["Aktueller Dienstgrad"] || "";
+    const vor = member["Namen"] || "";
+    const nach = member["Nachnamen"] || "";
+    const text = (dg + " " + vor + " " + nach).toLowerCase();
+    return text.includes(query);
+  });
+  if (results.length === 0) { 
+    cont.style.display = "none"; 
+    return; 
+  }
+  results.slice(0, 10).forEach(member => {
+    const dg = member["Aktueller Dienstgrad"] || "";
+    const vor = member["Namen"] || "";
+    const nach = member["Nachnamen"] || "";
+    const displayText = dg + " " + vor + " " + nach;
+    const opt = document.createElement("div");
+    opt.className = "option";
+    opt.textContent = displayText;
+    opt.addEventListener("click", () => { 
+      document.getElementById("berichtErstelltDurch").value = displayText; 
+      cont.style.display = "none"; 
+    });
+    cont.appendChild(opt);
+  });
+  cont.style.display = "block";
+});
+
+function formatDate(dateString) {
+  // Falls du das Datum nicht ändern möchtest, gib einfach den Originalwert zurück
+  return dateString;
+}
+
+  </script>
+</body>
+</html>
