@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Formular mit Token-Zugang</title>
+  <style>
+    /* Allgemeine Stile */
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #212121;
+      color: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    /* Schön gestaltete Token-Login-Seite */
+    #tokenContainer {
+      width: 400px; /* Feste Breite statt max-width */
+      margin: 100px auto;
+      padding: 40px;
+      background: linear-gradient(135deg, #2a2a2a, #1f1f1f);
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.7);
+      text-align: center;
+    }
+    #tokenContainer h2 {
+      margin-bottom: 20px;
+      font-size: 1.8em;
+      letter-spacing: 1px;
+    }
+    /* Input und Button sollen exakt gleich breit sein */
+    #tokenContainer input,
+    #tokenContainer button {
+      width: 100%;
+      box-sizing: border-box; /* Damit Padding in die Gesamtbreite einberechnet wird */
+    }
+    #tokenContainer input {
+      margin: 10px 0;
+      padding: 12px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+    }
+    #tokenContainer button {
+      padding: 12px;
+      border: none;
+      border-radius: 5px;
+      background-color: #AB2328;
+      color: #fff;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background-color 0.3s ease;
+    }
+    #tokenContainer button:hover {
+      background-color: #921b22;
+    }
+    #tokenError {
+      color: #ff6b6b;
+      margin-top: 10px;
+      font-size: 0.9em;
+      display: none; /* wird nur bei Fehlern eingeblendet */
+    }
+
+    /* Hauptinhalt: Multi-Step Formular */
+    #mainContent {
+      display: none;
+    }
+    .progress-container {
+      display: flex;
+      align-items: center;
+      width: 900px;
+      margin: 20px auto 40px auto;
+      background-color: #2a2a2a;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+    }
+    .step {
+      flex-grow: 1;
+      position: relative;
+      padding: 20px;
+      background-color: #3a3a3a;
+      color: #999;
+      text-align: center;
+      font-weight: bold;
+      transition: background-color 0.3s, color 0.3s;
+      border-right: 1px solid #555;
+    }
+    .step.active {
+      background-color: #AB2328;
+      color: #ffffff;
+    }
+    .step:first-child {
+      border-top-left-radius: 8px;
+      border-bottom-left-radius: 8px;
+    }
+    .step:last-child {
+      border-top-right-radius: 8px;
+      border-bottom-right-radius: 8px;
+      border-right: none;
+    }
+    .form-container {
+      background-color: #2a2a2a;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      width: 860px;
+      margin: 0 auto;
+      color: #f0f0f0;
+    }
+    .form-section {
+      display: none;
+    }
+    .form-section.active {
+      display: block;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 15px;
+      width: 48%;
+    }
+    .form-row {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .form-group label {
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #f0f0f0;
+    }
+    .form-group input,
+    .form-group select {
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 5px;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      font-size: 1em;
+    }
+    .form-group input::placeholder {
+      color: #999;
+    }
+    button {
+      background-color: #AB2328;
+      color: #ffffff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #921b22;
+    }
+    .button-container {
+      display: flex;
+      justify-content: space-between;
+    }
+    .upload-instructions {
+      background-color: #3a3a3a;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    .overview-container {
+      background-color: #2a2a2a;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      display: flex;
+      gap: 20px;
+    }
+    .overview-details {
+      flex: 1;
+    }
+    .overview-image-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .overview-image {
+      width: 200px;
+      height: 300px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    .overview-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #444;
+    }
+    .overview-label {
+      font-weight: bold;
+      color: #f0f0f0;
+    }
+    .overview-value {
+      text-align: right;
+    }
+    .saving-container {
+      text-align: center;
+      font-size: 1.7em;
+      font-weight: bold;
+      color: #AB2328;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+    }
+    .loader {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #AB2328;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .success-message {
+      text-align: center;
+      font-size: 1.7em;
+      font-weight: bold;
+      color: #32cd32;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 80vh;
+    }
+    .success-checkmark {
+      width: 120px;
+      height: 120px;
+      position: relative;
+      animation: fadeInCheck 0.5s ease-in-out forwards;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .success-checkmark svg {
+      animation: drawCheck 1s ease forwards;
+    }
+    @keyframes drawCheck {
+      0% { stroke-dasharray: 0, 52; stroke-dashoffset: 52; }
+      100% { stroke-dasharray: 52, 0; stroke-dashoffset: 0; }
+    }
+    @keyframes fadeInCheck {
+      0% { opacity: 0; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Token-Eingabe Seite -->
+  <div id="tokenContainer">
+    <h2>Token eingeben</h2>
+    <input type="text" id="inputToken" placeholder="Token hier eingeben">
+    <button onclick="validateToken()">Bestätigen</button>
+    <div id="tokenError" style="display: none;"></div>
+  </div>
+
+  <!-- Hauptinhalt: Multi-Step Formular -->
+  <div id="mainContent">
+    <div class="progress-container">
+      <div class="step active">Personenbezogene Daten</div>
+      <div class="step">Kontaktinformationen</div>
+      <div class="step">Dateiupload</div>
+      <div class="step">Daten-Übersicht</div>
+    </div>
+
+    <div class="form-container">
+      <form id="multiStepForm">
+        <!-- Personenbezogene Daten Section -->
+        <div class="form-section active">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="anrede">Anrede</label>
+              <select id="anrede" name="anrede">
+                <option value="">Anrede wählen</option>
+                <option value="Herr">Herr</option>
+                <option value="Frau">Frau</option>
+                <option value="Diverse">Diverse</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="titel">Titel</label>
+              <select id="titel" name="titel">
+                <option value="">Titel wählen</option>
+                <option value="Dr.">Dr.</option>
+                <option value="Prof.">Prof.</option>
+                <option value="Dipl.-Ing.">Dipl.-Ing.</option>
+                <option value="Mag.">Mag.</option>
+                <option value="MBA">MBA</option>
+                <option value="B.Sc.">B.Sc.</option>
+                <option value="M.Sc.">M.Sc.</option>
+                <option value="Ph.D.">Ph.D.</option>
+                <option value="Ing.">Ing.</option>
+                <option value="B.A.">B.A.</option>
+                <option value="M.A.">M.A.</option>
+                <option value="LL.M.">LL.M.</option>
+                <option value="DDr.">DDr.</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="vorname">Vorname</label>
+              <input type="text" id="vorname" name="vorname" placeholder="Max">
+            </div>
+            <div class="form-group">
+              <label for="nachname">Nachname</label>
+              <input type="text" id="nachname" name="nachname" placeholder="Mustermann">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="geburtsdatum">Geburtsdatum</label>
+              <input type="date" id="geburtsdatum" name="geburtsdatum">
+            </div>
+            <div class="form-group">
+              <label for="beruf">Beruf</label>
+              <input type="text" id="beruf" name="beruf" placeholder="z.B. Ingenieur">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="geburtsort">Geburtsort</label>
+              <input type="text" id="geburtsort" name="geburtsort" placeholder="Geburtsort">
+            </div>
+            <div class="form-group">
+              <label for="familienstand">Familienstand</label>
+              <select id="familienstand" name="familienstand">
+                <option value="">Familienstand wählen</option>
+                <option value="ledig">Ledig</option>
+                <option value="verheiratet">Verheiratet</option>
+                <option value="geschieden">Geschieden</option>
+                <option value="verwitwet">Verwitwet</option>
+                <option value="getrennt lebend">Getrennt lebend</option>
+                <option value="eingetragene Partnerschaft">Eingetragene Partnerschaft</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="staatsangehoerigkeit">Staatsangehörigkeit</label>
+              <select id="staatsangehoerigkeit" name="staatsangehoerigkeit">
+                <option value="">Staatsangehörigkeit wählen</option>
+                <option value="Deutschland">Deutschland</option>
+                <option value="Österreich">Österreich</option>
+                <option value="Belgien">Belgien</option>
+                <option value="Bulgarien">Bulgarien</option>
+                <option value="Dänemark">Dänemark</option>
+                <option value="Estland">Estland</option>
+                <option value="Finnland">Finnland</option>
+                <option value="Frankreich">Frankreich</option>
+                <option value="Griechenland">Griechenland</option>
+                <option value="Irland">Irland</option>
+                <option value="Italien">Italien</option>
+                <option value="Kroatien">Kroatien</option>
+                <option value="Lettland">Lettland</option>
+                <option value="Litauen">Litauen</option>
+                <option value="Luxemburg">Luxemburg</option>
+                <option value="Malta">Malta</option>
+                <option value="Niederlande">Niederlande</option>
+                <option value="Polen">Polen</option>
+                <option value="Portugal">Portugal</option>
+                <option value="Rumänien">Rumänien</option>
+                <option value="Schweden">Schweden</option>
+                <option value="Slowakei">Slowakei</option>
+                <option value="Slowenien">Slowenien</option>
+                <option value="Spanien">Spanien</option>
+                <option value="Tschechien">Tschechien</option>
+                <option value="Ungarn">Ungarn</option>
+                <option value="Zypern">Zypern</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="nationalitaet">Identifikationsnummer</label>
+              <input type="text" id="nationalitaet" name="nationalitaet" placeholder="Tragen Sie hier Ihre Identifikationsnummer ein">
+            </div>
+          </div>
+        </div>
+
+        <!-- Kontaktinformationen Section -->
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="telefonnummer">Telefonnummer</label>
+              <input type="tel" id="telefonnummer" name="telefonnummer" placeholder="0664 12 34 567">
+            </div>
+            <div class="form-group">
+              <label for="forumsname">Forumsname</label>
+              <input type="text" id="forumsname" name="forumsname" placeholder="MaxMustermann">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="adresse">Adresse</label>
+              <input type="text" id="adresse" name="adresse" placeholder="Musterstraße 1">
+            </div>
+            <div class="form-group">
+              <label for="plz">PLZ</label>
+              <input type="text" id="plz" name="plz" placeholder="8010">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="stadt">Stadt</label>
+              <input type="text" id="stadt" name="stadt" placeholder="Musterstadt">
+            </div>
+            <div class="form-group">
+              <label for="dmail">D-Mail Adresse (Discord)</label>
+              <input type="text" id="dmail" name="dmail" placeholder="discord#1234">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dateiupload Section -->
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-group" style="width: 100%;">
+              <div class="upload-instructions">
+                <p>Bitte laden Sie Ihre Datei auf <a href="https://postimg.cc/" target="_blank" style="color: #ffffff; text-decoration: underline;">https://postimg.cc/</a> hoch und fügen Sie den Direktlink unten ein.</p>
+                <p>Bitte vergewissern Sie sich, dass es sich beim Bild um eine .png Datei handelt!</p>
+              </div>
+            </div>
+            <div class="form-group" style="width: 100%;">
+              <label for="uploadedLink">Direktlink</label>
+              <input type="text" id="uploadedLink" name="uploadedLink" placeholder="https://postimg.cc/...">
+            </div>
+          </div>
+        </div>
+
+        <!-- Daten-Übersicht Section -->
+        <div class="form-section">
+          <h3>Daten-Übersicht</h3>
+          <div class="overview-container">
+            <div class="overview-details">
+              <div class="overview-row">
+                <div class="overview-label">Anrede:</div>
+                <div class="overview-value" id="overviewAnrede">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Titel:</div>
+                <div class="overview-value" id="overviewTitel">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Vorname:</div>
+                <div class="overview-value" id="overviewVorname">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Nachname:</div>
+                <div class="overview-value" id="overviewNachname">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Geburtsdatum:</div>
+                <div class="overview-value" id="overviewGeburtsdatum">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Beruf:</div>
+                <div class="overview-value" id="overviewBeruf">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Geburtsort:</div>
+                <div class="overview-value" id="overviewGeburtsort">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Familienstand:</div>
+                <div class="overview-value" id="overviewFamilienstand">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Staatsangehörigkeit:</div>
+                <div class="overview-value" id="overviewStaatsangehoerigkeit">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Identifikationsnummer:</div>
+                <div class="overview-value" id="overviewNationalitaet">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Telefonnummer:</div>
+                <div class="overview-value" id="overviewTelefonnummer">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Forumsname:</div>
+                <div class="overview-value" id="overviewForumsname">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Adresse:</div>
+                <div class="overview-value" id="overviewAdresse">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">PLZ:</div>
+                <div class="overview-value" id="overviewPLZ">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">Stadt:</div>
+                <div class="overview-value" id="overviewStadt">k.a.</div>
+              </div>
+              <div class="overview-row">
+                <div class="overview-label">D-Mail:</div>
+                <div class="overview-value" id="overviewDmail">k.a.</div>
+              </div>
+            </div>
+            <div class="overview-image-container">
+              <img id="overviewImage" class="overview-image" alt="Hochgeladenes Bild" src="https://via.placeholder.com/200x300">
+            </div>
+          </div>
+        </div>
+
+        <!-- Button Container -->
+        <div class="button-container">
+          <button type="button" id="prevBtn" onclick="nextPrev(-1)" style="display: none;">Zurück</button>
+          <button type="button" id="nextBtn" onclick="nextPrev(1)" style="margin-left: auto;">Weiter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    /********* Token-Validierung & Discord Webhook **********/
+    const tokenScriptUrl = "https://script.google.com/macros/s/AKfycbwxVB9lKWYYSyffyedATDJR1wYbsD0AggMVjySoTzf695pxFtja0QihbHck5pSRRmZo/exec";
+    const discordWebhookUrl = "https://discordapp.com/api/webhooks/1351657469310406687/JFjLZHHwpZNKXx-rYwW-vQ3yZgtS3L5mOsAnXHcknHTfCrpQG-L57oYbIRofcQk0IqXb";
+
+    function validateToken() {
+      const userToken = document.getElementById("inputToken").value;
+      fetch(`${tokenScriptUrl}?action=validate&token=${encodeURIComponent(userToken)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            sendDiscordWebhook(userToken);
+            document.getElementById("tokenContainer").style.display = "none";
+            document.getElementById("mainContent").style.display = "block";
+            showStep(currentStep);
+          } else {
+            const errorDiv = document.getElementById("tokenError");
+            errorDiv.style.display = "block";
+            errorDiv.innerText = data.message || "Ungültiger Token!";
+          }
+        })
+        .catch(error => {
+          console.error("Fehler beim Token validieren:", error);
+          const errorDiv = document.getElementById("tokenError");
+          errorDiv.style.display = "block";
+          errorDiv.innerText = "Fehler beim Token validieren.";
+        });
+    }
+
+    function sendDiscordWebhook(token) {
+      fetch(discordWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `Token ${token} wurde erfolgreich eingelöst.`
+        })
+      }).catch(err => console.error("Fehler beim Senden des Discord Webhooks:", err));
+    }
+
+    /********* Multi-Step Formular **********/
+    let currentStep = 0;
+    const formSections = document.querySelectorAll(".form-section");
+    const progressSteps = document.querySelectorAll(".step");
+
+    function showStep(step) {
+      formSections.forEach((section, index) => {
+        section.classList.toggle("active", index === step);
+      });
+      progressSteps.forEach((stepElement, index) => {
+        stepElement.classList.toggle("active", index === step);
+      });
+      document.getElementById("nextBtn").innerHTML = step === (formSections.length - 1) ? "Absenden" : "Weiter";
+      document.getElementById("prevBtn").style.display = step === 0 ? "none" : "inline-block";
+    }
+
+    function nextPrev(direction) {
+      if (direction === 1 && !validateForm()) return;
+      currentStep += direction;
+      if (currentStep >= formSections.length) {
+        saveFormData();
+        showSavingScreen();
+        return;
+      }
+      if (currentStep === 3) {
+        populateOverview();
+      }
+      showStep(currentStep);
+    }
+
+    function validateForm() {
+      let valid = true;
+      const inputs = formSections[currentStep].querySelectorAll("input, select");
+      inputs.forEach(input => {
+        if (!input.checkValidity()) {
+          input.classList.add("invalid");
+          valid = false;
+        } else {
+          input.classList.remove("invalid");
+        }
+      });
+      return valid;
+    }
+
+    function populateOverview() {
+      const fields = [
+        { formId: "anrede", overviewId: "overviewAnrede" },
+        { formId: "titel", overviewId: "overviewTitel" },
+        { formId: "vorname", overviewId: "overviewVorname" },
+        { formId: "nachname", overviewId: "overviewNachname" },
+        { formId: "geburtsdatum", overviewId: "overviewGeburtsdatum" },
+        { formId: "beruf", overviewId: "overviewBeruf" },
+        { formId: "geburtsort", overviewId: "overviewGeburtsort" },
+        { formId: "familienstand", overviewId: "overviewFamilienstand" },
+        { formId: "staatsangehoerigkeit", overviewId: "overviewStaatsangehoerigkeit" },
+        { formId: "nationalitaet", overviewId: "overviewNationalitaet" },
+        { formId: "telefonnummer", overviewId: "overviewTelefonnummer" },
+        { formId: "forumsname", overviewId: "overviewForumsname" },
+        { formId: "adresse", overviewId: "overviewAdresse" },
+        { formId: "plz", overviewId: "overviewPLZ" },
+        { formId: "stadt", overviewId: "overviewStadt" },
+        { formId: "dmail", overviewId: "overviewDmail" }
+      ];
+      fields.forEach(({ formId, overviewId }) => {
+        const value = document.getElementById(formId).value || "k.a.";
+        document.getElementById(overviewId).innerText = value;
+      });
+      const uploadedLink = document.getElementById("uploadedLink").value;
+      const overviewImage = document.getElementById("overviewImage");
+      if (uploadedLink) {
+        overviewImage.src = uploadedLink;
+        overviewImage.style.display = "block";
+      } else {
+        overviewImage.src = "https://via.placeholder.com/200x300";
+        overviewImage.style.display = "block";
+      }
+    }
+
+    function showSavingScreen() {
+      document.body.innerHTML = `
+        <div class="saving-container">
+          <div class="loader"></div>
+          Deine Daten werden gespeichert
+        </div>
+      `;
+      setTimeout(() => {
+        document.body.innerHTML = `
+          <div class="success-message">
+            <div class="success-checkmark">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" width="80" height="80">
+                <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none" stroke="#32cd32" stroke-width="4" />
+                <path class="checkmark" fill="none" stroke="#32cd32" stroke-width="4" d="M14 27l8 8 16-16" stroke-dasharray="52" stroke-dashoffset="52" />
+              </svg>
+            </div>
+            Deine Daten wurden erfolgreich gespeichert!
+          </div>
+          <button onclick="returnToHome()" style="background-color: #AB2328; color: #ffffff; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: -250px;">
+            Klicke hier, um zur Startseite zu gelangen
+          </button>
+        `;
+        const checkmark = document.querySelector(".checkmark");
+        checkmark.style.animation = "drawCheck 1s ease forwards";
+      }, 3000);
+    }
+
+    function returnToHome() {
+      window.open('https://sites.google.com/view/intranet-feuerwehr-austriax/startseite', '_blank');
+      window.close();
+    }
+
+    function saveFormData() {
+      const formData = {
+        anrede: document.getElementById("anrede").value,
+        titel: document.getElementById("titel").value,
+        vorname: document.getElementById("vorname").value,
+        nachname: document.getElementById("nachname").value,
+        geburtsdatum: document.getElementById("geburtsdatum").value,
+        beruf: document.getElementById("beruf").value,
+        geburtsort: document.getElementById("geburtsort").value,
+        familienstand: document.getElementById("familienstand").value,
+        staatsangehoerigkeit: document.getElementById("staatsangehoerigkeit").value,
+        nationalitaet: document.getElementById("nationalitaet").value,
+        telefonnummer: document.getElementById("telefonnummer").value,
+        forumsname: document.getElementById("forumsname").value,
+        adresse: document.getElementById("adresse").value,
+        plz: document.getElementById("plz").value,
+        stadt: document.getElementById("stadt").value,
+        dmail: document.getElementById("dmail").value,
+        uploadedLink: document.getElementById("uploadedLink").value
+      };
+      submitFormData(formData);
+    }
+
+    function submitFormData(formData) {
+      const scriptUrl = "https://script.google.com/macros/s/AKfycbxaDJppClhz5q8UNU7bBN8L3UXf57VwVyyBCckThRe8ofcsFzvO5lEyw_zBWhCy4W0c/exec";
+      const script = document.createElement('script');
+      const callbackName = `handleResponse_${Date.now()}`;
+      window[callbackName] = function(response) {
+        handleResponse(response);
+        document.body.removeChild(script);
+        delete window[callbackName];
+      };
+      script.src = `${scriptUrl}?callback=${callbackName}&formData=${encodeURIComponent(JSON.stringify(formData))}`;
+      document.body.appendChild(script);
+    }
+
+    function handleResponse(response) {
+      console.log("Formulardaten erfolgreich gesendet:", response);
+    }
+
+    // Initialisierung
+    showStep(currentStep);
+  </script>
+</body>
+</html>

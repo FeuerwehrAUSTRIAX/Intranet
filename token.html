@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Token Erstellen</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #212121;
+      color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #tokenContainer {
+      background-color: #2a2a2a;
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+      max-width: 500px;
+      width: 90%;
+    }
+    h2 {
+      margin-bottom: 30px;
+      font-size: 2em;
+    }
+    #generatedToken {
+      margin-top: 20px;
+      font-size: 1.4em;
+      word-break: break-all;
+    }
+    button {
+      background-color: #AB2328;
+      border: none;
+      color: #fff;
+      padding: 15px 30px;
+      font-size: 1.1em;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+      margin-top: 10px;
+    }
+    button:hover:not(:disabled) {
+      background-color: #921b22;
+      transform: scale(1.02);
+    }
+    button:disabled {
+      background-color: #555;
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+  <div id="tokenContainer">
+    <h2>Token Erstellen</h2>
+    <button id="createTokenButton" onclick="createToken()">Token Erstellen</button>
+    <br>
+    <button id="copyTokenButton" onclick="copyToken()" disabled>Token Kopieren</button>
+    <p id="generatedToken"></p>
+  </div>
+
+  <script>
+    // Ersetze "DEIN_APPS_SCRIPT_ID" mit deiner tatsächlichen Web-App-ID aus dem Apps Script Deployment.
+    const scriptUrl = "https://script.google.com/macros/s/AKfycbwxVB9lKWYYSyffyedATDJR1wYbsD0AggMVjySoTzf695pxFtja0QihbHck5pSRRmZo/exec";
+    let currentToken = "";
+
+    function createToken() {
+      fetch(`${scriptUrl}?action=create`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const tokenText = data.token;
+            currentToken = tokenText;
+            document.getElementById("generatedToken").innerText = "Neuer Token: " + tokenText;
+            copyToClipboard(tokenText); // Token wird automatisch kopiert
+            document.getElementById("createTokenButton").disabled = true;
+            document.getElementById("copyTokenButton").disabled = false;
+          } else {
+            alert("Fehler beim Erstellen des Tokens.");
+          }
+        })
+        .catch(error => console.error("Fehler beim Token erstellen:", error));
+    }
+
+    function copyToken() {
+      // Hier wird jeweils ein neuer Token vom Server abgerufen
+      fetch(`${scriptUrl}?action=create`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const tokenText = data.token;
+            currentToken = tokenText;
+            document.getElementById("generatedToken").innerText = "Neuer Token: " + tokenText;
+            copyToClipboard(tokenText);
+          } else {
+            alert("Fehler beim Erstellen des Tokens.");
+          }
+        })
+        .catch(error => console.error("Fehler beim Token erstellen:", error));
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text)
+        .then(() => console.log('Token wurde in die Zwischenablage kopiert.'))
+        .catch(err => console.error('Fehler beim Kopieren des Tokens: ', err));
+    }
+  </script>
+</body>
+</html>
