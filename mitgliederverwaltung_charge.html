@@ -32,7 +32,7 @@
       border-radius: 8px;
       box-shadow: 0 0 15px rgba(0,0,0,0.7);
       overflow-y: auto;
-      overflow-x: hidden; /* Nur vertikales Scrollen */
+      overflow-x: hidden;
       max-height: 90vh;
       padding: 20px;
     }
@@ -83,7 +83,7 @@
       display: flex;
       width: 100%;
     }
-    /* SIDEBAR: Bilder + Buttons */
+    /* SIDEBAR */
     .sidebar {
       width: 25%;
       background-color: #333333;
@@ -120,7 +120,6 @@
       max-height: 100%;
       border-radius: 5px;
     }
-    /* Button-Container in der Sidebar */
     .sidebar-buttons {
       display: flex;
       flex-direction: column;
@@ -141,18 +140,15 @@
     .sidebar-buttons button:hover {
       background-color: #921b22;
     }
-    /* Abstand nach dem Status-Button */
     #statusToggle {
       margin-bottom: 200px;
     }
-    /* Leichter Abstand zwischen den unteren Buttons */
     #activateEditButton {
       margin-bottom: 10px;
     }
     #editCourseButton {
-      margin-top: 60px; /* Passe den Wert nach Bedarf an */
+      margin-top: 60px;
     }
-    /* Status-Button (Aktiv/Inaktiv) */
     .status-toggle {
       font-weight: bold;
       border: none;
@@ -166,7 +162,7 @@
     .status-toggle.inactive {
       background-color: #6c757d;
     }
-    /* CONTENT-Bereich (Formular) */
+    /* CONTENT (Formular) */
     .content {
       width: 75%;
       display: grid;
@@ -261,7 +257,6 @@
       color: #f0f0f0;
       font-size: 0.85em;
     }
-    /* Toggle Container für "Absolviert" – nur im Edit-Modus sichtbar */
     .toggle-container {
       display: none;
     }
@@ -298,7 +293,6 @@
     .toggle-switch.active::after {
       transform: translateX(26px);
     }
-    /* Zurückziehen-Button – nur im Edit-Modus sichtbar */
     .withdraw-button {
       background-color: #AB2328;
       color: #fff;
@@ -321,7 +315,6 @@
     .course-card.withdrawn h4 {
       color: #ff0000;
     }
-    /* Dunkler Datepicker */
     .ui-datepicker {
       background-color: #2a2a2a;
       border: 1px solid #555;
@@ -355,14 +348,12 @@
     </div>
 
     <div class="content-wrapper">
-      <!-- SIDEBAR (Foto, Dienstgrad, Buttons) -->
+      <!-- SIDEBAR -->
       <div class="sidebar">
         <div class="image-section" id="personalImage">Foto</div>
         <div class="image-section dienstgrad-section" id="dienstgradImage">Dienstgrad</div>
         <div class="sidebar-buttons">
-          <!-- Status-Anzeige -->
           <button id="statusToggle" class="status-toggle inactive" disabled>Inaktiv</button>
-          <!-- Stammdaten & Kursdaten Buttons -->
           <button id="editCourseButton" onclick="activateCourseEditingMode()">Kursdaten bearbeiten</button>
         </div>
       </div>
@@ -528,21 +519,20 @@
 
   <!-- Datalist für aktive Mitglieder -->
   <datalist id="activeMembersList"></datalist>
-  <!-- Datalist für Ausbildner (nur jene mit "Ausbildner? = Ja") -->
+  <!-- Datalist für Ausbildner -->
   <datalist id="trainersList"></datalist>
 
   <script>
     /********************************************************************
      * GLOBAL VARIABLEN
      ********************************************************************/
-    let allRecords = [];             // Alle Datensätze aus der CSV
-    let selectedRecord = null;       // Aktuell gewählter Datensatz
-    let currentSuggestionIndex = -1; // Für Pfeiltasten-Navigation in den Vorschlägen
-    let isEditingCourses = false;    // Steuert Read-Only vs. Bearbeitungsmodus
-    let activeMembers = [];          // Liste aller aktiven Mitglieder
-    let csvHeaders = [];             // Spaltenüberschriften der CSV
+    let allRecords = [];             
+    let selectedRecord = null;       
+    let currentSuggestionIndex = -1; 
+    let isEditingCourses = false;    
+    let activeMembers = [];          
+    let csvHeaders = [];             
 
-    // URL der Web-App (Apps Script)
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbydfJRfAAyFCQfHnxE3Ee5aSyiYgpf8yns8-hT9Uomk4QbRvqAj9MxyEtyogjpBn6eh/exec";
 
     /********************************************************************
@@ -579,19 +569,14 @@
     });
 
     function loadDataFromCSV() {
-      // Link zur CSV-Datei aus Google Sheets
       const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=294937836&single=true&output=csv';
       fetch(csvUrl)
         .then(response => response.text())
         .then(csvText => {
           allRecords = parseCSV(csvText);
           console.log("CSV-Daten geladen:", allRecords);
-
-          // Alle aktiven Mitglieder filtern
           activeMembers = allRecords.filter(r => (r['Aktives Mitglied?'] || '').toLowerCase() === 'ja');
           fillActiveMembersDatalist(activeMembers);
-
-          // Nur Ausbildner filtern
           const trainerMembers = activeMembers.filter(r => (r['Ausbildner?'] || '').toLowerCase() === 'ja');
           fillTrainersDatalist(trainerMembers);
         })
@@ -692,20 +677,17 @@
       $('#dienstgrad').val(record['Aktueller Dienstgrad'] || '');
       $('#beforderung').val(record['Letzte Beförderung'] || '');
       $('#funktion').val(record['Funktion'] || '');
-
       if(record['Personalbild']) {
         $('#personalImage').html(`<img src="${record['Personalbild']}" alt="Personalbild">`);
       } else {
         $('#personalImage').text('Foto');
       }
-
       const dg = record['Aktueller Dienstgrad'];
       if(dg && dienstgradBilder[dg]) {
         $('#dienstgradImage').html(`<img src="${dienstgradBilder[dg]}" alt="${dg}">`);
       } else {
         $('#dienstgradImage').text('Dienstgrad');
       }
-
       const isAusbildner = (record['Ausbildner?'] || '').toLowerCase() === 'ja';
       $('#ausbildnerCheckbox').prop('checked', isAusbildner);
       if(isAusbildner) {
@@ -715,7 +697,6 @@
         $('#ausbildnerFuerSection').hide();
         $('#ausbildner_fuer').val('');
       }
-
       setActiveStatus((record['Aktives Mitglied?'] || '').toLowerCase() === 'ja');
       updateHeaderTitle(record);
       $('.content input, .content select').prop('disabled', true);
@@ -780,7 +761,6 @@
       selectedRecord['Ausbildner?'] = $('#ausbildnerCheckbox').is(':checked') ? 'Ja' : 'Nein';
       selectedRecord['Ausbildner für'] = $('#ausbildner_fuer').val();
 
-      // Aktualisiere den Eintrag in allRecords
       let index = allRecords.findIndex(r => r['Mitgliedsnummer'] === selectedRecord['Mitgliedsnummer']);
       if (index !== -1) {
         allRecords[index] = selectedRecord;
@@ -790,7 +770,7 @@
       $('#ausbildnerEditContainer').hide();
       $('#activateEditButton').text('Stammdaten bearbeiten').attr('onclick','activateEditingMode()');
       fillForm(selectedRecord);
-      alert('Stammdaten wurden aktualisiert und werden übertragen!');
+      // Keine Alert-Nachricht mehr
       uploadCSVToGoogle();
     }
 
@@ -820,7 +800,6 @@
             completed: (record[`${courseName} - Absolviert`] || '').toLowerCase() === 'ja',
             withdrawn: record[`${courseName} - Zurückgezogen`] || ''
           };
-          // Bei Nicht-Bearbeitungsmodus: Nur Kurse anzeigen, die abgeschlossen oder zurückgezogen sind
           if(!isEditingCourses) {
             if(!courseData.completed && !courseData.withdrawn) return;
           }
@@ -866,11 +845,12 @@
       $(toggle).toggleClass('active');
     }
 
+    // Hier wird der Zeitstempel so angepasst, dass Datum und Uhrzeit in einer Zelle stehen:
     function toggleWithdrawCourse(button) {
       const card = $(button).closest('.course-card');
       const courseName = card.data('course');
       const isWithdrawn = card.hasClass('withdrawn');
-      if(isWithdrawn) {
+      if (isWithdrawn) {
         card.removeClass('withdrawn');
         $(button).text('Zurückziehen');
         card.find('.withdrawn-info').remove();
@@ -878,7 +858,12 @@
       } else {
         card.addClass('withdrawn');
         $(button).text('Freigeben');
-        const now = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+        let now = new Date().toLocaleString('de-DE', {
+          timeZone: 'Europe/Berlin',
+          hour12: false
+        });
+        // Ersetze Kommas und entferne Zeilenumbrüche, sodass der gesamte Zeitstempel in einer Zeile steht
+        now = now.replace(/,/g, " ").replace(/[\r\n]+/g, " ");
         card.append(`<div class="withdrawn-info">Kurs zurückgezogen am: ${now}</div>`);
         selectedRecord[`${courseName} - Zurückgezogen`] = now;
       }
@@ -908,7 +893,6 @@
           selectedRecord[`${courseName} - Zurückgezogen`] = '';
         }
       });
-      // Aktualisiere den Datensatz in der globalen Liste allRecords
       let index = allRecords.findIndex(r => r['Mitgliedsnummer'] === selectedRecord['Mitgliedsnummer']);
       if (index !== -1) {
         allRecords[index] = selectedRecord;
@@ -917,7 +901,6 @@
       isEditingCourses = false;
       displayCourses(selectedRecord);
       $('#editCourseButton').text('Kursdaten bearbeiten').attr('onclick','activateCourseEditingMode()');
-      alert('Kursdaten lokal aktualisiert!');
       uploadCSVToGoogle();
     }
 
@@ -973,7 +956,6 @@
       });
     }
 
-    // Angepasste generateCSV-Funktion, die fehlende Schlüssel in csvHeaders ergänzt
     function generateCSV(records) {
       records.forEach(record => {
         for (const key in record) {
