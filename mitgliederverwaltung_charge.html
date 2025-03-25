@@ -126,7 +126,6 @@
       flex-direction: column;
       align-items: center;
       width: 100%;
-      
     }
     .sidebar-buttons button {
       width: 100%;
@@ -150,12 +149,9 @@
     #activateEditButton {
       margin-bottom: 10px;
     }
-
     #editCourseButton {
-  /* Falls noch nicht vorhanden */
-  margin-top: 60px; /* Passe den Wert nach Bedarf an */
-}
-
+      margin-top: 60px; /* Passe den Wert nach Bedarf an */
+    }
     /* Status-Button (Aktiv/Inaktiv) */
     .status-toggle {
       font-weight: bold;
@@ -325,7 +321,6 @@
     .course-card.withdrawn h4 {
       color: #ff0000;
     }
-
     /* Dunkler Datepicker */
     .ui-datepicker {
       background-color: #2a2a2a;
@@ -364,11 +359,10 @@
       <div class="sidebar">
         <div class="image-section" id="personalImage">Foto</div>
         <div class="image-section dienstgrad-section" id="dienstgradImage">Dienstgrad</div>
-        
         <div class="sidebar-buttons">
           <!-- Status-Anzeige -->
           <button id="statusToggle" class="status-toggle inactive" disabled>Inaktiv</button>
-          <!-- Stammdaten & Kursdaten Buttons (übereinander, weiter unten) -->
+          <!-- Stammdaten & Kursdaten Buttons -->
           <button id="editCourseButton" onclick="activateCourseEditingMode()">Kursdaten bearbeiten</button>
         </div>
       </div>
@@ -548,7 +542,7 @@
     let activeMembers = [];          // Liste aller aktiven Mitglieder
     let csvHeaders = [];             // Spaltenüberschriften der CSV
 
-    // WEB_APP_URL – hier die von dir angegebene URL der Web-App
+    // URL der Web-App (Apps Script)
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbydfJRfAAyFCQfHnxE3Ee5aSyiYgpf8yns8-hT9Uomk4QbRvqAj9MxyEtyogjpBn6eh/exec";
 
     /********************************************************************
@@ -585,7 +579,7 @@
     });
 
     function loadDataFromCSV() {
-      // Link zu deiner CSV-Datei aus Google Sheets
+      // Link zur CSV-Datei aus Google Sheets
       const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=294937836&single=true&output=csv';
       fetch(csvUrl)
         .then(response => response.text())
@@ -593,11 +587,11 @@
           allRecords = parseCSV(csvText);
           console.log("CSV-Daten geladen:", allRecords);
 
-          // Alle aktiven Mitglieder
+          // Alle aktiven Mitglieder filtern
           activeMembers = allRecords.filter(r => (r['Aktives Mitglied?'] || '').toLowerCase() === 'ja');
           fillActiveMembersDatalist(activeMembers);
 
-          // Nur jene, die Ausbildner sind
+          // Nur Ausbildner filtern
           const trainerMembers = activeMembers.filter(r => (r['Ausbildner?'] || '').toLowerCase() === 'ja');
           fillTrainersDatalist(trainerMembers);
         })
@@ -627,7 +621,6 @@
       });
     }
 
-    // Nur Ausbildner
     function fillTrainersDatalist(ausbildner) {
       const datalist = $('#trainersList');
       datalist.empty();
@@ -787,7 +780,7 @@
       selectedRecord['Ausbildner?'] = $('#ausbildnerCheckbox').is(':checked') ? 'Ja' : 'Nein';
       selectedRecord['Ausbildner für'] = $('#ausbildner_fuer').val();
 
-      // Aktualisiere den Eintrag in allRecords (identifiziert über Mitgliedsnummer)
+      // Aktualisiere den Eintrag in allRecords
       let index = allRecords.findIndex(r => r['Mitgliedsnummer'] === selectedRecord['Mitgliedsnummer']);
       if (index !== -1) {
         allRecords[index] = selectedRecord;
@@ -827,7 +820,7 @@
             completed: (record[`${courseName} - Absolviert`] || '').toLowerCase() === 'ja',
             withdrawn: record[`${courseName} - Zurückgezogen`] || ''
           };
-          // Wenn nicht im Bearbeitungsmodus: Nur Kurse anzeigen, die absolviert oder zurückgezogen sind
+          // Bei Nicht-Bearbeitungsmodus: Nur Kurse anzeigen, die abgeschlossen oder zurückgezogen sind
           if(!isEditingCourses) {
             if(!courseData.completed && !courseData.withdrawn) return;
           }
@@ -840,7 +833,6 @@
               </div>
               <div class="field-container">
                 <label>Ausbildner:</label>
-                <!-- Hier nur die Ausbildner-Liste -->
                 <input class="trainer" type="text" value="${courseData.trainer}" list="trainersList">
               </div>
               <div class="field-container">
@@ -916,6 +908,12 @@
           selectedRecord[`${courseName} - Zurückgezogen`] = '';
         }
       });
+      // Aktualisiere den Datensatz in der globalen Liste allRecords
+      let index = allRecords.findIndex(r => r['Mitgliedsnummer'] === selectedRecord['Mitgliedsnummer']);
+      if (index !== -1) {
+        allRecords[index] = selectedRecord;
+      }
+      
       isEditingCourses = false;
       displayCourses(selectedRecord);
       $('#editCourseButton').text('Kursdaten bearbeiten').attr('onclick','activateCourseEditingMode()');
@@ -975,10 +973,18 @@
       });
     }
 
+    // Angepasste generateCSV-Funktion, die fehlende Schlüssel in csvHeaders ergänzt
     function generateCSV(records) {
+      records.forEach(record => {
+        for (const key in record) {
+          if (csvHeaders.indexOf(key) === -1) {
+            csvHeaders.push(key);
+          }
+        }
+      });
       let csv = csvHeaders.join(',') + '\n';
       records.forEach(record => {
-        const row = csvHeaders.map(header => record[header.trim()] || '').join(',');
+        const row = csvHeaders.map(header => record[header] || '').join(',');
         csv += row + '\n';
       });
       return csv;
