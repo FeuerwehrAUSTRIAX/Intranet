@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interaktive Karte mit Filter & Refresh</title>
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Papa Parse zum korrekten Einlesen der CSV -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    /* Basis-Stile */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #212121;
+      color: #f0f0f0;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+      background: transparent;
+    }
+    .leaflet-popup-content-wrapper {
+      background-color: #2a2a2a !important;
+      color: #f0f0f0;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+      max-width: 450px;
+    }
+    .leaflet-popup-content h3 {
+      background-color: #AB2328;
+      color: white;
+      padding: 8px;
+      border-radius: 5px;
+      font-size: 18px;
+      text-align: center;
+      margin: 0 0 10px;
+    }
+    .leaflet-popup-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .leaflet-popup-content td,
+    .leaflet-popup-content th {
+      padding: 6px;
+      border: 1px solid #444;
+      word-wrap: break-word;
+    }
+    .leaflet-popup-content td:first-child {
+      font-weight: bold;
+      width: 30%;
+    }
+    .popup-image {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 5px;
+      margin-top: 10px;
+    }
+    .leaflet-popup-content a {
+      color: #AB2328;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .leaflet-popup-content a:hover {
+      text-decoration: underline;
+    }
+    .leaflet-popup-content button {
+      background-color: #AB2328;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .leaflet-popup-content button:hover {
+      background-color: #921b22;
+    }
+    /* Marker */
+    .custom-marker {
+      display: flex;
+      align-items: center;
+      transform: translate(-50%, -100%);
+    }
+    .custom-marker img {
+      height: 25px;
+      width: auto;
+      vertical-align: middle;
+    }
+    .bma-symbol {
+      margin-left: 5px;
+    }
+    /* Steuerungsbereich (Filter & Refresh) */
+    #controlPanel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      width: 160px;
+    }
+    #categoryFilter {
+      background: rgba(255, 255, 255, 0.9);
+      color: #000;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      width: calc(100% - 20px);
+      margin-bottom: 5px;
+      margin-right: 20px;
+    }
+    #categoryFilterHeader {
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #categoryFilterContent {
+      margin-top: 5px;
+      display: none;
+    }
+    #categoryFilterContent label {
+      display: block;
+      margin-bottom: 3px;
+    }
+    #refreshButton button {
+      background-color: #AB2328;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+    }
+    #refreshButton button:hover {
+      background-color: #921b22;
+    }
+    /* Aufklappbare Bereiche in den Popups (wird nun per Modal angezeigt) */
+    .popup-section {
+      margin-top: 10px;
+    }
+    .toggle-button {
+      background-color: #AB2328;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 14px;
+    }
+    .toggle-button:hover {
+      background-color: #921b22;
+    }
+    .section-content {
+      background-color: #2a2a2a;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 5px;
+    }
+    .section-content p {
+      white-space: pre-wrap;
+      margin: 0;
+    }
+    /* Modal Overlay – Hintergrund ausgegraut, zentriertes Fenster im Popup-Stil */
+    #modalOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+    #modalContent {
+      background-color: #2a2a2a;
+      color: #f0f0f0;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+      max-width: 500px;
+      width: 90%;
+      max-height: 90%;
+      overflow: auto;
+      position: relative;
+    }
+    #closeModal {
+      cursor: pointer;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 24px;
+      color: #f0f0f0;
+    }
+    /* Modal Header und Body im Popup-Stil – zentriert */
+    .modalHeader {
+      background-color: #AB2328;
+      color: white;
+      padding: 10px;
+      font-size: 18px;
+      border-radius: 5px 5px 0 0;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .modalBody {
+      padding: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <!-- Steuerungsbereich -->
+  <div id="controlPanel">
+    <div id="categoryFilter">
+      <div id="categoryFilterHeader">
+        <span>Filter</span>
+        <span id="toggleArrow">►</span>
+      </div>
+      <div id="categoryFilterContent">
+        <div id="categories"></div>
+        <label>
+          <input type="checkbox" id="bmaToggle" checked /> BMA Symbol anzeigen
+        </label>
+      </div>
+    </div>
+    <div id="refreshButton">
+      <button onclick="refreshData()">Daten aktualisieren</button>
+    </div>
+  </div>
+
+  <!-- Modal Overlay für zusätzliche Informationen/Kontaktdaten -->
+  <div id="modalOverlay" onclick="closeModal()">
+    <div id="modalContent" onclick="event.stopPropagation()">
+      <span id="closeModal" onclick="closeModal()">&times;</span>
+      <div id="modalInnerContent"></div>
+    </div>
+  </div>
+  
+  <script>
+    // Hilfsfunktion: Sucht in einem Row-Objekt (case-insensitive) nach dem gewünschten Feldnamen.
+    // Entfernt zudem führende und endende Anführungszeichen.
+    function getField(row, fieldName) {
+      for (var key in row) {
+        if (key.trim().toLowerCase() === fieldName.trim().toLowerCase()) {
+          return (row[key] || "").replace(/^"+|"+$/g, "");
+        }
+      }
+      return "";
+    }
+    
+    // Modal-Funktionen – nun mit einem zentrierten Header (rot hinterlegt, weiße Schrift)
+    function openModal(title, contentHtml) {
+      var modalOverlay = document.getElementById("modalOverlay");
+      var modalInnerContent = document.getElementById("modalInnerContent");
+      modalInnerContent.innerHTML = '<div class="modalHeader">' + title + '</div><div class="modalBody">' + contentHtml + '</div>';
+      modalOverlay.style.display = "flex";
+    }
+    function closeModal(e) {
+      if(e) e.stopPropagation();
+      document.getElementById("modalOverlay").style.display = "none";
+    }
+    
+    // Karte initialisieren (CRS.Simple, da es sich um ein Bild handelt)
+    var map = L.map("map", {
+      crs: L.CRS.Simple,
+      minZoom: -2,
+      maxZoom: 2,
+      dragging: true,
+      zoomControl: true,
+      scrollWheelZoom: true,
+      touchZoom: true,
+      doubleClickZoom: true,
+    });
+    var bounds = [
+      [0, 0],
+      [5000, 5000],
+    ];
+    L.imageOverlay("https://github.com/dieserkleinmann/Einsatzkarte/blob/main/Karte_AX.png?raw=true", bounds).addTo(map);
+    map.fitBounds(bounds);
+    
+    // LayerGroup für alle Marker
+    var markers = L.layerGroup().addTo(map);
+    var markersByCategory = {};
+    
+    // CSV-Quelle (Google Spreadsheet)
+    var csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=1389818837&single=true&output=csv";
+    
+    // CSV-Daten mit Papa Parse laden
+    function loadCSVData() {
+      markersByCategory = {};
+      Papa.parse(csvUrl, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          results.data.forEach(function(row) {
+            var poi             = getField(row, "POI").trim();
+            var kategorie       = getField(row, "Kategorie").trim();
+            var adresseStrasse  = getField(row, "Adresse Straße").trim();
+            var hausnummer      = getField(row, "Hausnummer").trim();
+            var plz             = getField(row, "Adresse PLZ").trim();
+            var bezirk          = getField(row, "Adresse Bezirk").trim();
+            var adresse         = adresseStrasse + " " + hausnummer + ", " + plz + " " + bezirk;
+            var location        = getField(row, "Lage").replace(/"/g, "").trim();
+            var iconUrl         = getField(row, "ICON").trim();
+            var bma             = getField(row, "BMA").trim().toLowerCase();
+            var bmaCode         = getField(row, "BMA-Code").trim();
+            var objektbild      = getField(row, "Objektbild").trim();
+            var brandschutzplan = getField(row, "Brandschutzplan").trim();
+            var besonderheit    = getField(row, "Besonderheit").trim();
+            var kontaktdaten    = getField(row, "Kontaktdaten").trim();
+    
+            // Bei Besonderheiten: Zeilenumbrüche in <br> umwandeln
+            if(besonderheit) {
+              besonderheit = besonderheit.replace(/\r?\n/g, "<br>");
+            }
+    
+            // Bei Kontaktdaten: Alle Anführungszeichen entfernen
+            if(kontaktdaten) {
+              kontaktdaten = kontaktdaten.replace(/"/g, "");
+            }
+    
+            // Lage im Format "lat lng"
+            var parts = location.split(" ");
+            var lat = parseFloat(parts[0]);
+            var lng = parseFloat(parts[1]);
+            if(!isNaN(lat) && !isNaN(lng)) {
+              // Marker-HTML: Icon und ggf. BMA-Symbol
+              var markerHTML = `<div class="custom-marker">
+                                  <img src="${iconUrl}" alt="${poi}">`;
+              if(bma === "ja") {
+                markerHTML += `<img src="https://www.ff-forchtenau.at/mb/wp-content/uploads/2019/12/Freiwillige_Feuerwehr_Forchtenau_BGLD_BMA.gif" alt="BMA" class="bma-symbol">`;
+              }
+              markerHTML += `</div>`;
+    
+              var customIcon = L.divIcon({
+                html: markerHTML,
+                className: "",
+                popupAnchor: [0, -30],
+              });
+    
+              // Popup-Inhalt aufbauen – POI als Überschrift, vollständige Adresse etc.
+              var popupContent = `<div>
+                                  <h3>${poi}</h3>
+                                  <table>
+                                    <tr><td>Kategorie</td><td>${kategorie}</td></tr>
+                                    <tr><td>Adresse</td><td>${adresse}</td></tr>
+                                  </table>`;
+              if(bma === "ja") {
+                popupContent += `<table>
+                                   <tr><td>BMA-Code</td><td>${bmaCode}</td></tr>
+                                   <tr><td>Brandschutzplan</td><td><a onclick="openImage('${brandschutzplan}')">Anzeigen</a></td></tr>
+                                 </table>`;
+              }
+              if(objektbild) {
+                popupContent += `<img src="${objektbild}" class="popup-image">`;
+              }
+              // Besonderheiten als Button – Inhalt wird im Modal angezeigt
+              if(besonderheit) {
+                popupContent += `<div class="popup-section">
+                                  <button class="toggle-button" onclick="openModal('Besonderheiten', this.nextElementSibling.innerHTML)">Besonderheiten anzeigen</button>
+                                  <div class="section-content" style="display:none;"><p>${besonderheit}</p></div>
+                                </div>`;
+              }
+              // Kontaktdaten als Button – Inhalt wird im Modal angezeigt
+              if(kontaktdaten) {
+                var kontaktdatenTable = `<table style="width:100%; border-collapse: collapse;">
+                                          <tr>
+                                            <th style="padding:4px; border:1px solid #444; color:white; text-align:center;">Position / Name</th>
+                                            <th style="padding:4px; border:1px solid #444; text-align:center;">Telefonnummer</th>
+                                          </tr>`;
+                var lines = kontaktdaten.split(/\r?\n/);
+                lines.forEach(function(line) {
+                  if(line.trim() === "") return;
+                  var parts = line.split("Tel.:");
+                  var left = parts[0].trim();
+                  var right = parts[1] ? parts[1].trim() : "";
+                  kontaktdatenTable += `<tr>
+                                          <td style="padding:4px; border:1px solid #444; color:white; text-align:center;">${left}</td>
+                                          <td style="padding:4px; border:1px solid #444; text-align:center;">${right}</td>
+                                        </tr>`;
+                });
+                kontaktdatenTable += `</table>`;
+                popupContent += `<div class="popup-section">
+                                  <button class="toggle-button" onclick="openModal('Kontaktdaten', this.nextElementSibling.innerHTML)">Kontaktdaten anzeigen</button>
+                                  <div class="section-content" style="display:none;">${kontaktdatenTable}</div>
+                                </div>`;
+              }
+    
+              popupContent += `<button onclick="closePopup()">Schließen</button></div>`;
+    
+              var marker = L.marker([lat, lng], { icon: customIcon }).bindPopup(popupContent);
+    
+              if(!markersByCategory[kategorie]) {
+                markersByCategory[kategorie] = [];
+              }
+              markersByCategory[kategorie].push(marker);
+            }
+          });
+          buildCategoryFilter();
+          updateMarkers();
+          toggleBMA();
+        }
+      });
+    }
+    
+    function closePopup() {
+      map.closePopup();
+    }
+    function openImage(url) {
+      window.open(url, "_blank");
+    }
+    
+    // Clipboard-Funktion (Koordinaten kopieren)
+    function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text)
+          .then(() => console.log("Koordinaten kopiert: " + text))
+          .catch((err) => {
+            console.error("Fehler beim Kopieren:", err);
+            fallbackCopyTextToClipboard(text);
+          });
+      } else {
+        fallbackCopyTextToClipboard(text);
+      }
+    }
+    function fallbackCopyTextToClipboard(text) {
+      var textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.top = "-1000px";
+      textArea.style.left = "-1000px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Fallback: Koordinaten kopiert: " + text);
+      } catch (err) {
+        console.error("Fallback: Fehler beim Kopieren", err);
+      }
+      document.body.removeChild(textArea);
+    }
+    
+    map.on("click", function(e) {
+      var coordString = e.latlng.lat.toFixed(2) + " " + e.latlng.lng.toFixed(2);
+      copyToClipboard(coordString);
+    });
+    
+    function buildCategoryFilter() {
+      var filterDiv = document.getElementById("categories");
+      filterDiv.innerHTML = "";
+      for (var cat in markersByCategory) {
+        var label = document.createElement("label");
+        var checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.name = "category";
+        checkbox.value = cat;
+        checkbox.checked = true;
+        checkbox.addEventListener("change", updateMarkers);
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(" " + cat));
+        filterDiv.appendChild(label);
+      }
+      document.getElementById("bmaToggle").addEventListener("change", toggleBMA);
+    }
+    
+    function updateMarkers() {
+      markers.clearLayers();
+      var checkboxes = document.querySelectorAll('#categoryFilterContent input[name="category"]');
+      checkboxes.forEach(function(checkbox) {
+        if (checkbox.checked) {
+          var cat = checkbox.value;
+          markersByCategory[cat].forEach(function(marker) {
+            markers.addLayer(marker);
+          });
+        }
+      });
+      toggleBMA();
+    }
+    
+    document.getElementById("categoryFilterHeader").addEventListener("click", function(){
+      var contentDiv = document.getElementById("categoryFilterContent");
+      var toggleArrow = document.getElementById("toggleArrow");
+      if(contentDiv.style.display === "none" || contentDiv.style.display === ""){
+         contentDiv.style.display = "block";
+         toggleArrow.innerText = "▼";
+      } else {
+         contentDiv.style.display = "none";
+         toggleArrow.innerText = "►";
+      }
+    });
+    
+    function toggleBMA() {
+      var showBma = document.getElementById("bmaToggle").checked;
+      document.querySelectorAll(".bma-symbol").forEach(function(el) {
+        el.style.display = showBma ? "inline-block" : "none";
+      });
+    }
+    
+    // Alte toggleSection() entfällt – wir nutzen openModal() statt eines reinen In-Place-Toggles.
+    
+    function refreshData() {
+      markers.clearLayers();
+      loadCSVData();
+    }
+    
+    // Initialer Ladevorgang
+    loadCSVData();
+  </script>
+</body>
+</html>
