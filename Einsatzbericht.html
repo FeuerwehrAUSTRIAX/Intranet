@@ -2160,28 +2160,35 @@ function gatherFormData() {
     savedAssignments: savedAssignments
   };
 }
-    
-    // Wird beim Klick auf den "Absenden"-Button aufgerufen
-    function submitData() {
-      let formData = gatherFormData();
-      submitFormData(formData);
-      showSavingScreen();
-    }
-    
-// Entferne eine der beiden submitFormData-Definitionen!
+// ganz oben, damit formData im Callback zur Verfügung steht:
+let lastFormData = null;
+
+function submitData() {
+  lastFormData = gatherFormData();
+  submitFormData(lastFormData);
+  showSavingScreen();
+}
+
 function submitFormData(formData) {
-  const scriptUrl = "https://script.google.com/macros/s/AKfycbyN32KBNiF57gYzYiOGPlSxt5ffdodFKV-98VDUJU5T9tLlg_1LfRYoAOA-thakV6FB/exec";
-  const script = document.createElement('script');
+  const scriptUrl = 'https://script.google.com/macros/s/AKfycbylCvSglWLBwm3XOZLPpymvIapeHiRX7vGXNDk45dz1htaozRswZfb6q0jKjmoxn3hXRg/exec';
   const callbackName = `handleResponse_${Date.now()}`;
+
   window[callbackName] = function(response) {
-    console.log("Daten erfolgreich gesendet:", response);
+    // 1) Alert mit der zurückgegebenen ID
+    alert("Einsatzbericht Nr. " + response.id + " erfolgreich gespeichert!");
+
+    // 2) Discord-Webhook erst jetzt senden, inklusive der ID
+    sendDiscordWebhook(Object.assign({}, lastFormData, { id: response.id }));
+
+    // Cleanup
     document.body.removeChild(script);
     delete window[callbackName];
   };
+
+  const script = document.createElement('script');
   script.src = `${scriptUrl}?callback=${callbackName}&formData=${encodeURIComponent(JSON.stringify(formData))}`;
   document.body.appendChild(script);
 }
-
 
 
 
@@ -2277,6 +2284,190 @@ document.getElementById("berichtErstelltDurch").addEventListener("input", functi
 function formatDate(dateString) {
   // Falls du das Datum nicht ändern möchtest, gib einfach den Originalwert zurück
   return dateString;
+}
+
+document.querySelectorAll('.options-container .option, .modal-content li').forEach(opt => {
+  opt.setAttribute('tabindex','-1');
+});
+
+// --- Navigation in den Such-Dropdowns ---
+document.querySelectorAll('.searchable-select input').forEach(input => {
+  let idx = -1;
+  const container = input.nextElementSibling; // .options-container
+
+  input.addEventListener('keydown', e => {
+    const opts = Array.from(container.querySelectorAll('.option'));
+    if (!opts.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      idx = Math.min(idx + 1, opts.length - 1);
+      opts.forEach(o=>o.classList.toggle('highlighted', false));
+      opts[idx].classList.add('highlighted');
+      opts[idx].focus();
+    }
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      idx = Math.max(idx - 1, 0);
+      opts.forEach(o=>o.classList.toggle('highlighted', false));
+      opts[idx].classList.add('highlighted');
+      opts[idx].focus();
+    }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (idx >= 0) opts[idx].click();
+    }
+  });
+
+  // Resette Index, wenn man neu tippt
+  input.addEventListener('input', () => { idx = -1; });
+  input.addEventListener('focus', () => { idx = -1; });
+});
+
+// --- Navigation in den Modal-Listen ---
+document.querySelectorAll('.modal-content').forEach(modal => {
+  const items = Array.from(modal.querySelectorAll('li'));
+  let j = -1;
+
+  modal.addEventListener('keydown', e => {
+    if (!['ArrowDown','ArrowUp','Enter'].includes(e.key)) return;
+    e.preventDefault();
+    if (e.key === 'ArrowDown') {
+      j = Math.min(j + 1, items.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      j = Math.max(j - 1, 0);
+    } else if (e.key === 'Enter') {
+      if (j >= 0) {
+        const checkbox = items[j].querySelector('input[type=checkbox], .modal-team-item');
+        checkbox.click();
+        return;
+      }
+    }
+    items.forEach(li => li.classList.toggle('highlighted', false));
+    items[j].classList.add('highlighted');
+    items[j].focus();
+  });
+
+  // Beim Öffnen des Modals Fokus auf das UL setzen
+  modal.addEventListener('transitionend', () => {
+    if (modal.classList.contains('active')) {
+      modal.querySelector('ul, .modal-team-list').focus();
+      j = -1;
+    }
+  });
+});
+
+// --- Highlight-CSS hinzufügen (falls noch nicht da) ---
+const style = document.createElement('style');
+style.innerHTML = `
+  .option.highlighted,
+  .modal-content li.highlighted {
+    background-color: #555 !important;
+    outline: none;
+  }
+  .modal-content ul,
+  .modal-team-list {
+    outline: none;
+  }
+`;
+document.head.appendChild(style);
+
+
+// --- Discord Webhook ---
+
+
+// ————— Discord Webhook —————
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1374069914989756536/90j1ZmzIDc-DL53diQANrpn1cz4HNulAriteeTJOJ1Mres1gTruKOYFpMBevdVEcblC5';
+
+async function sendDiscordWebhook(formData) {
+  const f = (name, value, inline = false) => ({
+    name,
+    value: value && value !== '' ? value : '–',
+    inline
+  });
+
+  // Fahrzeuge auflisten
+  const fahrzeugeList = formData.fahrzeuge.length
+    ? formData.fahrzeuge.map(fz => `• ${fz.fahrzeugName}`).join('\n')
+    : '–';
+
+  // Mannschaft auflisten
+  const mannschaftList = Object.values(formData.savedAssignments)
+    .flatMap(seats => Object.values(seats))
+    .map(a => `• ${a.displayText} – ${a.role}`)
+    .join('\n') || '–';
+
+  const embed = {
+    // ID im Titel verwenden
+    title: `🚒 Neuer Einsatzbericht #${formData.id}`,
+    color: 0xAB2328,
+    fields: [
+
+      // 1) Beginn & Ende als separate Felder
+      f('⏱ Beginn', `${formData.datum} ${formData.uhrzeitAlarmierung}`, true),
+      f('⏱ Ende',   `${formData.einsatzEnde} ${formData.uhrzeitRueckkehr}`, true),
+
+      // 2) Objekt & Stichwort
+      f('📍 Objekt & Adresse',
+        `${formData.objekt}\n` +
+        `${formData.einsatzortStrasse} ${formData.hausnummer}, ` +
+        `${formData.einsatzortPLZ} ${formData.einsatzortBezirk}`
+      ),
+      f('💬 Stichwort', formData.einsatzStichwort),
+
+      // 3) Alarmierung & Infos
+      f('📡 Alarmierung / Wetter / Gefahr',
+        `• Alarmierung: ${formData.alarmierung || '–'}\n` +
+        `• Wetter:      ${formData.wetter      || '–'}\n` +
+        `• Gefahr:      ${formData.gefahrenklasse || '–'}`
+      ),
+      f('🔔 Meldung & Anwesend',
+        `• Meldung:   ${formData.meldung   || '–'}\n` +
+        `• Anwesend:  ${formData.anwesend || '–'}`
+      ),
+
+      // 4) Verletzte nebeneinander
+      f('⚕️ Personen', 
+        `• Verletzt: ${formData.verletztePersonen || 0}\n` +
+        `• Getötet:  ${formData.getoetetePersonen  || 0}\n` +
+        `• Gerettet: ${formData.gerettetePersonen || 0}`,
+        true
+      ),
+      f('🚒 Feuerwehr',
+        `• Verletzt: ${formData.verletzteFeuerwehr || 0}\n` +
+        `• Getötet:  ${formData.getoeteteFeuerwehr  || 0}\n` +
+        `• Gerettet: ${formData.geretteteFeuerwehr || 0}`,
+        true
+      ),
+      f('🐾 Tiere',
+        `• Verletzt: ${formData.verletzteTiere || 0}\n` +
+        `• Getötet:  ${formData.getoeteteTiere  || 0}\n` +
+        `• Gerettet: ${formData.geretteteTiere || 0}`,
+        true
+      ),
+
+      // 5) Fahrzeuge & Mannschaft
+      f('🚗 Fahrzeuge', fahrzeugeList),
+      f('👨‍🚒 Mannschaft', mannschaftList),
+
+      // 6) Notizen
+      f('📝 Notizen',
+        `• Lage:      ${formData.lageEintreffen        || '–'}\n` +
+        `• Maßnahmen: ${formData.massnahmenEinsatzort || '–'}\n` +
+        `• Bemerkungen:${formData.bemerkungen          || '–'}`
+      ),
+
+      // 7) ganz unten: Wer hat’s erstellt?
+      f('👤 Bericht erstellt durch', formData.berichtErstelltDurch)
+    ],
+    timestamp: new Date().toISOString()
+  };
+
+  await fetch(DISCORD_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ embeds: [embed] })
+  });
 }
 
   </script>
