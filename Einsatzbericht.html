@@ -619,6 +619,8 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      margin-bottom: 100px;
+      margin-top: -50px;  
     }
 
  /* Container für jede Fahrzeug-Kategorie */
@@ -2165,63 +2167,53 @@ let lastFormData = null;
 
 function submitData() {
   lastFormData = gatherFormData();
-  submitFormData(lastFormData);
-  showSavingScreen();
+  showSavingScreen();       // Loader anzeigen…
+  submitFormData(lastFormData); // … und danach JSONP-Request absetzen
 }
+
 
 function submitFormData(formData) {
   const scriptUrl = 'https://script.google.com/macros/s/AKfycbylCvSglWLBwm3XOZLPpymvIapeHiRX7vGXNDk45dz1htaozRswZfb6q0jKjmoxn3hXRg/exec';
   const callbackName = `handleResponse_${Date.now()}`;
 
+  // 1) Callback-Funktion global registrieren
   window[callbackName] = function(response) {
-    // 1) Alert mit der zurückgegebenen ID
-    alert("Einsatzbericht Nr. " + response.id + " erfolgreich gespeichert!");
+    // Antwort-ID merken
+    lastFormData.id = response.id;
+    // Discord-Webhook abschicken
+    sendDiscordWebhook(lastFormData);
+    // Erfolgsscreen in Section 5 mit der echten ID anzeigen
+    showSuccessOnLastPage(response.id);
 
-    // 2) Discord-Webhook erst jetzt senden, inklusive der ID
-    sendDiscordWebhook(Object.assign({}, lastFormData, { id: response.id }));
-
-    // Cleanup
+    // 3) Aufräumen: das JSONP-Script wieder entfernen
     document.body.removeChild(script);
     delete window[callbackName];
   };
 
+  // 2) JSONP-Script erzeugen und in den body einfügen
   const script = document.createElement('script');
-  script.src = `${scriptUrl}?callback=${callbackName}&formData=${encodeURIComponent(JSON.stringify(formData))}`;
+  script.src = `${scriptUrl}`
+             + `?callback=${callbackName}`
+             + `&formData=${encodeURIComponent(JSON.stringify(formData))}`;
   document.body.appendChild(script);
 }
 
 
 
-    // Zeigt einen Ladebildschirm, der nach 3 Sekunden in den Erfolgsscreen wechselt
-    function showSavingScreen() {
-      document.body.innerHTML = `
-        <div class="saving-container">
-          <div class="loader"></div>
-          Deine Daten werden gespeichert...
-        </div>
-      `;
-      setTimeout(() => {
-        document.body.innerHTML = `
-          <div class="success-message">
-            <div class="success-checkmark">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" width="80" height="80">
-                <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none" stroke="#32cd32" stroke-width="4" />
-                <path class="checkmark" fill="none" stroke="#32cd32" stroke-width="4" d="M14 27l8 8 16-16" stroke-dasharray="52" stroke-dashoffset="52" />
-              </svg>
-            </div>
-            <p>Deine Daten wurden erfolgreich gespeichert!</p>
-          </div>
-          <div class="button-container-success">
-            <button class="success-button" onclick="returnToHome()">Zur Startseite</button>
-            <button class="success-button" onclick="createNewReport()">Weiteren Einsatzbericht erstellen</button>
-          </div>
-        `;
-        const checkmark = document.querySelector(".checkmark");
-        if (checkmark) {
-          checkmark.style.animation = "drawCheck 1s ease forwards";
-        }
-      }, 3000);
-    }
+function showSavingScreen() {
+  // z.B. innerhalb von #section5
+  const section5 = document.getElementById('section5');
+  section5.innerHTML = `
+    <div class="saving-container">
+      <div class="loader"></div>
+      Deine Daten werden gespeichert...
+    </div>
+  `;
+  // Falls nötig Section 5 aktivieren:
+  section5.classList.add('active');
+}
+
+
     
 
     // Öffnet die Startseite in einem neuen Tab und schließt das aktuelle Fenster
@@ -2235,7 +2227,37 @@ function submitFormData(formData) {
         setTimeout(() => location.reload(), 500); // Wartet kurz und lädt dann neu
     }
     
-    
+    function showSuccessOnLastPage(id) {
+  // 1) Alle Steps verbergen
+  document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
+  // 2) Section 5 aktivieren
+  const section5 = document.getElementById('section5');
+  section5.classList.add('active');
+
+  // 3) Den Inhalt von Section 5 durch unsere Erfolgsmeldung ersetzen
+  section5.innerHTML = `
+    <div class="overview-container">
+      <div class="success-message">
+        <div class="success-checkmark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" width="80" height="80">
+            <circle cx="26" cy="26" r="24" fill="none" stroke="#32cd32" stroke-width="4"/>
+            <path fill="none" stroke="#32cd32" stroke-width="4" d="M14 27l8 8 16-16"
+                  stroke-dasharray="52" stroke-dashoffset="52"
+                  style="animation: drawCheck 1s ease forwards;"/>
+          </svg>
+        </div>
+        <p>Einsatzbericht-Nr. <strong>${id}</strong> wurde angelegt.</p>
+      </div>
+      <div class="button-container-success">
+        <button class="success-button" onclick="returnToHome()">Zur Startseite</button>
+        <button class="success-button" onclick="createNewReport()">Neuen Bericht erstellen</button>
+      </div>
+    </div>
+  `;
+}
+
+
+
     document.getElementById("anwesendSearch").addEventListener("input", function() {
       filterModalOptions("modal-anwesend", "anwesendSearch");
     });
@@ -2469,6 +2491,8 @@ async function sendDiscordWebhook(formData) {
     body: JSON.stringify({ embeds: [embed] })
   });
 }
+
+
 
   </script>
 </body>
