@@ -5,83 +5,64 @@
   <title>Einsatzkarte – Zoom 0 & 1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <style>
-    html, body, #map {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-    }
-  </style>
+  <style> html,body,#map { margin:0; padding:0; width:100%; height:100%; } </style>
 </head>
 <body>
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // === Konfiguration ===
-    const MAX_Z = 1;                     // wir testen Zoom 0 & 1
-    const TILE_SIZE = 256;              
-    const MAP_SIZE  = TILE_SIZE * (1<<MAX_Z);  // 256 * 2^1 = 512
+    // Konstanten
+    const MAX_Z    = 1;
+    const TILE_SIZE= 256;
+    const MAP_SIZE = TILE_SIZE * (1<<MAX_Z);  // 512
 
-    // === 1) Karte initialisieren ===
+    // 1) Karte
     const map = L.map('map', {
       crs: L.CRS.Simple,
-      center: [MAP_SIZE/2, MAP_SIZE/2],   // [256,256]
+      center: [TILE_SIZE/2, TILE_SIZE/2],  // [128,128] – Mitte von Zoom 0
       zoom: 0,
       minZoom: 0,
       maxZoom: MAX_Z,
-      maxBounds: [[0,0], [MAP_SIZE, MAP_SIZE]],
+      maxBounds: [[0,0],[MAP_SIZE,MAP_SIZE]],
       maxBoundsViscosity: 1.0,
-      zoomAnimation: false,
-      inertia: false,
       scrollWheelZoom: true,
       doubleClickZoom: true
     });
 
-    // === 2) CleanTileLayer: verhindert externe 404-Requests ===
+    // 2) CleanTileLayer
     const CleanTileLayer = L.TileLayer.extend({
       createTile(coords, done) {
-        const { x, y, z } = coords;
-        const max = (1 << z) - 1;
-        if (x < 0 || y < 0 || x > max || y > max) {
-          // außerhalb des gültigen Bereichs → leeres DIV
-          const empty = document.createElement('div');
-          setTimeout(() => done(null, empty), 0);
-          return empty;
+        const {x,y,z} = coords, max=(1<<z)-1;
+        if(x<0||y<0||x>max||y>max){
+          const d=document.createElement('div');
+          setTimeout(()=>done(null,d),0);
+          return d;
         }
-        // gültiges Tile: <img>
-        const img = document.createElement('img');
-        img.alt = '';
-        img.onerror = () => done(new Error('Tile load error'), img);
-        img.onload  = () => done(null, img);
-        img.src     = this.getTileUrl(coords);
+        const img=document.createElement('img');
+        img.onerror=()=>done(new Error(),img);
+        img.onload =()=>done(null,img);
+        img.src   =this.getTileUrl(coords);
         return img;
       }
     });
 
-    // === 3) Layer mit blank.jpg-Fallback ===
-    const tiles = new CleanTileLayer('tiles/{z}/{x}/{y}.jpg', {
+    // 3) Tiles mit blank.jpg
+    const tiles = new CleanTileLayer('tiles/{z}/{x}/{y}.jpg',{
       tileSize: TILE_SIZE,
       noWrap: true,
-      bounds: [[0,0], [MAP_SIZE, MAP_SIZE]],
-      minZoom: 0,
-      maxZoom: MAX_Z,
-      errorTileUrl: 'blank.jpg'
+      bounds:[[0,0],[MAP_SIZE,MAP_SIZE]],
+      minZoom:0,maxZoom:MAX_Z,
+      errorTileUrl:'blank.jpg'
     }).addTo(map);
 
-    // === 4) Debug-Logs (optional) ===
-    tiles.on('tileloadstart', e =>
-      console.log('[LoadStart]', e.coords)
-    );
-    tiles.on('tileload', e =>
-      console.log('[LoadOK]  ', e.coords)
-    );
-    tiles.on('tileerror', e =>
-      console.warn('[LoadErr] ', e.coords)
-    );
+    // 4) Debug (optional)
+    tiles.on('tileload', e=>console.log('[LoadOK]', e.coords));
+    tiles.on('tileerror',e=>console.warn('[LoadErr]',e.coords));
 
-    // === 5) Test-Marker in der Kartenmitte ===
-    L.marker([MAP_SIZE/2, MAP_SIZE/2])
+    // 5) Marker
+    L.marker([TILE_SIZE/2,TILE_SIZE/2])
       .addTo(map)
-      .bindPopup('Zoom 0 → 1 funktioniert!')
+      .bindPopup('Zoom 0 → 1 OK')
       .openPopup();
   </script>
 </body>
