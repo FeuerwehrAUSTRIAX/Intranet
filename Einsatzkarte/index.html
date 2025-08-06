@@ -16,30 +16,31 @@
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // Karte initialisieren
+    // 1) Karte initialisieren und Panning/Ziehen auf den gültigen Bereich beschränken
     const map = L.map('map', {
       crs: L.CRS.Simple,
       minZoom: 0,
       maxZoom: 1,
-      center: [128, 128],    // Mitte der 256×256-Kachel
+      center: [128, 128],             // Mitte der 256×256-Kachel
       zoom: 0,
-      maxBounds: [[0,0],[256,256]]
+      maxBounds: [[0, 0], [256, 256]],// verhindert Panning außerhalb
+      maxBoundsViscosity: 1.0         // harte Schranke
     });
 
-    // Tile-Layer für Zoom 0–1
+    // 2) Tile-Layer für Zoom-Level 0–1
     L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
       tileSize: 256,
-      noWrap: true,
-      bounds: [[0,0],[256,256]],
+      noWrap: true,                   // kein Repeat/Roll-over
+      bounds: [[0, 0], [256, 256]],   // nur innerhalb dieses Bereichs Tiles laden
       minZoom: 0,
       maxZoom: 1
     }).addTo(map);
 
-    // Marker in der Mitte
-    L.marker([128,128])
-     .addTo(map)
-     .bindPopup('Test erfolgreich!')
-     .openPopup();
+    // 3) Marker in der Karten-Mitte zum Testen
+    L.marker([128, 128])
+      .addTo(map)
+      .bindPopup('Test erfolgreich!')
+      .openPopup();
   </script>
 </body>
 </html>
