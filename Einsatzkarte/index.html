@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8"/>
   <title>Einsatzkarte</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
   <style>
-    html, body, #map { width:100%; height:100%; margin:0; padding:0; }
+    html,body,#map { margin:0; padding:0; width:100%; height:100%; }
   </style>
 </head>
 <body>
@@ -29,33 +29,32 @@
       doubleClickZoom: false
     });
 
-    // 2) Tile-Layer mit errorTileUrl → blank.jpg
-    const tileLayer = L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
+    // 2) Tile-Layer: Standard‐Laden + blank.jpg als Fallback
+    const tiles = L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
       tileSize: 256,
       noWrap: true,
       bounds: [[0,0],[256,256]],
       minZoom: 0,
       maxZoom: 1,
-      keepBuffer: 0,
-      updateWhenIdle: true,
-      errorTileUrl: 'blank.jpg'
+      errorTileUrl: 'blank.jpg',  // blank.jpg im gleichen Ordner wie index.html
+      // wir lassen updateWhenIdle weg, dann lädt Leaflet sofort die erste Kachel
     }).addTo(map);
 
-    // 3) Logging (optional)
-    tileLayer.on('tileloadstart', e =>
+    // 3) Logging, um zu sehen, was wirklich geladen wird
+    tiles.on('tileloadstart', e =>
       console.log('[LoadStart]', e.coords, e.tile.src)
     );
-    tileLayer.on('tileload', e =>
+    tiles.on('tileload', e =>
       console.log('[LoadOK]  ', e.coords, e.tile.src)
     );
-    tileLayer.on('tileerror', e =>
+    tiles.on('tileerror', e =>
       console.warn('[LoadErr] ', e.coords, e.tile.src)
     );
 
-    // 4) Test-Marker
+    // 4) Marker in der Mitte zum Test
     L.marker([128,128])
       .addTo(map)
-      .bindPopup('Test mit blank.jpg bei Fehlern!')
+      .bindPopup('Wenn du mich siehst, läuft dein Tile-Load richtig!')
       .openPopup();
   </script>
 </body>
