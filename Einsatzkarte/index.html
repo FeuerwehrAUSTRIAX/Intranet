@@ -13,7 +13,11 @@
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // 1) Karte initialisieren
+    // Hilfsfunktion: gibt für ein Zoom-Level die maximale X/Y zurück
+    function tileCount(z) {
+      return 1 << z;  // 2^z
+    }
+
     const map = L.map('map', {
       crs: L.CRS.Simple,
       center: [128,128],
@@ -29,48 +33,39 @@
       doubleClickZoom: false
     });
 
-    // 2) Tile-Layer mit Logging
+    // Override createTile, filtert alle out-of-bounds anfragen weg
     const tileLayer = L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
       tileSize: 256,
       noWrap: true,
       bounds: [[0,0],[256,256]],
       minZoom: 0,
       maxZoom: 1,
-      updateWhenIdle: true
+      updateWhenIdle: true,
+
+      createTile(coords, done) {
+        const z = coords.z;
+        const max = tileCount(z) - 1;
+        // wenn x oder y außerhalb [0, max] ist, gib leeres DIV zurück
+        if (coords.x < 0 || coords.y < 0 || coords.x > max || coords.y > max) {
+          const empty = document.createElement('div');
+          // async den Callback feuern, damit Leaflet weitermacht
+          setTimeout(() => done(null, empty), 0);
+          return empty;
+        }
+        // sonst Default-Implementierung
+        return L.TileLayer.prototype.createTile.call(this, coords, done);
+      }
     }).addTo(map);
 
-    // Loggt jeden Tile-Request
-    tileLayer.on('tileloadstart', (e) => {
-      console.log(
-        '[TileLoadStart]',
-        'z:', e.coords.z,
-        'x:', e.coords.x,
-        'y:', e.coords.y,
-        '→', e.tile.src
-      );
+    // Optional: Logging, um zu sehen, welche Tiles tatsächlich geladen werden
+    tileLayer.on('tileloadstart', e => {
+      console.log('[LoadStart]', e.coords, e.tile.src);
     });
+    tileLayer.on('tileload',      e => console.log('[LoadOK]  ', e.coords, e.tile.src));
+    tileLayer.on('tileerror',     e => console.warn('[LoadErr] ', e.coords, e.tile.src));
 
-    // Loggt erfolgreiche Tiles
-    tileLayer.on('tileload', (e) => {
-      console.log('[TileLoadOK] ✔', e.tile.src);
-    });
-
-    // Loggt fehlgeschlagene Tiles
-    tileLayer.on('tileerror', (e) => {
-      console.error(
-        '[TileError] ❌',
-        'z:', e.coords.z,
-        'x:', e.coords.x,
-        'y:', e.coords.y,
-        '→', e.tile.src
-      );
-    });
-
-    // 3) Test-Marker
-    L.marker([128,128])
-      .addTo(map)
-      .bindPopup('Test mit Logging')
-      .openPopup();
+    // Testmarker
+    L.marker([128,128]).addTo(map).bindPopup('Test!').openPopup();
   </script>
 </body>
 </html>
