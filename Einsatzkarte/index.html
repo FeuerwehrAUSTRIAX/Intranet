@@ -2,59 +2,87 @@
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
-  <title>Einsatzkarte</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
+  <title>Einsatzkarte – Zoom 0 & 1 Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet/dist/leaflet.css"
+  />
   <style>
-    html,body,#map { margin:0; padding:0; width:100%; height:100%; }
+    html, body, #map { width:100%; height:100%; margin:0; padding:0; }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // 1) Karte initialisieren
+    // Hilfsfunktion für maxIndex
+    function maxIndex(z) { return (1 << z) - 1; }
+
+    // 1) Karte initialisieren mit Zoom 0–1
     const map = L.map('map', {
       crs: L.CRS.Simple,
-      center: [128,128],
+      center: [128, 128],  // Pixel-Mitte bei 256×256
       zoom: 0,
       minZoom: 0,
       maxZoom: 1,
+      // harte Grenzen für Zoom 0–1
       maxBounds: [[0,0],[256,256]],
       maxBoundsViscosity: 1.0,
       zoomAnimation: false,
       inertia: false,
-      scrollWheelZoom: false,
-      touchZoom: false,
-      doubleClickZoom: false
+      // hier scrollWheelZoom:true, damit du zoomen kannst
+      scrollWheelZoom: true,
+      doubleClickZoom: true
     });
 
-    // 2) Tile-Layer: Standard‐Laden + blank.jpg als Fallback
-    const tiles = L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
+    // 2) Eigenes createTile, um Out-of-Bounds-Anfragen zu killen
+    const CleanTileLayer = L.TileLayer.extend({
+      createTile(coords, done) {
+        const { x, y, z } = coords;
+        const max = maxIndex(z);
+        if (x < 0 || y < 0 || x > max || y > max) {
+          // leeres DIV statt 404-Request
+          const empty = document.createElement('div');
+          setTimeout(() => done(null, empty), 0);
+          return empty;
+        }
+        // normale JPG-Kachel
+        const img = document.createElement('img');
+        img.alt = '';
+        img.onerror = () => done(new Error('Tile load error'), img);
+        img.onload  = () => done(null, img);
+        img.src     = this.getTileUrl(coords);
+        return img;
+      }
+    });
+
+    // 3) Layer instanziieren mit errorTileUrl=blank.jpg als Fallback
+    const tiles = new CleanTileLayer('tiles/{z}/{x}/{y}.jpg', {
       tileSize: 256,
       noWrap: true,
       bounds: [[0,0],[256,256]],
       minZoom: 0,
       maxZoom: 1,
-      errorTileUrl: 'blank.jpg',  // blank.jpg im gleichen Ordner wie index.html
-      // wir lassen updateWhenIdle weg, dann lädt Leaflet sofort die erste Kachel
+      keepBuffer: 0,
+      errorTileUrl: 'blank.jpg'
     }).addTo(map);
 
-    // 3) Logging, um zu sehen, was wirklich geladen wird
+    // 4) Logs zur Kontrolle
     tiles.on('tileloadstart', e =>
-      console.log('[LoadStart]', e.coords, e.tile.src)
+      console.log('[LoadStart]', e.coords, '→', e.tile.src)
     );
     tiles.on('tileload', e =>
-      console.log('[LoadOK]  ', e.coords, e.tile.src)
+      console.log('[LoadOK]  ', e.coords)
     );
     tiles.on('tileerror', e =>
-      console.warn('[LoadErr] ', e.coords, e.tile.src)
+      console.warn('[LoadErr] ', e.coords)
     );
 
-    // 4) Marker in der Mitte zum Test
+    // 5) Marker in der Mitte
     L.marker([128,128])
       .addTo(map)
-      .bindPopup('Wenn du mich siehst, läuft dein Tile-Load richtig!')
+      .bindPopup('Zoom-Test 0 & 1')
       .openPopup();
   </script>
 </body>
