@@ -16,14 +16,19 @@
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // 1) Karte initialisieren mit harten Grenzen
+    // Hilfsfunktion: berechnet maximale X/Y für ein Zoom-Level z
+    function maxIndex(z) {
+      return (1 << z) - 1;  // 2^z - 1
+    }
+
+    // 1) Karte initialisieren mit harten Grenzen und ohne Interpolation
     const map = L.map('map', {
       crs: L.CRS.Simple,
       center: [128, 128],
       zoom: 0,
       minZoom: 0,
       maxZoom: 1,
-      maxBounds: [[0,0],[256,256]],
+      maxBounds: [[0, 0], [256, 256]],
       maxBoundsViscosity: 1.0,
       zoomAnimation: false,
       inertia: false,
@@ -32,32 +37,53 @@
       doubleClickZoom: false
     });
 
-    // 2) Tile-Layer ohne Buffer, strikt nur gültige Tiles
-    const tileLayer = L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
+    // 2) Eigener Tile-Layer mit komplett überschriebenem createTile
+    const layer = L.TileLayer.extend({
+      createTile: function(coords, done) {
+        const { x, y, z } = coords;
+        const max = maxIndex(z);
+        // Wenn außerhalb 0…max → leeres DIV, kein Request
+        if (x < 0 || y < 0 || x > max || y > max) {
+          const empty = document.createElement('div');
+          setTimeout(() => done(null, empty), 0);
+          return empty;
+        }
+        // Sonst normale JPG-Kachel laden
+        const tile = document.createElement('img');
+        tile.alt = '';
+        tile.onerror = () => done(new Error('Tile load error'), tile);
+        tile.onload  = () => done(null, tile);
+        tile.src     = this.getTileUrl(coords);
+        return tile;
+      }
+    });
+
+    // 3) Instanziere und füge den Layer hinzu
+    const tileLayer = new layer('tiles/{z}/{x}/{y}.jpg', {
       tileSize: 256,
       noWrap: true,
       bounds: [[0,0],[256,256]],
       minZoom: 0,
       maxZoom: 1,
-      keepBuffer: 0,          // **kein Extra-Buffer** außerhalb des Viewports
-      updateWhenIdle: true    // erst nach Abschluss neuer Anfragen stellen
+      keepBuffer: 0,
+      updateWhenIdle: true
     }).addTo(map);
 
-    // 3) Logging (optional)
+    // 4) Logging: siehst nur die echten, gültigen Tile-Requests
     tileLayer.on('tileloadstart', e =>
-      console.log('[LoadStart]', e.coords.z, e.coords.x, e.coords.y, e.tile.src)
+      console.log('[LoadStart]', e.coords, e.tile.src)
     );
     tileLayer.on('tileload', e =>
-      console.log('[LoadOK]  ', e.coords.z, e.coords.x, e.coords.y)
+      console.log('[LoadOK]  ', e.coords, e.tile.src)
     );
     tileLayer.on('tileerror', e =>
-      console.warn('[LoadErr] ', e.coords.z, e.coords.x, e.coords.y)
+      console.warn('[LoadErr] ', e.coords, e.tile.src)
     );
 
-    // 4) Test-Marker
-    L.marker([128,128])
+    // 5) Test-Marker
+    L.marker([128, 128])
       .addTo(map)
-      .bindPopup('Test mit Buffer=0!')
+      .bindPopup('Alle negativen Anfragen unterdrückt!')
       .openPopup();
   </script>
 </body>
