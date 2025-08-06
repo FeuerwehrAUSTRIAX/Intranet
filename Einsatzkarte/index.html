@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
-  <title>Testmap</title>
+  <title>Einsatzkarte</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link
     rel="stylesheet"
@@ -16,27 +16,30 @@
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // 1) Karte initialisieren und Panning/Ziehen auf den gültigen Bereich beschränken
+    // 1) Karte mit harten Grenzen (maxBounds + Viskosität)
     const map = L.map('map', {
       crs: L.CRS.Simple,
+      center: [128, 128],
+      zoom: 0,
       minZoom: 0,
       maxZoom: 1,
-      center: [128, 128],             // Mitte der 256×256-Kachel
-      zoom: 0,
-      maxBounds: [[0, 0], [256, 256]],// verhindert Panning außerhalb
-      maxBoundsViscosity: 1.0         // harte Schranke
+      maxBounds: [[0, 0], [256, 256]],
+      maxBoundsViscosity: 1.0,
+      // verhindert, dass Leaflet bei Animationen über Grenzen paddet
+      zoomAnimation: false,
+      inertia: false
     });
 
-    // 2) Tile-Layer für Zoom-Level 0–1
+    // 2) Tile-Layer – keine Wraps, nur innerhalb des Rechtecks
     L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
       tileSize: 256,
-      noWrap: true,                   // kein Repeat/Roll-over
-      bounds: [[0, 0], [256, 256]],   // nur innerhalb dieses Bereichs Tiles laden
+      noWrap: true,
+      bounds: [[0, 0], [256, 256]],
       minZoom: 0,
       maxZoom: 1
     }).addTo(map);
 
-    // 3) Marker in der Karten-Mitte zum Testen
+    // 3) Test-Marker in der Mitte
     L.marker([128, 128])
       .addTo(map)
       .bindPopup('Test erfolgreich!')
