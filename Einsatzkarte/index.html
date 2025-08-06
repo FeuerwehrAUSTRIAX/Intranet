@@ -13,32 +13,63 @@
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // 1) Karte mit harten Grenzen
+    // 1) Karte initialisieren
     const map = L.map('map', {
       crs: L.CRS.Simple,
-      center: [128, 128],            // für Zoom 0–1 Test
+      center: [128,128],
       zoom: 0,
       minZoom: 0,
       maxZoom: 1,
-      maxBounds: [[0, 0], [256, 256]],// harte Kachel-Grenzen
+      maxBounds: [[0,0],[256,256]],
       maxBoundsViscosity: 1.0,
-      zoomAnimation: false,          // kein Zoom-Overshoot
-      inertia: false                 // keine Restbewegung
+      zoomAnimation: false,
+      inertia: false,
+      scrollWheelZoom: false,
+      touchZoom: false,
+      doubleClickZoom: false
     });
 
-    // 2) Tile-Layer strikt auf den Bereich beschränkt
-    L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
+    // 2) Tile-Layer mit Logging
+    const tileLayer = L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
       tileSize: 256,
       noWrap: true,
-      bounds: [[0, 0], [256, 256]],
+      bounds: [[0,0],[256,256]],
       minZoom: 0,
-      maxZoom: 1
+      maxZoom: 1,
+      updateWhenIdle: true
     }).addTo(map);
 
-    // 3) Beispiel-Marker
-    L.marker([128, 128])
+    // Loggt jeden Tile-Request
+    tileLayer.on('tileloadstart', (e) => {
+      console.log(
+        '[TileLoadStart]',
+        'z:', e.coords.z,
+        'x:', e.coords.x,
+        'y:', e.coords.y,
+        '→', e.tile.src
+      );
+    });
+
+    // Loggt erfolgreiche Tiles
+    tileLayer.on('tileload', (e) => {
+      console.log('[TileLoadOK] ✔', e.tile.src);
+    });
+
+    // Loggt fehlgeschlagene Tiles
+    tileLayer.on('tileerror', (e) => {
+      console.error(
+        '[TileError] ❌',
+        'z:', e.coords.z,
+        'x:', e.coords.x,
+        'y:', e.coords.y,
+        '→', e.tile.src
+      );
+    });
+
+    // 3) Test-Marker
+    L.marker([128,128])
       .addTo(map)
-      .bindPopup('Test erfolgreich!')
+      .bindPopup('Test mit Logging')
       .openPopup();
   </script>
 </body>
