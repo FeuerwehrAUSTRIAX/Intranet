@@ -2,99 +2,64 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map mit X/Y-Suche</title>
+  <title>Leaflet mit Zoom 0–2 und eigenen JPG-Tiles</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
   />
   <style>
-    html, body { height:100%; margin:0; padding:0; }
-    #map  { height:100%; }
-    #controls {
-      position: absolute;
-      top: 10px; left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      background: rgba(255,255,255,0.9);
-      padding: 6px 10px;
-      border-radius: 4px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-      font-family: sans-serif;
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
     }
-    #controls input { width: 60px; margin-right: 4px; }
   </style>
 </head>
 <body>
-  <!-- Suchfeld für X/Y -->
-  <div id="controls">
-    X: <input type="number" id="inputX" placeholder="z.B. 123">
-    Y: <input type="number" id="inputY" placeholder="z.B. –456">
-    <button id="btnSearch">Suchen</button>
-  </div>
-
-  <!-- Map-Container -->
   <div id="map"></div>
 
-  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // 1) GTA5-Spiel-Bounds (Leaflet: [lat, lng] = [Y, X])
-    var sw     = L.latLng(-4000, -4000);   // Süd-West
-    var ne     = L.latLng( 6000,  8000);   // Nord-Ost
-    var bounds = L.latLngBounds(sw, ne);
-
-    // 2) Karte im einfachen CRS
+    // 1) Karte im Pixel-Koordinatensystem
     var map = L.map('map', {
-      crs:      L.CRS.Simple,
-      minZoom:  0,
-      maxZoom:  5,
-      zoom:     2
-    }).fitBounds(bounds);
+      crs: L.CRS.Simple,
+      minZoom: 0,
+      maxZoom: 2,
+      zoom: 0
+    });
 
-    // 3) Tile-Layer mit korrekter GitHub-Pages-URL
+    // 2) gemeinsame Werte
+    var tileSize = 256;
+
+    // 3) Pixel-Größe des Gesamtbildes bei Max-Zoom (z=2): 256 * 2^2 = 1024
+    var maxZoom = 2;
+    var size = tileSize * Math.pow(2, maxZoom); // 1024
+
+    // 4) Ecken in LatLng umrechnen
+    var sw = map.unproject([0, size],  maxZoom);
+    var ne = map.unproject([size, 0],  maxZoom);
+    var imageBounds = L.latLngBounds(sw, ne);
+
+    // 5) Bounds setzen und Karte dorthin zentrieren
+    map.setMaxBounds(imageBounds);
+    map.fitBounds(imageBounds);
+
+    // 6) TileLayer mit Zoom 0–2
     var layer = L.tileLayer(
-      'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
+      'https://raw.githubusercontent.com/FeuerwehrAUSTRIAX/Intranet/main/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
-        tileSize:     256,
-        bounds:       bounds,
-        minZoom:      0,
-        maxZoom:      5,
-        noWrap:       true,
-        errorTileUrl: 'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/blank.jpg',
-        attribution:  '© FeuerwehrAUSTRIAX'
+        tileSize: tileSize,
+        minZoom: 0,
+        maxZoom: 2,
+        noWrap: true,
+        bounds: imageBounds,
+        attribution: '© FeuerwehrAUSTRIAX'
       }
     ).addTo(map);
 
-    // 4) Klick-Popup zur Anzeige von Koordinaten
-    map.on('click', function(e){
-      var lat = Math.round(e.latlng.lat);
-      var lng = Math.round(e.latlng.lng);
-      L.popup()
-        .setLatLng(e.latlng)
-        .setContent('GTA-Koords: X=' + lng + ', Y=' + lat)
-        .openOn(map);
-    });
-
-    // 5) Such-Button: Karte zentrieren & Marker setzen
-    var searchMarker;
-    document.getElementById('btnSearch').addEventListener('click', function(){
-      var x = parseFloat(document.getElementById('inputX').value);
-      var y = parseFloat(document.getElementById('inputY').value);
-      if (isNaN(x) || isNaN(y)) {
-        return alert('Bitte gültige Zahlen für X und Y eingeben!');
-      }
-      var latlng = L.latLng(y, x);
-      if (!bounds.contains(latlng)) {
-        return alert('Koordinaten außerhalb des gültigen Bereichs.');
-      }
-      // Zoom mindestens auf 3, damit Marker sichtbar
-      map.setView(latlng, Math.max(map.getZoom(), 3));
-      if (searchMarker) {
-        searchMarker.setLatLng(latlng);
-      } else {
-        searchMarker = L.marker(latlng).addTo(map);
-      }
-    });
+    // 7) Debug-Logging für geladene/fehlgeschlagene Tiles
+    layer.on('tileload',  function(e){ console.log('✔ Loaded:', e.coords); });
+    layer.on('tileerror', function(e){ console.error('✖ Failed:', e.coords); });
   </script>
 </body>
 </html>
