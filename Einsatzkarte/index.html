@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – Variante 1.1 mit GTA-Koordinatensystem</title>
+  <title>GTA5 Map – Eckenmarker & Koordinaten</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -11,22 +11,21 @@
     html, body { height:100%; margin:0; padding:0; }
     #map  { height:100%; background: lightgrey; }
     #controls {
-      position: absolute;
-      top: 10px; left: 50%;
+      position: absolute; top:10px; left:50%;
       transform: translateX(-50%);
-      z-index: 1000;
+      z-index:1000;
       background: rgba(255,255,255,0.9);
-      padding: 6px 10px;
-      border-radius: 4px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-      font-family: sans-serif;
+      padding:6px 10px;
+      border-radius:4px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.3);
+      font-family:sans-serif;
     }
-    #controls input { width: 60px; margin-right: 4px; }
+    #controls input { width:60px; margin-right:4px; }
   </style>
 </head>
 <body>
 
-  <!-- Variante 1.1: X/Y-Suche -->
+  <!-- X/Y-Suche -->
   <div id="controls">
     X Position: <input type="number" id="inputX" placeholder="z.B. 0">
     Y Position: <input type="number" id="inputY" placeholder="z.B. 0">
@@ -37,35 +36,37 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // 1) GTA-Koordinatensystem definieren (lat=Y, lng=X)
-    var minX = -4000, maxX =  8000;
-    var minY = -4000, maxY =  6000;
+    // GTA-Koordinaten-Extents
+    var minX = -4000, maxX = 8000,
+        minY = -4000, maxY = 6000;
+
+    // LatLngBounds für Pan-Limits
     var gtaBounds = L.latLngBounds(
-      [minY, minX],  // Süd-West Eckpunkt
-      [maxY, maxX]   // Nord-Ost Eckpunkt
+      [minY, minX],  // SW
+      [maxY, maxX]   // NE
     );
 
-    // 2) Karte initialisieren, zentriert auf (0,0), nur innerhalb gtaBounds pannbar
+    // Karte initialisieren
     var map = L.map('map', {
       crs:       L.CRS.Simple,
-      center:    [0, 0],     // GTA-Nullpunkt
+      center:    [0, 0],
       zoom:      2,
       minZoom:   0,
-      maxZoom:   8,          // bis 8 hinein-zoomen erlaubt
+      maxZoom:   8,
       zoomSnap:  0.5,
       zoomDelta: 0.5,
-      maxBounds: gtaBounds   // kein Panning außerhalb des Bildes
+      maxBounds: gtaBounds
     });
 
-    // 3) Tile-Layer-Parameter
+    // TileLayer
     var tileSize      = 256,
-        maxNativeZoom = 5;   // echte Tiles liegen für Zoom 0–5 vor
+        maxNativeZoom = 5;
 
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
         tileSize:      tileSize,
-        bounds:        gtaBounds,
+        bounds:        [[minY, minX], [maxY, maxX]],
         minZoom:       0,
         maxZoom:       8,
         maxNativeZoom: maxNativeZoom,
@@ -74,46 +75,53 @@
       }
     ).addTo(map);
 
-    // 4) Nullpunkt-Marker mit Popup-Hinweis auf Variante 1.1 und GTA-Koordinatensystem
+    // Nullpunkt-Marker
     L.marker([0, 0])
      .addTo(map)
-     .bindPopup(
-       '<strong>Variante 1.1</strong><br>' +
-       '<em>GTA Koordinatensystem</em><br>' +
-       'Nullpunkt: X=0, Y=0<br>' +
-       'Laguna Place'
-     )
+     .bindPopup('<strong>Nullpunkt</strong><br>X=0, Y=0')
      .openPopup();
 
-    // 5) Klick-Popup zeigt GTA-Koordinaten unter dem System
+    // Marker an den vier Ecken mit Popups
+    var corners = [
+      { coord: [minY, minX], label: 'SW-Ecke<br>X=' + minX + ', Y=' + minY },
+      { coord: [minY, maxX], label: 'SE-Ecke<br>X=' + maxX + ', Y=' + minY },
+      { coord: [maxY, minX], label: 'NW-Ecke<br>X=' + minX + ', Y=' + maxY },
+      { coord: [maxY, maxX], label: 'NE-Ecke<br>X=' + maxX + ', Y=' + maxY }
+    ];
+    corners.forEach(function(c){
+      L.marker(c.coord)
+       .addTo(map)
+       .bindPopup(c.label);
+    });
+
+    // Klick-Popup für beliebige Koordinaten
     map.on('click', function(e){
       var y = Math.round(e.latlng.lat),
           x = Math.round(e.latlng.lng);
       L.popup()
        .setLatLng(e.latlng)
        .setContent(
-         '<strong>GTA Koordinatensystem</strong><br>' +
+         '<strong>GTA-Koordinaten</strong><br>' +
          'X=' + x + ', Y=' + y
        )
        .openOn(map);
     });
 
-    // 6) Such-Funktion: zentriert Karte & setzt Marker auf eingegebene X/Y
+    // Suchfeld-Funktion
     var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
       var x = parseFloat(document.getElementById('inputX').value),
           y = parseFloat(document.getElementById('inputY').value);
-      if (isNaN(x) || isNaN(y)) {
+      if (isNaN(x)||isNaN(y)){
         return alert('Bitte gültige X- und Y-Werte eingeben.');
       }
       var latlng = L.latLng(y, x);
-      if (!gtaBounds.contains(latlng)) {
-        return alert('Koordinaten außerhalb des erlaubten Bereichs.');
+      if (!gtaBounds.contains(latlng)){
+        return alert('Koordinaten außerhalb des Bereichs.');
       }
-      // mindestens auf native Zoom-Stufe 5 hineinzoomen
       var targetZoom = Math.max(map.getZoom(), maxNativeZoom);
       map.setView(latlng, targetZoom);
-      if (searchMarker) {
+      if (searchMarker){
         searchMarker.setLatLng(latlng);
       } else {
         searchMarker = L.marker(latlng).addTo(map);
