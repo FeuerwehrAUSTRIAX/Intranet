@@ -2,16 +2,18 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Leaflet ohne Wrap</title>
+  <title>Leaflet: nur echte JPG-Tiles</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-    integrity="sha512-…"
     crossorigin=""
   />
   <style>
-    html, body { height:100%; margin:0; }
-    #map { height:100%; }
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
   </style>
 </head>
 <body>
@@ -19,31 +21,44 @@
 
   <script
     src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
-    integrity="sha512-…"
     crossorigin="">
   </script>
   <script>
-    // Wenn Du eine „echte“ Geokoordinate‐Karte hast, entferne CRS.Simple wieder
+    // 1) Karte im einfachen Pixel‐Raum anlegen
     var map = L.map('map', {
-      crs: L.CRS.Simple,     // einfacher Pixel‐Koordinaten‐Raum
+      crs: L.CRS.Simple,
       minZoom: 0,
       maxZoom: 1,
-      zoom: 0,
-      center: [128, 128],     // Mitte bei 256×256/2
-      maxBounds: [            // Grenzen: hier bei 512×512 (2^1 * 256)
-        [  0,   0],
-        [512, 512]
-      ],
-      maxBoundsViscosity: 1.0 // komplett einrasten
+      zoom: 1
     });
 
+    // 2) Pixel-Größe des Bildes bei Zoom 1
+    var tileSize = 256;
+    var zoomLevel = 1;
+    var width  = tileSize * Math.pow(2, zoomLevel);  // 512
+    var height = tileSize * Math.pow(2, zoomLevel);  // 512
+
+    // 3) Ecken in Lat-Lng umwandeln
+    var southWest = map.unproject([0, height], zoomLevel);
+    var northEast = map.unproject([width, 0],  zoomLevel);
+    var imageBounds = L.latLngBounds(southWest, northEast);
+
+    // 4) Karte auf diese Bounds einschränken
+    map.setMaxBounds(imageBounds);
+    map.fitBounds(imageBounds);
+
+    // 5) Nur innerhalb dieser Bounds die Tiles laden
     L.tileLayer(
       'https://raw.githubusercontent.com/FeuerwehrAUSTRIAX/Intranet/main/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
-        tileSize: 256,  // Standard ist 256, nötig, wenn Du auf CRS.Simple umsteigst
-        noWrap: true    // kein „endloses“ Wiederholen
+        tileSize: tileSize,
+        minZoom: 0,
+        maxZoom: 1,
+        noWrap: true,
+        bounds: imageBounds,
+        attribution: '© FeuerwehrAUSTRIAX'
       }
     ).addTo(map);
   </script>
 </body>
-</html> 
+</html>
