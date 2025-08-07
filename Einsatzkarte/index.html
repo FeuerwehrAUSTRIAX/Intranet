@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – Variante 1.3 mit exakter CRS-Transformation</title>
+  <title>GTA5 Map – Variante 1.3 (exakte CRS-Transformation)</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -25,10 +25,10 @@
 </head>
 <body>
 
-  <!-- X/Y-Suche -->
+  <!-- Suchfelder -->
   <div id="controls">
-    X Position: <input type="number" id="inputX" placeholder="z.B. 0">
-    Y Position: <input type="number" id="inputY" placeholder="z.B. 0">
+    X:&nbsp;<input type="number" id="inputX" placeholder="z.B. 0">
+    Y:&nbsp;<input type="number" id="inputY" placeholder="z.B. 0">
     <button id="btnSearch">FIND</button>
   </div>
 
@@ -38,63 +38,62 @@
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
     //
-    // 0) Parameter
+    // 0) Tile-Welt in px bei nativer Zoom-Stufe (z=5): 2^5 * 256 = 8192
     //
     var tileSize      = 256,
-        maxNativeZoom = 5,              // echte Tiles 0–5
-        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // = 8192 px
+        maxNativeZoom = 5,
+        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // =8192
 
-    // GTA-Extents in Spiel-Metern:
+    //
+    // 1) GTA-Meter-Extents
+    //
     var minX = -4000, maxX =  8000,
         minY = -4000, maxY =  6000;
-    var worldWidth  = maxX - minX,  // = 12000 m
-        worldHeight = maxY - minY;  // = 10000 m
+    var worldW = maxX - minX,  // 12000
+        worldH = maxY - minY;  // 10000
 
     //
-    // 1) CRS-Transformation
+    // 2) Exakte Transformation:
+    //    Meter → Pixel (skalieren + verschieben + invertierte Y)
     //
-    var scaleX = nativeSize / worldWidth,   // px pro Meter X
-        scaleY = nativeSize / worldHeight;  // px pro Meter Y
-
-    // Wir bauen eine Transformation, die
-    //  – X: Meter → Pixel (0…8192)
-    //  – Y: Meter → Pixel invertiert (8192…0)
-    var trans = new L.Transformation(
-      scaleX,            // a: Skala X
+    var scaleX = nativeSize / worldW,  // px pro Meter
+        scaleY = nativeSize / worldH;  // px pro Meter
+    var transform = new L.Transformation(
+      scaleX,            // a: Skalierung X
       -minX * scaleX,    // b: Offset X
-      -scaleY,           // c: invertierte Skala Y
+      -scaleY,           // c: invertierte Skalierung Y
       maxY * scaleY      // d: Offset Y
     );
-
     var CRSgta = L.extend({}, L.CRS.Simple, {
-      transformation: trans
+      transformation: transform
     });
 
     //
-    // 2) Karte initialisieren mit unserem CRS
+    // 3) Map initialisieren mit custom CRS
     //
     var map = L.map('map', {
       crs:       CRSgta,
-      center:    [0, 0],    // GTA-Nullpunkt (Y, X)
+      center:    [0, 0],  // GTA-Nullpunkt (Y,X)
       zoom:      2,
       minZoom:   0,
-      maxZoom:   8,         // bis 8 hineinzoomen
+      maxZoom:   8,
       zoomSnap:  0.5,
       zoomDelta: 0.5,
-      maxBounds: [           // Pan nur in den Extents
+      maxBounds: [
         [minY, minX],
         [maxY, maxX]
       ]
     });
 
     //
-    // 3) TileLayer einbinden
+    // 4) TileLayer: lädt jetzt nur die echten z=0…5 Tiles,
+    //    bei z>5 skaliert er weiter hoch (Feeling).
     //
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
         tileSize:      tileSize,
-        bounds:        [[minY, minX], [maxY, maxX]],
+        bounds:        [[minY, minX],[maxY, maxX]],
         minZoom:       0,
         maxZoom:       8,
         maxNativeZoom: maxNativeZoom,
@@ -104,62 +103,47 @@
     ).addTo(map);
 
     //
-    // 4) Marker: Nullpunkt + die vier Ecken
+    // 5) Marker: Nullpunkt und vier Ecken
     //
-    // Nullpunkt
-    L.marker([0, 0])
-     .addTo(map)
-     .bindPopup('<strong>Nullpunkt</strong><br>X=0, Y=0')
-     .openPopup();
+    L.marker([0,0]).addTo(map)
+     .bindPopup('<strong>Nullpunkt</strong><br>X=0, Y=0').openPopup();
 
-    // Ecken:
     var corners = [
-      { pos: [minY, minX], text: 'SW-Ecke<br>X='+minX+', Y='+minY },
-      { pos: [minY, maxX], text: 'SE-Ecke<br>X='+maxX+', Y='+minY },
-      { pos: [maxY, minX], text: 'NW-Ecke<br>X='+minX+', Y='+maxY },
-      { pos: [maxY, maxX], text: 'NE-Ecke<br>X='+maxX+', Y='+maxY }
+      { c:[minY,minX], t:'SW-X='+minX+',Y='+minY },
+      { c:[minY,maxX], t:'SE-X='+maxX+',Y='+minY },
+      { c:[maxY,minX], t:'NW-X='+minX+',Y='+maxY },
+      { c:[maxY,maxX], t:'NE-X='+maxX+',Y='+maxY }
     ];
-    corners.forEach(function(c){
-      L.marker(c.pos)
-       .addTo(map)
-       .bindPopup(c.text);
+    corners.forEach(function(o){
+      L.marker(o.c).addTo(map).bindPopup(o.t);
     });
 
     //
-    // 5) Klick-Popup: beliebige GTA-Koordinaten
+    // 6) Klick-Popup: zeigt exakte GTA-Koordinaten
     //
     map.on('click', function(e){
       var y = Math.round(e.latlng.lat),
           x = Math.round(e.latlng.lng);
       L.popup()
        .setLatLng(e.latlng)
-       .setContent('<strong>GTA-Koordinaten</strong><br>'
-                 + 'X='+x+', Y='+y)
+       .setContent('X='+x+', Y='+y)
        .openOn(map);
     });
 
     //
-    // 6) Suchfeld: auf X/Y zentrieren
+    // 7) Suchfeld: zentriert mit Marker
     //
-    var searchMarker;
-    document.getElementById('btnSearch').addEventListener('click', function(){
-      var x = parseFloat(document.getElementById('inputX').value),
-          y = parseFloat(document.getElementById('inputY').value);
-      if (isNaN(x)||isNaN(y)) {
-        return alert('Bitte gültige X- und Y-Werte eingeben.');
-      }
-      var latlng = L.latLng(y, x);
-      if (!map.getMaxBounds().contains(latlng)) {
-        return alert('Koordinaten außerhalb des Bereichs.');
-      }
-      var targetZoom = Math.max(map.getZoom(), maxNativeZoom);
-      map.setView(latlng, targetZoom);
-      if (searchMarker) {
-        searchMarker.setLatLng(latlng);
-      } else {
-        searchMarker = L.marker(latlng).addTo(map);
-      }
-    });
+    var sm;
+    document.getElementById('btnSearch').onclick = function(){
+      var x = parseFloat(inputX.value),
+          y = parseFloat(inputY.value);
+      if(isNaN(x)||isNaN(y)) return alert('gültige Werte!');
+      var ll = L.latLng(y,x);
+      if(!map.getMaxBounds().contains(ll)) return alert('außerhalb');
+      var tz = Math.max(map.getZoom(), maxNativeZoom);
+      map.setView(ll,tz);
+      if(sm) sm.setLatLng(ll); else sm = L.marker(ll).addTo(map);
+    };
   </script>
 </body>
 </html>
