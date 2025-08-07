@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Leaflet mit Zoom 0–2 und eigenen JPG-Tiles</title>
+  <title>Leaflet mit Zoom 0–5 und eigenen JPG-Tiles</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -12,6 +12,7 @@
       height: 100%;
       margin: 0;
       padding: 0;
+      background: lightgrey;
     }
   </style>
 </head>
@@ -20,46 +21,47 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // 1) Karte im Pixel-Koordinatensystem
+    // 1) Karte im Pixel-Koordinatensystem mit Zoom 0–5
     var map = L.map('map', {
-      crs: L.CRS.Simple,
-      minZoom: 0,
-      maxZoom: 2,
-      zoom: 0
+      crs:      L.CRS.Simple,
+      minZoom:  0,
+      maxZoom:  5,
+      zoom:     0
     });
 
-    // 2) gemeinsame Werte
+    // 2) Tile-Größe und gewünschte Max-Zoom-Stufe
     var tileSize = 256;
+    var maxZoom   = 5;
 
-    // 3) Pixel-Größe des Gesamtbildes bei Max-Zoom (z=2): 256 * 2^2 = 1024
-    var maxZoom = 2;
-    var size = tileSize * Math.pow(2, maxZoom); // 1024
+    // 3) Pixel‐Kantenlänge des Gesamtbildes: 256 * 2^5 = 8192
+    var size = tileSize * Math.pow(2, maxZoom);
 
     // 4) Ecken in LatLng umrechnen
-    var sw = map.unproject([0, size],  maxZoom);
-    var ne = map.unproject([size, 0],  maxZoom);
+    var sw = map.unproject([0,    size], maxZoom);
+    var ne = map.unproject([size, 0   ], maxZoom);
     var imageBounds = L.latLngBounds(sw, ne);
 
-    // 5) Bounds setzen und Karte dorthin zentrieren
+    // 5) Karte auf diese Bounds einschränken und zentrieren
     map.setMaxBounds(imageBounds);
     map.fitBounds(imageBounds);
 
-    // 6) TileLayer mit Zoom 0–2
-    var layer = L.tileLayer(
-      'https://raw.githubusercontent.com/FeuerwehrAUSTRIAX/Intranet/main/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
+    // 6) TileLayer mit Zoom 0–5
+    L.tileLayer(
+      'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
-        tileSize: tileSize,
-        minZoom: 0,
-        maxZoom: 2,
-        noWrap: true,
-        bounds: imageBounds,
-        attribution: '© FeuerwehrAUSTRIAX'
+        tileSize:      tileSize,
+        bounds:        imageBounds,
+        minZoom:       0,
+        maxZoom:       5,
+        // wenn du aktuell nur Stufen 0–2 gerendert hast, skaliere diese hoch:
+        maxNativeZoom: 2,
+        noWrap:        true,
+        attribution:   '© FeuerwehrAUSTRIAX'
       }
     ).addTo(map);
 
-    // 7) Debug-Logging für geladene/fehlgeschlagene Tiles
-    layer.on('tileload',  function(e){ console.log('✔ Loaded:', e.coords); });
-    layer.on('tileerror', function(e){ console.error('✖ Failed:', e.coords); });
+    // 7) (Optional) Debug-Log für fehlende Kacheln
+    // layer.on('tileerror', e => console.error('✖ fehlend', e.coords));
   </script>
 </body>
 </html>
