@@ -2,14 +2,14 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – Ursprung mit Offset & maxZoom=5</title>
+  <title>GTA5 Map – custom Offset + Origin Pin</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
   />
   <style>
     html, body { height:100%; margin:0; padding:0; }
-    #map { height:100%; background: lightgrey; }
+    #map { height:100%; }
     #controls {
       position: absolute;
       top:10px; left:50%;
@@ -36,20 +36,32 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // === 1) Tile-Parameter ===
+    // --- 0) Deine Kartengrenzen (GTA-Spiel-Bounds) ---
+    var minX = -3900,  // linke Kante
+        maxX =  6000,  // rechte Kante
+        minY = -4000,  // untere Kante
+        maxY =  8000;  // obere Kante
+
+    // --- 1) Tile-Parameter ---
     var tileSize      = 256,
         maxNativeZoom = 5,
-        maxZoom       = 5,                   // wieder 5
-        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192
+        maxZoom       = 5,
+        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192px
 
-    // === 2) CRS-Transformation mit Offset so, 
-    //     dass GTA-(0,0) in Pixel (4096,4096) liegt ===
+    // --- 2) Berechne Scale & Offsets ---
+    var scale   = nativeSize / (maxX - minX),
+        offsetX = -minX * scale,  // verschiebt minX → Pixel 0
+        offsetY =  maxY * scale;  // verschiebt maxY → Pixel 0
+
+    // --- 3) CRS.Simple-Transformation einrichten ---
+    // Pixel-X =  scale*(lng) + offsetX
+    // Pixel-Y = -scale*(lat) + offsetY
     L.CRS.Simple.transformation = new L.Transformation(
-      1, nativeSize/2,
-     -1, nativeSize/2
+      scale,  offsetX,
+     -scale,  offsetY
     );
 
-    // === 3) Karte initialisieren ===
+    // --- 4) Karte anlegen ---
     var map = L.map('map', {
       crs:       L.CRS.Simple,
       minZoom:   0,
@@ -60,15 +72,13 @@
       center:    [0, 0]
     });
 
-    // === 4) Bounds berechnen (erst jetzt nach map-Init): ===
-    var sw = map.unproject([0,          nativeSize], maxNativeZoom),   // => [-4096, -4096]
-        ne = map.unproject([nativeSize, 0],          maxNativeZoom),   // => [ 4096,  4096]
+    // --- 5) Bild-Bounds in LatLng errechnen (erst nach map-Init) ---
+    var sw = map.unproject([0,            nativeSize], maxNativeZoom),
+        ne = map.unproject([nativeSize,   0],          maxNativeZoom),
         imageBounds = L.latLngBounds(sw, ne);
-
-    // verhindern, dass man außerhalb scrollt
     map.setMaxBounds(imageBounds);
 
-    // === 5) Dein TileLayer ===
+    // --- 6) TileLayer hinzufügen ---
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
@@ -82,30 +92,46 @@
       }
     ).addTo(map);
 
-    // === 6) Popup on click ===
+    // --- 7) Origin-Pin bei (0,0) setzen ---
+    var originMarker = L.marker([0,0])
+      .addTo(map)
+      .bindPopup('GTA-Neu-Nullpunkt (0,0)')
+      .openPopup();
+
+    // --- 8) Popup on click: echte vs. relative Koords ---
     map.on('click', function(e){
-      var lat = Math.round(e.latlng.lat),
-          lng = Math.round(e.latlng.lng);
+      var realX = e.latlng.lng,
+          realY = e.latlng.lat,
+          relX  = Math.round(realX / scale + minX),
+          relY  = Math.round(maxY - realY / scale);
       L.popup()
        .setLatLng(e.latlng)
-       .setContent('GTA-Koords:<br>X='+lng+'<br>Y='+lat)
+       .setContent(
+         'Echte Koords:<br>X='+ realX.toFixed(1) +' Y='+ realY.toFixed(1) +
+         '<br><br>GTA-Koords relativ zum Nullpunkt:<br>X='+ relX +' Y='+ relY
+       )
        .openOn(map);
     });
 
-    // === 7) Suchfeld-Logik ===
+    // --- 9) Suchfeld-Logik (relativ rechnen) ---
     var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
-      var x = parseFloat(document.getElementById('inputX').value),
-          y = parseFloat(document.getElementById('inputY').value);
-      if (isNaN(x) || isNaN(y)) {
+      var inX = parseFloat(document.getElementById('inputX').value),
+          inY = parseFloat(document.getElementById('inputY').value);
+      if (isNaN(inX)||isNaN(inY)) {
         return alert('Bitte gültige X- und Y-Werte eingeben.');
       }
-      var latlng = L.latLng(y, x);
+      // rel → echt: X_real = (inX - minX)
+      var realX = (inX - 0) * scale + offsetX,
+          realY = -((inY - 0) * scale) + offsetY,
+          latlng = L.latLng(realY/scale - (offsetY/scale - maxY), (realX - offsetX)/scale + minX);
+      // einfacher: latlng = L.latLng(inY, inX) bei CRS.Simple mit Transformation
+      latlng = L.latLng(inY, inX);
       if (!imageBounds.contains(latlng)) {
         return alert('Koordinaten außerhalb des erlaubten Bereichs.');
       }
-      var targetZoom = Math.max(map.getZoom(), maxNativeZoom);
-      map.setView(latlng, targetZoom);
+      var z = Math.max(map.getZoom(), maxNativeZoom);
+      map.setView(latlng, z);
       if (searchMarker) {
         searchMarker.setLatLng(latlng);
       } else {
@@ -113,7 +139,7 @@
       }
     });
 
-    // === 8) finale Center-Ansicht ===
+    // --- 10) Initiale View auf (0,0) ---
     map.setView([0,0], 2);
   </script>
 </body>
