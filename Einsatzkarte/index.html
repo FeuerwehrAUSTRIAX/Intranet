@@ -2,21 +2,17 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map mit Suchfeld für X/Y</title>
+  <title>GTA5 Map mit X/Y-Suche</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
   />
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
+    html, body { height:100%; margin:0; padding:0; }
+    #map  { height:100%; }
     #controls {
       position: absolute;
-      top: 10px;
-      left: 50%;
+      top: 10px; left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
       background: rgba(255,255,255,0.9);
@@ -25,70 +21,74 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.3);
       font-family: sans-serif;
     }
-    #controls input {
-      width: 60px;
-      margin-right: 4px;
-    }
-    #map { height: 100%; }
+    #controls input { width: 60px; margin-right: 4px; }
   </style>
 </head>
 <body>
-  <!-- Suchfelder -->
+  <!-- Suchfeld für X/Y -->
   <div id="controls">
-    X: <input type="number" id="inputX" placeholder="z.B. 0">
-    Y: <input type="number" id="inputY" placeholder="z.B. 0">
+    X: <input type="number" id="inputX" placeholder="z.B. 123">
+    Y: <input type="number" id="inputY" placeholder="z.B. –456">
     <button id="btnSearch">Suchen</button>
   </div>
 
+  <!-- Map-Container -->
   <div id="map"></div>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // Spiel-Bounds definieren
-    var sw     = L.latLng(-4000, -4000);
-    var ne     = L.latLng( 6000,  8000);
+    // 1) GTA5-Spiel-Bounds (Leaflet: [lat, lng] = [Y, X])
+    var sw     = L.latLng(-4000, -4000);   // Süd-West
+    var ne     = L.latLng( 6000,  8000);   // Nord-Ost
     var bounds = L.latLngBounds(sw, ne);
 
-    // Karte initialisieren
+    // 2) Karte im einfachen CRS
     var map = L.map('map', {
-      crs:       L.CRS.Simple,
-      minZoom:   0,
-      maxZoom:   5,
-      zoom:      2
+      crs:      L.CRS.Simple,
+      minZoom:  0,
+      maxZoom:  5,
+      zoom:     2
     }).fitBounds(bounds);
 
-    // Tiles einbinden
+    // 3) Tile-Layer mit korrekter GitHub-Pages-URL
     var layer = L.tileLayer(
-      'https://<user>.github.io/<repo>/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
+      'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
-        tileSize: 256,
-        bounds:   bounds,
-        minZoom:  0,
-        maxZoom:  5,
-        noWrap:   true,
-        attribution: '© Deine Quellen'
+        tileSize:     256,
+        bounds:       bounds,
+        minZoom:      0,
+        maxZoom:      5,
+        noWrap:       true,
+        errorTileUrl: 'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/blank.jpg',
+        attribution:  '© FeuerwehrAUSTRIAX'
       }
     ).addTo(map);
 
-    // Marker-Variable (wird später erstellt)
-    var searchMarker;
+    // 4) Klick-Popup zur Anzeige von Koordinaten
+    map.on('click', function(e){
+      var lat = Math.round(e.latlng.lat);
+      var lng = Math.round(e.latlng.lng);
+      L.popup()
+        .setLatLng(e.latlng)
+        .setContent('GTA-Koords: X=' + lng + ', Y=' + lat)
+        .openOn(map);
+    });
 
-    // Such-Button-Event
+    // 5) Such-Button: Karte zentrieren & Marker setzen
+    var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
       var x = parseFloat(document.getElementById('inputX').value);
       var y = parseFloat(document.getElementById('inputY').value);
       if (isNaN(x) || isNaN(y)) {
-        alert('Bitte gültige Zahlen für X und Y eingeben!');
-        return;
+        return alert('Bitte gültige Zahlen für X und Y eingeben!');
       }
-      // Leaflet erwartet [lat, lng] = [Y, X]
       var latlng = L.latLng(y, x);
       if (!bounds.contains(latlng)) {
-        alert('Koordinaten liegen außerhalb des gültigen Bereichs.');
-        return;
+        return alert('Koordinaten außerhalb des gültigen Bereichs.');
       }
-      // Karte zentrieren und Marker setzen
-      map.setView(latlng, Math.max(map.getZoom(), 3)); 
+      // Zoom mindestens auf 3, damit Marker sichtbar
+      map.setView(latlng, Math.max(map.getZoom(), 3));
       if (searchMarker) {
         searchMarker.setLatLng(latlng);
       } else {
