@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – Start zentriert auf (0,0)</title>
+  <title>GTA5 Map – Ursprung mit Offset</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -36,25 +36,19 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // --- 1) GTA-Spiel‐Bounds definieren (lat=Y, lng=X) ---
-    var sw     = L.latLng(-4000, -4000);
-    var ne     = L.latLng( 6000,  8000);
-    var bounds = L.latLngBounds(sw, ne);
-
-    // --- 2) Parameters für Tiles & Zooms ---
+    // 1) Parameter für Tiles & Zooms
     var tileSize      = 256,
-        maxNativeZoom = 5,  // echte Tiles: 0–5
-        maxZoom       = 8,  // UI erlaubt bis 8
-        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192px
+        maxNativeZoom = 5,               // echte Tiles: 0–5
+        maxZoom       = 5,               // jetzt wieder 5
+        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // =8192
 
-    // --- 3) Bild‐Bounds in Pixel → LatLng umrechnen ---
-    var swP = [0,    nativeSize],
-        neP = [nativeSize, 0],
-        swLL = map && map.unproject ? map.unproject(swP, 0) : null,
-        neLL = map && map.unproject ? map.unproject(neP, 0) : null;
-    // (Wir können das erst nach Karten‐Init korrekt unprojecten)
+    // 2) Transformation mit Offset (Mitte des Bildes = Welt (0,0))
+    L.CRS.Simple.transformation = new L.Transformation(
+      1, nativeSize/2,
+     -1, nativeSize/2
+    );
 
-    // --- 4) Karte anlegen, zentriert auf (0,0) ---
+    // 3) Karte anlegen
     var map = L.map('map', {
       crs:       L.CRS.Simple,
       minZoom:   0,
@@ -62,16 +56,18 @@
       zoom:      2,
       zoomSnap:  0.5,
       zoomDelta: 0.5,
-      center:    [0, 0],      // Start‐Zentrum = (Y=0, X=0)
-      maxBounds: bounds       // kein Panning außerhalb
+      center:    [0, 0],  // Welt (0,0) wird durch Transformation in Pixel (4096,4096) gemappt
     });
 
-    // Jetzt, wo map existiert, Bounds korrekt berechnen:
-    swLL = map.unproject(swP,    maxNativeZoom);
-    neLL = map.unproject(neP,    maxNativeZoom);
-    var imageBounds = L.latLngBounds(swLL, neLL);
+    // 4) Bild-Bounds in LatLng umrechnen
+    var swLL = map.unproject([0,           nativeSize], maxNativeZoom),
+        neLL = map.unproject([nativeSize,  0],          maxNativeZoom),
+        imageBounds = L.latLngBounds(swLL, neLL);
 
-    // --- 5) Dein TileLayer ---
+    // Damit kein Panning außerhalb
+    map.setMaxBounds(imageBounds);
+
+    // 5) Dein TileLayer
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
@@ -85,7 +81,7 @@
       }
     ).addTo(map);
 
-    // --- 6) Popup on click für GTA-Koordinaten ---
+    // 6) Popup on click
     map.on('click', function(e){
       var lat = Math.round(e.latlng.lat),
           lng = Math.round(e.latlng.lng);
@@ -95,7 +91,7 @@
        .openOn(map);
     });
 
-    // --- 7) Suchfeld-Logik ---
+    // 7) Suchfeld-Logik
     var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
       var x = parseFloat(document.getElementById('inputX').value),
@@ -104,10 +100,9 @@
         return alert('Bitte gültige X- und Y-Werte eingeben.');
       }
       var latlng = L.latLng(y, x);
-      if (!bounds.contains(latlng)) {
+      if (!imageBounds.contains(latlng)) {
         return alert('Koordinaten außerhalb des erlaubten Bereichs.');
       }
-      // Zoom mindestens auf Native‐Stufe rein
       var targetZoom = Math.max(map.getZoom(), maxNativeZoom);
       map.setView(latlng, targetZoom);
       if (searchMarker) {
@@ -116,6 +111,9 @@
         searchMarker = L.marker(latlng).addTo(map);
       }
     });
+
+    // 8) Start-View
+    map.setView([0,0], 2);
   </script>
 </body>
 </html>
