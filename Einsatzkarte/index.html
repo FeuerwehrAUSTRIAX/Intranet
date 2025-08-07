@@ -2,40 +2,46 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Leaflet-Test mit eigenen JPG-Tiles</title>
-  <!-- Leaflet CSS -->
+  <title>Leaflet ohne Wrap</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+    integrity="sha512-…"
     crossorigin=""
   />
   <style>
-    /* Karte auf volle Höhe bringen */
-    html, body { height: 100%; margin: 0; padding: 0; }
-    #map { height: 100%; }
+    html, body { height:100%; margin:0; }
+    #map { height:100%; }
   </style>
 </head>
 <body>
-  <!-- Map-Container -->
   <div id="map"></div>
 
-  <!-- Leaflet JS -->
   <script
     src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+    integrity="sha512-…"
     crossorigin="">
   </script>
   <script>
-    // 1) Karte initialisieren, hier Zoomstufe 1 (weil du z.B. tiles/0/... und tiles/1/... hast)
-    var map = L.map('map').setView([0, 0], 1);
+    // Wenn Du eine „echte“ Geokoordinate‐Karte hast, entferne CRS.Simple wieder
+    var map = L.map('map', {
+      crs: L.CRS.Simple,     // einfacher Pixel‐Koordinaten‐Raum
+      minZoom: 0,
+      maxZoom: 1,
+      zoom: 0,
+      center: [128, 128],     // Mitte bei 256×256/2
+      maxBounds: [            // Grenzen: hier bei 512×512 (2^1 * 256)
+        [  0,   0],
+        [512, 512]
+      ],
+      maxBoundsViscosity: 1.0 // komplett einrasten
+    });
 
-    // 2) Eigene JPG-Tiles einbinden (GitHub-Raw-URL)
     L.tileLayer(
       'https://raw.githubusercontent.com/FeuerwehrAUSTRIAX/Intranet/main/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
-        // nur Zoom 0 und 1 erlauben
-        minZoom: 0,
-        maxZoom: 1,
-        attribution: '© FeuerwehrAUSTRIAX'
+        tileSize: 256,  // Standard ist 256, nötig, wenn Du auf CRS.Simple umsteigst
+        noWrap: true    // kein „endloses“ Wiederholen
       }
     ).addTo(map);
   </script>
