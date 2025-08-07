@@ -2,64 +2,98 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Leaflet mit Zoom 0–2 und eigenen JPG-Tiles</title>
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-  />
+  <title>GTA5 Map mit Suchfeld</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
   <style>
-    html, body, #map {
-      height: 100%;
-      margin: 0;
-      padding: 0;
+    html, body { height: 100%; margin: 0; padding: 0; }
+    #map { height: calc(100% - 60px); }
+    #searchbox {
+      height: 60px;
+      padding: 10px;
+      background: #f2f2f2;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: sans-serif;
+    }
+    #searchbox input {
+      width: 80px;
+      padding: 5px;
+      font-size: 14px;
+    }
+    #searchbox button {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
+  <div id="searchbox">
+    <label>X: <input type="number" id="inputX" placeholder="X-Koordinate" /></label>
+    <label>Y: <input type="number" id="inputY" placeholder="Y-Koordinate" /></label>
+    <button id="btnGo">Suchen</button>
+  </div>
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // 1) Karte im Pixel-Koordinatensystem
+    // 1) Spiel-Bounds definieren
+    var sw     = L.latLng(-4000, -4000);
+    var ne     = L.latLng( 6000,  8000);
+    var bounds = L.latLngBounds(sw, ne);
+
+    // 2) Karte initialisieren
     var map = L.map('map', {
-      crs: L.CRS.Simple,
-      minZoom: 0,
-      maxZoom: 2,
-      zoom: 0
-    });
+      crs:       L.CRS.Simple,
+      minZoom:   0,
+      maxZoom:   5,
+      zoom:      2
+    }).fitBounds(bounds);
 
-    // 2) gemeinsame Werte
-    var tileSize = 256;
-
-    // 3) Pixel-Größe des Gesamtbildes bei Max-Zoom (z=2): 256 * 2^2 = 1024
-    var maxZoom = 2;
-    var size = tileSize * Math.pow(2, maxZoom); // 1024
-
-    // 4) Ecken in LatLng umrechnen
-    var sw = map.unproject([0, size],  maxZoom);
-    var ne = map.unproject([size, 0],  maxZoom);
-    var imageBounds = L.latLngBounds(sw, ne);
-
-    // 5) Bounds setzen und Karte dorthin zentrieren
-    map.setMaxBounds(imageBounds);
-    map.fitBounds(imageBounds);
-
-    // 6) TileLayer mit Zoom 0–2
+    // 3) Tile-Layer einbinden
     var layer = L.tileLayer(
-      'https://raw.githubusercontent.com/FeuerwehrAUSTRIAX/Intranet/main/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
+      'https://<user>.github.io/<repo>/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
-        tileSize: tileSize,
-        minZoom: 0,
-        maxZoom: 2,
-        noWrap: true,
-        bounds: imageBounds,
-        attribution: '© FeuerwehrAUSTRIAX'
+        tileSize:    256,
+        bounds:      bounds,
+        minZoom:     0,
+        maxZoom:     5,
+        noWrap:      true,
+        attribution: '© Deine Quellen'
       }
     ).addTo(map);
 
-    // 7) Debug-Logging für geladene/fehlgeschlagene Tiles
-    layer.on('tileload',  function(e){ console.log('✔ Loaded:', e.coords); });
-    layer.on('tileerror', function(e){ console.error('✖ Failed:', e.coords); });
+    // 4) Marker-Variable
+    var marker;
+
+    // 5) Such-Button
+    document.getElementById('btnGo').addEventListener('click', function() {
+      var x = parseFloat(document.getElementById('inputX').value);
+      var y = parseFloat(document.getElementById('inputY').value);
+      if (isNaN(x) || isNaN(y)) {
+        alert('Bitte gültige Zahlen für X und Y eingeben.');
+        return;
+      }
+      var latlng = L.latLng(y, x);
+      if (!bounds.contains(latlng)) {
+        alert('Koordinaten außerhalb des Spielbereichs.');
+        return;
+      }
+      // Karte zentrieren und Marker setzen
+      map.setView(latlng, 4);
+      if (marker) { marker.setLatLng(latlng); }
+      else { marker = L.marker(latlng).addTo(map); }
+    });
+
+    // 6) Klick-Popup für Test
+    map.on('click', function(e){
+      var lat = Math.round(e.latlng.lat), lng = Math.round(e.latlng.lng);
+      L.popup()
+       .setLatLng(e.latlng)
+       .setContent('GTA-Koords: [X='+lng+', Y='+lat+']')
+       .openOn(map);
+    });
   </script>
 </body>
 </html>
