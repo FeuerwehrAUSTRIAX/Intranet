@@ -2,9 +2,11 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – Kanten + Origin</title>
-  <link rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+  <title>GTA5 Map – exakte Bounds & Origin-Pin</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+  />
   <style>
     html, body { height:100%; margin:0; padding:0; }
     #map { height:100%; }
@@ -31,30 +33,33 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // 0) Deine exakten GTA-Bounds (aus Konsole):
-    var minX = MIN_X,   // z.B. -4134
-        maxX = MAX_X,   // z.B.  6190
-        minY = MIN_Y,   // z.B. -4200
-        maxY = MAX_Y;   // z.B.  8230
+    // 0) Deine GTA-Bounds:
+    var minX = -3900, maxX = 6000,
+        minY = -4000, maxY = 8000;
 
     // 1) Tile-Parameter:
-    var tileSize      = 256,
+    var tileSize = 256,
         maxNativeZoom = 5,
-        maxZoom       = 5,
-        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192 px
+        maxZoom = 5,
+        nativeSize = tileSize * Math.pow(2, maxNativeZoom); // =8192
 
-    // 2) Scale & Offset:
+    // 2) Scale & Offsets:
+    //    scale   = 8192 / (6000 - (-3900))
+    //    offsetX = -minX * scale
+    //    offsetY =  maxY * scale
     var scale   = nativeSize / (maxX - minX),
         offsetX = -minX * scale,
         offsetY =  maxY * scale;
 
-    // 3) Transformation:
+    // 3) CRS.Simple-Transformation:
+    //    PixelX = scale*lng + offsetX
+    //    PixelY = -scale*lat + offsetY
     L.CRS.Simple.transformation = new L.Transformation(
       scale,  offsetX,
      -scale,  offsetY
     );
 
-    // 4) Karte erstellen:
+    // 4) Karte initialisieren:
     var map = L.map('map', {
       crs:       L.CRS.Simple,
       minZoom:   0,
@@ -62,16 +67,16 @@
       zoom:      2,
       zoomSnap:  0.5,
       zoomDelta: 0.5,
-      center:    [0, 0]
+      center:    [0,0]
     });
 
-    // 5) Bounds in LatLng:
-    var sw = map.unproject([0,            nativeSize], maxNativeZoom),
-        ne = map.unproject([nativeSize,   0],          maxNativeZoom),
+    // 5) Bild-Bounds setzen (erst jetzt, da map gebraucht wird):
+    var sw = map.unproject([0,           nativeSize], maxNativeZoom),
+        ne = map.unproject([nativeSize,  0],          maxNativeZoom),
         imageBounds = L.latLngBounds(sw, ne);
     map.setMaxBounds(imageBounds);
 
-    // 6) TileLayer:
+    // 6) Tiles laden:
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
@@ -85,13 +90,13 @@
       }
     ).addTo(map);
 
-    // 7) Marker bei GTA-(0,0):
+    // 7) Pin genau bei GTA-(0,0):
     L.marker([0,0])
      .addTo(map)
      .bindPopup('GTA-Nullpunkt (0,0)')
      .openPopup();
 
-    // 8) Klick-Popup:
+    // 8) Klick-Popup zeigt direkt die echten GTA-X/Y:
     map.on('click', function(e){
       var X = Math.round(e.latlng.lng),
           Y = Math.round(e.latlng.lat);
@@ -101,21 +106,28 @@
        .openOn(map);
     });
 
-    // 9) Such-Logik:
+    // 9) Such-Feld: Eingabe X/Y → direkt L.marker:
     var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
       var x = parseFloat(document.getElementById('inputX').value),
           y = parseFloat(document.getElementById('inputY').value);
-      if (isNaN(x)||isNaN(y) || !imageBounds.contains([y,x])) {
-        return alert('Außerhalb des erlaubten Bereichs.');
+      if (isNaN(x)||isNaN(y)) {
+        return alert('Bitte gültige X- und Y-Werte eingeben.');
+      }
+      var latlng = L.latLng(y, x);
+      if (!imageBounds.contains(latlng)) {
+        return alert('Koordinaten außerhalb des erlaubten Bereichs.');
       }
       var z = Math.max(map.getZoom(), maxNativeZoom);
-      map.setView([y,x], z);
-      if (searchMarker) searchMarker.setLatLng([y,x]);
-      else            searchMarker = L.marker([y,x]).addTo(map);
+      map.setView(latlng, z);
+      if (searchMarker) {
+        searchMarker.setLatLng(latlng);
+      } else {
+        searchMarker = L.marker(latlng).addTo(map);
+      }
     });
 
-    // 10) Start-View:
+    // 10) Karte auf (0,0) zentrieren:
     map.setView([0,0], 2);
   </script>
 </body>
