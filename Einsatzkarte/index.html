@@ -2,9 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Leaflet ohne SRI</title>
-
-  <!-- Leaflet-Stylesheet ohne integrity -->
+  <title>Leaflet mit Zoom 0–2 und eigenen JPG-Tiles</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -20,41 +18,48 @@
 <body>
   <div id="map"></div>
 
-  <!-- Leaflet-Script ohne integrity -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js">
-  </script>
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // Karte initialisieren
+    // 1) Karte im Pixel-Koordinatensystem
     var map = L.map('map', {
       crs: L.CRS.Simple,
       minZoom: 0,
-      maxZoom: 1,
-      zoom: 1
+      maxZoom: 2,
+      zoom: 0
     });
 
-    var tileSize = 256, z = 1;
-    var width  = tileSize * Math.pow(2, z);
-    var height = tileSize * Math.pow(2, z);
+    // 2) gemeinsame Werte
+    var tileSize = 256;
 
-    var sw = map.unproject([0, height], z),
-        ne = map.unproject([width, 0],  z),
-        bounds = L.latLngBounds(sw, ne);
+    // 3) Pixel-Größe des Gesamtbildes bei Max-Zoom (z=2): 256 * 2^2 = 1024
+    var maxZoom = 2;
+    var size = tileSize * Math.pow(2, maxZoom); // 1024
 
-    map.setMaxBounds(bounds);
-    map.fitBounds(bounds);
+    // 4) Ecken in LatLng umrechnen
+    var sw = map.unproject([0, size],  maxZoom);
+    var ne = map.unproject([size, 0],  maxZoom);
+    var imageBounds = L.latLngBounds(sw, ne);
 
-    L.tileLayer(
+    // 5) Bounds setzen und Karte dorthin zentrieren
+    map.setMaxBounds(imageBounds);
+    map.fitBounds(imageBounds);
+
+    // 6) TileLayer mit Zoom 0–2
+    var layer = L.tileLayer(
       'https://raw.githubusercontent.com/FeuerwehrAUSTRIAX/Intranet/main/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
         tileSize: tileSize,
         minZoom: 0,
-        maxZoom: 1,
+        maxZoom: 2,
         noWrap: true,
-        bounds: bounds,
+        bounds: imageBounds,
         attribution: '© FeuerwehrAUSTRIAX'
       }
     ).addTo(map);
+
+    // 7) Debug-Logging für geladene/fehlgeschlagene Tiles
+    layer.on('tileload',  function(e){ console.log('✔ Loaded:', e.coords); });
+    layer.on('tileerror', function(e){ console.error('✖ Failed:', e.coords); });
   </script>
 </body>
 </html>
