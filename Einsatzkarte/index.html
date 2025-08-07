@@ -2,48 +2,59 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Leaflet ohne Wrap</title>
+  <title>Leaflet ohne Wrap mit JPG-Tiles</title>
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-    integrity="sha512-…"
     crossorigin=""
   />
   <style>
-    html, body { height:100%; margin:0; }
-    #map { height:100%; }
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
+  <!-- Leaflet JS -->
   <script
     src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
-    integrity="sha512-…"
     crossorigin="">
   </script>
   <script>
-    // Wenn Du eine „echte“ Geokoordinate‐Karte hast, entferne CRS.Simple wieder
+    // === 1) Karte mit einfachem Koordinatensystem (Pixelmaßstab) ===
     var map = L.map('map', {
-      crs: L.CRS.Simple,     // einfacher Pixel‐Koordinaten‐Raum
+      crs: L.CRS.Simple,           // Pixel-Koordinaten statt geografisch
       minZoom: 0,
       maxZoom: 1,
-      zoom: 0,
-      center: [128, 128],     // Mitte bei 256×256/2
-      maxBounds: [            // Grenzen: hier bei 512×512 (2^1 * 256)
-        [  0,   0],
+      zoom: 1,
+      center: [256, 256],          // Zentrum bei 512×512 Pixel / 2
+      maxBounds: [                 // Begrenze die Karte auf 0–512px in beiden Achsen
+        [0,   0],
         [512, 512]
       ],
-      maxBoundsViscosity: 1.0 // komplett einrasten
+      maxBoundsViscosity: 1.0      // Randsperre
     });
 
+    // === 2) Dein JPG-TileLayer ohne Wrap ===
     L.tileLayer(
       'https://raw.githubusercontent.com/FeuerwehrAUSTRIAX/Intranet/main/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
-        tileSize: 256,  // Standard ist 256, nötig, wenn Du auf CRS.Simple umsteigst
-        noWrap: true    // kein „endloses“ Wiederholen
+        tileSize: 256,     // Standard-Kachelgröße
+        noWrap: true,      // Kein Wiederholen über die Grenzen hinweg
+        bounds: [          // dieselben Grenzen wie oben
+          [0,   0],
+          [512, 512]
+        ],
+        minZoom: 0,
+        maxZoom: 1,
+        attribution: '© FeuerwehrAUSTRIAX'
       }
     ).addTo(map);
   </script>
 </body>
-</html> 
+</html>
