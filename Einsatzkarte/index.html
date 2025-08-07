@@ -2,8 +2,11 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – korrekte Bounds + Origin Pin</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+  <title>GTA5 Map – exakte Bounds & Origin-Pin</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+  />
   <style>
     html, body { height:100%; margin:0; padding:0; }
     #map { height:100%; }
@@ -30,32 +33,33 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // ---- 0) Deine GTA-Bounds ----
-    var minX = -3900,
-        maxX =  6000,
-        minY = -4000,
-        maxY =  8000;
+    // 0) Deine GTA-Bounds:
+    var minX = -3900, maxX = 6000,
+        minY = -4000, maxY = 8000;
 
-    // ---- 1) Tile-Parameter ----
-    var tileSize      = 256,
+    // 1) Tile-Parameter:
+    var tileSize = 256,
         maxNativeZoom = 5,
-        maxZoom       = 5,
-        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192
+        maxZoom = 5,
+        nativeSize = tileSize * Math.pow(2, maxNativeZoom); // =8192
 
-    // ---- 2) Scale & Offset berechnen ----
+    // 2) Scale & Offsets:
+    //    scale   = 8192 / (6000 - (-3900))
+    //    offsetX = -minX * scale
+    //    offsetY =  maxY * scale
     var scale   = nativeSize / (maxX - minX),
-        offsetX = -minX * scale,   // verschiebt minX → Pixel 0
-        offsetY =  maxY * scale;   // verschiebt maxY → Pixel 0
+        offsetX = -minX * scale,
+        offsetY =  maxY * scale;
 
-    // ---- 3) CRS.Simple-Transformation einstellen ----
-    // Pixel-X =  scale*lng + offsetX
-    // Pixel-Y = -scale*lat + offsetY
+    // 3) CRS.Simple-Transformation:
+    //    PixelX = scale*lng + offsetX
+    //    PixelY = -scale*lat + offsetY
     L.CRS.Simple.transformation = new L.Transformation(
       scale,  offsetX,
      -scale,  offsetY
     );
 
-    // ---- 4) Karte anlegen ----
+    // 4) Karte initialisieren:
     var map = L.map('map', {
       crs:       L.CRS.Simple,
       minZoom:   0,
@@ -66,13 +70,13 @@
       center:    [0,0]
     });
 
-    // ---- 5) Bild-Bounds setzen (erst nach map-Init) ----
-    var sw = map.unproject([0,          nativeSize], maxNativeZoom),
-        ne = map.unproject([nativeSize, 0],          maxNativeZoom),
+    // 5) Bild-Bounds setzen (erst jetzt, da map gebraucht wird):
+    var sw = map.unproject([0,           nativeSize], maxNativeZoom),
+        ne = map.unproject([nativeSize,  0],          maxNativeZoom),
         imageBounds = L.latLngBounds(sw, ne);
     map.setMaxBounds(imageBounds);
 
-    // ---- 6) TileLayer hinzufügen ----
+    // 6) Tiles laden:
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
@@ -86,13 +90,23 @@
       }
     ).addTo(map);
 
-    // ---- 7) Origin-Marker bei (0,0) ----
+    // 7) Pin genau bei GTA-(0,0):
     L.marker([0,0])
      .addTo(map)
-     .bindPopup('Neu-Nullpunkt GTA (0,0)')
+     .bindPopup('GTA-Nullpunkt (0,0)')
      .openPopup();
 
-    // ---- 8) Such-Feld: Direkt Blatt-Koordinaten einsetzen ----
+    // 8) Klick-Popup zeigt direkt die echten GTA-X/Y:
+    map.on('click', function(e){
+      var X = Math.round(e.latlng.lng),
+          Y = Math.round(e.latlng.lat);
+      L.popup()
+       .setLatLng(e.latlng)
+       .setContent('GTA-Koords:<br>X='+X+'<br>Y='+Y)
+       .openOn(map);
+    });
+
+    // 9) Such-Feld: Eingabe X/Y → direkt L.marker:
     var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
       var x = parseFloat(document.getElementById('inputX').value),
@@ -102,7 +116,7 @@
       }
       var latlng = L.latLng(y, x);
       if (!imageBounds.contains(latlng)) {
-        return alert('Außerhalb des erlaubten Bereichs.');
+        return alert('Koordinaten außerhalb des erlaubten Bereichs.');
       }
       var z = Math.max(map.getZoom(), maxNativeZoom);
       map.setView(latlng, z);
@@ -113,17 +127,7 @@
       }
     });
 
-    // ---- 9) Popup-Koordinaten beim Klick ----
-    map.on('click', function(e){
-      var X = Math.round(e.latlng.lng),
-          Y = Math.round(e.latlng.lat);
-      L.popup()
-       .setLatLng(e.latlng)
-       .setContent('GTA-Koords:<br>X='+X+'<br>Y='+Y)
-       .openOn(map);
-    });
-
-    // ---- 10) View auf (0,0) starten ----
+    // 10) Karte auf (0,0) zentrieren:
     map.setView([0,0], 2);
   </script>
 </body>
