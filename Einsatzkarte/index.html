@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map mit Zoom-Up-Feel &amp; Koordinaten-Suche</title>
+  <title>GTA5 Map – Start zentriert auf (0,0)</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -26,80 +26,88 @@
 </head>
 <body>
 
-  <!-- Suchfelder -->
   <div id="controls">
     X: <input type="number" id="inputX" placeholder="z.B. 123">
-    Y: <input type="number" id="inputY" placeholder="z.B. -456">
+    Y: <input type="number" id="inputY" placeholder="z.B. −456">
     <button id="btnSearch">Suchen</button>
   </div>
 
-  <!-- Karte -->
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // 1) GTA-Bounds in Spiel-Einheiten (Leaflet lat=Y, lng=X)
+    // --- 1) GTA-Spiel‐Bounds definieren (lat=Y, lng=X) ---
     var sw     = L.latLng(-4000, -4000);
     var ne     = L.latLng( 6000,  8000);
     var bounds = L.latLngBounds(sw, ne);
 
-    // 2) Map mit Simple CRS + Zoom-Fenster bis 8
+    // --- 2) Parameters für Tiles & Zooms ---
+    var tileSize      = 256,
+        maxNativeZoom = 5,  // echte Tiles: 0–5
+        maxZoom       = 8,  // UI erlaubt bis 8
+        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192px
+
+    // --- 3) Bild‐Bounds in Pixel → LatLng umrechnen ---
+    var swP = [0,    nativeSize],
+        neP = [nativeSize, 0],
+        swLL = map && map.unproject ? map.unproject(swP, 0) : null,
+        neLL = map && map.unproject ? map.unproject(neP, 0) : null;
+    // (Wir können das erst nach Karten‐Init korrekt unprojecten)
+
+    // --- 4) Karte anlegen, zentriert auf (0,0) ---
     var map = L.map('map', {
       crs:       L.CRS.Simple,
       minZoom:   0,
-      maxZoom:   8,    // erlaubt weit herein zu zoomen
-      zoomSnap:  0.5,  // feinere Zoom-Schritte
+      maxZoom:   maxZoom,
+      zoom:      2,
+      zoomSnap:  0.5,
       zoomDelta: 0.5,
-      zoom:      2
-    }).fitBounds(bounds);
+      center:    [0, 0],      // Start‐Zentrum = (Y=0, X=0)
+      maxBounds: bounds       // kein Panning außerhalb
+    });
 
-    // 3) Tile-Größe und native Max-Stufe
-    var tileSize      = 256,
-        maxNativeZoom = 5,                     // echte Tiles existieren 0–5
-        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192px
+    // Jetzt, wo map existiert, Bounds korrekt berechnen:
+    swLL = map.unproject(swP,    maxNativeZoom);
+    neLL = map.unproject(neP,    maxNativeZoom);
+    var imageBounds = L.latLngBounds(swLL, neLL);
 
-    // 4) Bounds in pixel → latlng
-    var swPoint = map.unproject([0, nativeSize],  maxNativeZoom),
-        nePoint = map.unproject([nativeSize, 0],  maxNativeZoom),
-        imageBounds = L.latLngBounds(swPoint, nePoint);
-
-    // 5) Layer, der echte Tiles 0–5 nachlädt und ab 6+ hochskaliert
+    // --- 5) Dein TileLayer ---
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
         tileSize:      tileSize,
         bounds:        imageBounds,
         minZoom:       0,
-        maxZoom:       8,
+        maxZoom:       maxZoom,
         maxNativeZoom: maxNativeZoom,
         noWrap:        true,
         attribution:   '© FeuerwehrAUSTRIAX'
       }
     ).addTo(map);
 
-    // 6) Klick-Popup für GTA-Coords
+    // --- 6) Popup on click für GTA-Koordinaten ---
     map.on('click', function(e){
       var lat = Math.round(e.latlng.lat),
           lng = Math.round(e.latlng.lng);
       L.popup()
        .setLatLng(e.latlng)
-       .setContent('GTA-Koordinaten:<br>X='+lng+'<br>Y='+lat)
+       .setContent('GTA-Koords:<br>X='+lng+'<br>Y='+lat)
        .openOn(map);
     });
 
-    // 7) Suchfeld: Map zentrieren & Marker setzen
+    // --- 7) Suchfeld-Logik ---
     var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
       var x = parseFloat(document.getElementById('inputX').value),
           y = parseFloat(document.getElementById('inputY').value);
       if (isNaN(x)||isNaN(y)) {
-        return alert('Bitte gültige X- und Y-Zahlen eingeben!');
+        return alert('Bitte gültige X- und Y-Werte eingeben.');
       }
       var latlng = L.latLng(y, x);
       if (!bounds.contains(latlng)) {
-        return alert('Koordinaten außerhalb des Bereichs!');
+        return alert('Koordinaten außerhalb des erlaubten Bereichs.');
       }
-      // Zoom mindestens in die Native-Stufe rein
+      // Zoom mindestens auf Native‐Stufe rein
       var targetZoom = Math.max(map.getZoom(), maxNativeZoom);
       map.setView(latlng, targetZoom);
       if (searchMarker) {
