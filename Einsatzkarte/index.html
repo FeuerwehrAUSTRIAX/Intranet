@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – mit Tiles und echtem Koordinatensystem</title>
+  <title>GTA5 Map mit echten Koordinaten & Tiles</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
   <style>
     html, body { height: 100%; margin: 0; }
@@ -26,60 +26,60 @@
 
 <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 <script>
-  // === 1. Bildgröße in Pixel (aus Tiles zusammengesetzt) ===
+  // === 1. Bildgröße (aus Tiles berechnet) ===
   const imageWidth = 8192;
   const imageHeight = 8192;
 
-  // === 2. Koordinatenrahmen (dein echter GTA-Bereich) ===
+  // === 2. Echte GTA-Koordinaten (ausgemessen von dir) ===
   const minX = -5659.283;
   const maxX =  6690.972;
   const minY = -4059.996;
   const maxY =  8426.432;
 
-  // === 3. Skalierung berechnen ===
+  // === 3. Skalierung berechnen
   const scaleX = imageWidth  / (maxX - minX);
   const scaleY = imageHeight / (maxY - minY);
 
-  // === 4. Transformation aktivieren ===
+  // === 4. Transformation aktivieren
   L.CRS.Simple.transformation = new L.Transformation(
     scaleX, -minX * scaleX,
    -scaleY,  maxY * scaleY
   );
 
-  // === 5. Karte erstellen ===
+  // === 5. Leaflet Map erstellen
   const map = L.map('map', {
     crs: L.CRS.Simple,
-    minZoom: 0,
+    minZoom: 5,
     maxZoom: 5,
-    center: [0, 0],
-    zoom: 2
+    zoom: 5,
+    center: [0, 0]
   });
 
-  // === 6. Bounds berechnen ===
+  // === 6. Bounds berechnen (Pixel → Koordinaten)
   const imageBounds = L.latLngBounds(
     L.latLng(maxY, minX),  // oben links
     L.latLng(minY, maxX)   // unten rechts
   );
   map.setMaxBounds(imageBounds);
 
-  // === 7. TileLayer laden ===
+  // === 7. TileLayer hinzufügen (nur Zoom-Level 5)
   L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
     tileSize: 256,
     bounds: imageBounds,
-    minZoom: 0,
+    minZoom: 5,
     maxZoom: 5,
     maxNativeZoom: 5,
     noWrap: true,
     attribution: '© FeuerwehrAUSTRIAX'
   }).addTo(map);
 
-  // === 8. Marker bei (0,0) ===
+  // === 8. Marker bei GTA-(0,0)
   L.marker([0, 0])
     .addTo(map)
     .bindPopup('GTA Nullpunkt (0,0)')
     .openPopup();
 
-  // === 9. Maus-Koordinatenanzeige ===
+  // === 9. Mausposition live anzeigen
   const infoBox = document.getElementById('info');
   map.on('mousemove', function(e) {
     const x = Math.round(e.latlng.lng * 10) / 10;
@@ -87,7 +87,7 @@
     infoBox.innerText = `X: ${x}, Y: ${y}`;
   });
 
-  // === 10. Popup bei Klick
+  // === 10. Popup bei Klick mit Koordinaten
   map.on('click', function(e) {
     const x = Math.round(e.latlng.lng);
     const y = Math.round(e.latlng.lat);
