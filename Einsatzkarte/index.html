@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – Variante 1.1 mit korrektem Nullpunkt</title>
+  <title>GTA5 Map – Variante 1.1 mit GTA-Koordinatensystem</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -26,41 +26,40 @@
 </head>
 <body>
 
-  <!-- Variante 1.1 Controls für X/Y-Suche -->
+  <!-- Variante 1.1: X/Y-Suche -->
   <div id="controls">
-    X: <input type="number" id="inputX" placeholder="z.B. 0">
-    Y: <input type="number" id="inputY" placeholder="z.B. 0">
-    <button id="btnSearch">Finden</button>
+    X Position: <input type="number" id="inputX" placeholder="z.B. 0">
+    Y Position: <input type="number" id="inputY" placeholder="z.B. 0">
+    <button id="btnSearch">FIND</button>
   </div>
 
-  <!-- Map-Container -->
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // --- 1) Echte GTA-Extents (lat=Y, lng=X) ---
+    // 1) GTA-Koordinatensystem definieren (lat=Y, lng=X)
     var minX = -4000, maxX =  8000;
     var minY = -4000, maxY =  6000;
     var gtaBounds = L.latLngBounds(
-      [minY, minX], // Süd-West
-      [maxY, maxX]  // Nord-Ost
+      [minY, minX],  // Süd-West Eckpunkt
+      [maxY, maxX]   // Nord-Ost Eckpunkt
     );
 
-    // --- 2) Karte initialisieren ---
+    // 2) Karte initialisieren, zentriert auf (0,0), nur innerhalb gtaBounds pannbar
     var map = L.map('map', {
       crs:       L.CRS.Simple,
       center:    [0, 0],     // GTA-Nullpunkt
       zoom:      2,
       minZoom:   0,
-      maxZoom:   8,          // ermöglicht Hereinzoomen bis 8
+      maxZoom:   8,          // bis 8 hinein-zoomen erlaubt
       zoomSnap:  0.5,
       zoomDelta: 0.5,
-      maxBounds: gtaBounds   // kein Panning außerhalb
+      maxBounds: gtaBounds   // kein Panning außerhalb des Bildes
     });
 
-    // --- 3) Tile-Layer konfigurieren ---
+    // 3) Tile-Layer-Parameter
     var tileSize      = 256,
-        maxNativeZoom = 5;   // echte Tiles liegen 0–5 vor
+        maxNativeZoom = 5;   // echte Tiles liegen für Zoom 0–5 vor
 
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
@@ -75,23 +74,31 @@
       }
     ).addTo(map);
 
-    // --- 4) Marker für den Nullpunkt ---
+    // 4) Nullpunkt-Marker mit Popup-Hinweis auf Variante 1.1 und GTA-Koordinatensystem
     L.marker([0, 0])
      .addTo(map)
-     .bindPopup('GTA Nullpunkt<br>X=0, Y=0<br>Laguna Place')
+     .bindPopup(
+       '<strong>Variante 1.1</strong><br>' +
+       '<em>GTA Koordinatensystem</em><br>' +
+       'Nullpunkt: X=0, Y=0<br>' +
+       'Laguna Place'
+     )
      .openPopup();
 
-    // --- 5) Klick-Popup für beliebige Koordinaten ---
+    // 5) Klick-Popup zeigt GTA-Koordinaten unter dem System
     map.on('click', function(e){
       var y = Math.round(e.latlng.lat),
           x = Math.round(e.latlng.lng);
       L.popup()
        .setLatLng(e.latlng)
-       .setContent('Koordinaten:<br>X='+x+'<br>Y='+y)
+       .setContent(
+         '<strong>GTA Koordinatensystem</strong><br>' +
+         'X=' + x + ', Y=' + y
+       )
        .openOn(map);
     });
 
-    // --- 6) Suchfeld-Funktionalität ---
+    // 6) Such-Funktion: zentriert Karte & setzt Marker auf eingegebene X/Y
     var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
       var x = parseFloat(document.getElementById('inputX').value),
@@ -101,9 +108,9 @@
       }
       var latlng = L.latLng(y, x);
       if (!gtaBounds.contains(latlng)) {
-        return alert('Koordinaten außerhalb des gültigen Bereichs.');
+        return alert('Koordinaten außerhalb des erlaubten Bereichs.');
       }
-      // mindestens auf native Zoom-Stufe hineinzoomen
+      // mindestens auf native Zoom-Stufe 5 hineinzoomen
       var targetZoom = Math.max(map.getZoom(), maxNativeZoom);
       map.setView(latlng, targetZoom);
       if (searchMarker) {
