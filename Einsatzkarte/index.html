@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – Start zentriert auf (0,0)</title>
+  <title>GTA5 Map mit Suchfeld, Nullpunkt & Koordinaten-Popup</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -26,88 +26,91 @@
 </head>
 <body>
 
+  <!-- Suchfelder -->
   <div id="controls">
     X: <input type="number" id="inputX" placeholder="z.B. 123">
     Y: <input type="number" id="inputY" placeholder="z.B. −456">
     <button id="btnSearch">Suchen</button>
   </div>
 
+  <!-- Map-Container -->
   <div id="map"></div>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
-    // --- 1) GTA-Spiel‐Bounds definieren (lat=Y, lng=X) ---
-    var sw     = L.latLng(-4000, -4000);
-    var ne     = L.latLng( 6000,  8000);
-    var bounds = L.latLngBounds(sw, ne);
+    // 1) GTA-Bounds (Leaflet lat=Y, lng=X)
+    var sw     = L.latLng(-4000, -4000),
+        ne     = L.latLng( 6000,  8000),
+        bounds = L.latLngBounds(sw, ne);
 
-    // --- 2) Parameters für Tiles & Zooms ---
-    var tileSize      = 256,
-        maxNativeZoom = 5,  // echte Tiles: 0–5
-        maxZoom       = 8,  // UI erlaubt bis 8
-        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192px
-
-    // --- 3) Bild‐Bounds in Pixel → LatLng umrechnen ---
-    var swP = [0,    nativeSize],
-        neP = [nativeSize, 0],
-        swLL = map && map.unproject ? map.unproject(swP, 0) : null,
-        neLL = map && map.unproject ? map.unproject(neP, 0) : null;
-    // (Wir können das erst nach Karten‐Init korrekt unprojecten)
-
-    // --- 4) Karte anlegen, zentriert auf (0,0) ---
+    // 2) Karten-Init: Simple CRS, Zoom 0–8, Start bei Nullpunkt, Pan-Limits
     var map = L.map('map', {
       crs:       L.CRS.Simple,
       minZoom:   0,
-      maxZoom:   maxZoom,
+      maxZoom:   8,
       zoom:      2,
+      center:    [0, 0],      // Start-Zentrum auf (Y=0, X=0)
+      maxBounds: bounds,      // kein Panning außerhalb
       zoomSnap:  0.5,
-      zoomDelta: 0.5,
-      center:    [0, 0],      // Start‐Zentrum = (Y=0, X=0)
-      maxBounds: bounds       // kein Panning außerhalb
+      zoomDelta: 0.5
     });
 
-    // Jetzt, wo map existiert, Bounds korrekt berechnen:
-    swLL = map.unproject(swP,    maxNativeZoom);
-    neLL = map.unproject(neP,    maxNativeZoom);
-    var imageBounds = L.latLngBounds(swLL, neLL);
+    // 3) Tile-Parameter
+    var tileSize      = 256,
+        maxNativeZoom = 5,    // echte Tiles 0–5
+        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192px
 
-    // --- 5) Dein TileLayer ---
+    // 4) Bild-Bounds → LatLng
+    var swP = [0, nativeSize],
+        neP = [nativeSize, 0],
+        swLL = map.unproject(swP, maxNativeZoom),
+        neLL = map.unproject(neP, maxNativeZoom),
+        imageBounds = L.latLngBounds(swLL, neLL);
+
+    // 5) TileLayer einbinden
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
         tileSize:      tileSize,
         bounds:        imageBounds,
         minZoom:       0,
-        maxZoom:       maxZoom,
+        maxZoom:       8,
         maxNativeZoom: maxNativeZoom,
         noWrap:        true,
         attribution:   '© FeuerwehrAUSTRIAX'
       }
     ).addTo(map);
 
-    // --- 6) Popup on click für GTA-Koordinaten ---
+    // 6) Nullpunkt-Marker (0,0)
+    L.marker([0, 0])
+      .addTo(map)
+      .bindPopup('GTA Nullpunkt<br>X=0, Y=0<br>Laguna Place')
+      .openPopup();
+
+    // 7) Klick-Popup für Koordinaten
     map.on('click', function(e){
-      var lat = Math.round(e.latlng.lat),
-          lng = Math.round(e.latlng.lng);
+      var y = Math.round(e.latlng.lat),
+          x = Math.round(e.latlng.lng);
       L.popup()
-       .setLatLng(e.latlng)
-       .setContent('GTA-Koords:<br>X='+lng+'<br>Y='+lat)
-       .openOn(map);
+        .setLatLng(e.latlng)
+        .setContent('GTA-Koordinaten:<br>X='+x+'<br>Y='+y)
+        .openOn(map);
     });
 
-    // --- 7) Suchfeld-Logik ---
+    // 8) Suchfeld-Logik: auf X/Y zentrieren + Marker setzen
     var searchMarker;
     document.getElementById('btnSearch').addEventListener('click', function(){
       var x = parseFloat(document.getElementById('inputX').value),
           y = parseFloat(document.getElementById('inputY').value);
-      if (isNaN(x)||isNaN(y)) {
+      if (isNaN(x) || isNaN(y)) {
         return alert('Bitte gültige X- und Y-Werte eingeben.');
       }
       var latlng = L.latLng(y, x);
       if (!bounds.contains(latlng)) {
         return alert('Koordinaten außerhalb des erlaubten Bereichs.');
       }
-      // Zoom mindestens auf Native‐Stufe rein
+      // Zoom mindestens auf native Stufe
       var targetZoom = Math.max(map.getZoom(), maxNativeZoom);
       map.setView(latlng, targetZoom);
       if (searchMarker) {
