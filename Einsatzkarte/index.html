@@ -1,80 +1,43 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8"/>
-  <title>Einsatzkarte – Zoom 0 & 1</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <meta charset="utf-8">
+  <title>Leaflet-Test mit eigenen JPG-Tiles</title>
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+    crossorigin=""
+  />
   <style>
-    html, body, #map {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-    }
+    /* Karte auf volle Höhe bringen */
+    html, body { height: 100%; margin: 0; padding: 0; }
+    #map { height: 100%; }
   </style>
 </head>
 <body>
+  <!-- Map-Container -->
   <div id="map"></div>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+    crossorigin="">
+  </script>
   <script>
-    // --- Konstanten ---
-    const MAX_Z     = 1;                    // nur Zoom 0 und 1
-    const TILE_SIZE = 256;
-    const MAP_SIZE  = TILE_SIZE * (1 << MAX_Z); // 256 * 2^1 = 512
+    // 1) Karte initialisieren, hier Zoomstufe 1 (weil du z.B. tiles/0/... und tiles/1/... hast)
+    var map = L.map('map').setView([0, 0], 1);
 
-    // --- Karte initialisieren ---
-    const map = L.map('map', {
-      crs: L.CRS.Simple,
-      center: [TILE_SIZE/2, TILE_SIZE/2],  // bei Zoom 0: [128,128]
-      zoom: 0,
-      minZoom: 0,
-      maxZoom: MAX_Z,
-      maxBounds: [[0,0], [MAP_SIZE, MAP_SIZE]],
-      maxBoundsViscosity: 1.0,
-      scrollWheelZoom: true,
-      doubleClickZoom: true
-    });
-
-    // --- Custom TileLayer, unterdrückt alle OOB-Requests ---
-    const CleanTileLayer = L.TileLayer.extend({
-      createTile(coords, done) {
-        const { x, y, z } = coords;
-        const max = (1 << z) - 1;
-        if (x < 0 || y < 0 || x > max || y > max) {
-          // außerhalb → leeres DIV
-          const d = document.createElement('div');
-          setTimeout(() => done(null, d), 0);
-          return d;
-        }
-        // gültiges Tile:
-        const img = document.createElement('img');
-        img.alt = '';
-        img.onerror = () => done(new Error('Tile load error'), img);
-        img.onload  = () => done(null, img);
-        img.src     = this.getTileUrl(coords);
-        return img;
+    // 2) Eigene JPG-Tiles einbinden (GitHub-Raw-URL)
+    L.tileLayer(
+      'https://raw.githubusercontent.com/FeuerwehrAUSTRIAX/Intranet/main/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
+      {
+        // nur Zoom 0 und 1 erlauben
+        minZoom: 0,
+        maxZoom: 1,
+        attribution: '© FeuerwehrAUSTRIAX'
       }
-    });
-
-    // --- Layer instanziieren ---
-    const tiles = new CleanTileLayer('tiles/{z}/{x}/{y}.jpg', {
-      tileSize: TILE_SIZE,
-      noWrap: true,
-      bounds: [[0,0], [MAP_SIZE, MAP_SIZE]],
-      minZoom: 0,
-      maxZoom: MAX_Z,
-      errorTileUrl: 'blank.jpg'  // dein leeres JPG im Repo-Root
-    }).addTo(map);
-
-    // --- Debug-Logs (kannst du auskommentieren) ---
-    tiles.on('tileloadstart', e => console.log('[LoadStart]', e.coords));
-    tiles.on('tileload',      e => console.log('[LoadOK]  ', e.coords));
-    tiles.on('tileerror',     e => console.warn('[LoadErr] ', e.coords));
-
-    // --- Test-Marker in Karten-Mitte ---
-    L.marker([TILE_SIZE/2, TILE_SIZE/2])
-      .addTo(map)
-      .bindPopup('Zoom 0 → 1 funktioniert!')
-      .openPopup();
+    ).addTo(map);
   </script>
 </body>
 </html>
