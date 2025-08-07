@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>GTA5 Map – Variante 1.4 mit korrekter CRS-Transformation</title>
+  <title>GTA5 Map – Variante 1.5 (exakte Transformation)</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
@@ -25,73 +25,75 @@
 </head>
 <body>
 
-  <!-- Variante 1.4: X/Y-Suche -->
+  <!-- X/Y-Suche -->
   <div id="controls">
     X: <input type="number" id="inputX" placeholder="z.B. 0">
     Y: <input type="number" id="inputY" placeholder="z.B. 0">
     <button id="btnSearch">FIND</button>
   </div>
 
+  <!-- Map-Container -->
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
     //
-    // 0) Konstante Parameter
+    // 0) Welt-Parameter in GTA-Metern
     //
-    var tileSize      = 256,
-        maxNativeZoom = 5,                // echte Tiles liegen in z=0…5
-        worldMinX     = -4000,
+    var worldMinX     = -4000,
         worldMaxX     =  8000,
         worldMinY     = -4000,
-        worldMaxY     =  6000;
+        worldMaxY     =  6000,
+        worldWidth    = worldMaxX - worldMinX,   // 12000
+        worldHeight   = worldMaxY - worldMinY;   // 10000
 
-    var worldWidth  = worldMaxX - worldMinX,   // = 12000 Meter
-        worldHeight = worldMaxY - worldMinY;   // = 10000 Meter
+    // native Tile-Auflösung bei z=5: 256 * 2^5 = 8192 px
+    var tileSize      = 256,
+        maxNativeZoom = 5,
+        nativeSize    = tileSize * Math.pow(2, maxNativeZoom); // 8192
 
     //
-    // 1) Exakte Transformation Meter → Normierte Einheit
+    // 1) Exakte Normalisierung (Meter → [0…1]) + invertierte Y-Achse
     //
-    //    a = 1 / worldWidth
-    //    b = –worldMinX / worldWidth
-    //    c = –1 / worldHeight  (invertierte Y-Achse)
-    //    d =  worldMaxY / worldHeight
+    //   a = 1 / worldWidth
+    //   b = -worldMinX / worldWidth
+    //   c = -1 / worldHeight
+    //   d =  worldMaxY / worldHeight
     //
-    var trans = new L.Transformation(
-      1/worldWidth,       -worldMinX/worldWidth,
-     -1/worldHeight,      worldMaxY/worldHeight
+    var transform = new L.Transformation(
+      1/worldWidth,     -worldMinX/worldWidth,
+     -1/worldHeight,     worldMaxY/worldHeight
     );
-
-    // Neues CRS, das unsere Transformation nutzt
     var CRSgta = L.extend({}, L.CRS.Simple, {
-      transformation: trans
+      transformation: transform
     });
 
     //
-    // 2) Map initialisieren
+    // 2) Map initialisieren mit unserem CRS
     //
     var map = L.map('map', {
       crs:       CRSgta,
-      center:    [0, 0],      // GTA-Nullpunkt (Y, X)
+      center:    [0, 0],     // GTA-Nullpunkt (Y, X)
       zoom:      2,
       minZoom:   0,
-      maxZoom:   8,           // bis 8 hineinzoomen (Upscale)
+      maxZoom:   8,
       zoomSnap:  0.5,
       zoomDelta: 0.5,
+      // Pan nur in den echten Extents:
       maxBounds: [
-        [worldMinY, worldMinX], 
+        [worldMinY, worldMinX],
         [worldMaxY, worldMaxX]
       ]
     });
 
     //
-    // 3) TileLayer einbinden
+    // 3) TileLayer: lädt echte Tiles 0–5, drüber hochskaliert es
     //
     L.tileLayer(
       'https://feuerwehraustriax.github.io/Intranet/Einsatzkarte/tiles/{z}/{x}/{y}.jpg',
       {
         tileSize:      tileSize,
-        bounds:        [
+        bounds: [
           [worldMinY, worldMinX],
           [worldMaxY, worldMaxX]
         ],
@@ -106,25 +108,20 @@
     //
     // 4) Marker: Nullpunkt + vier Ecken
     //
-    // Nullpunkt
-    L.marker([0, 0])
-     .addTo(map)
+    L.marker([0,0]).addTo(map)
      .bindPopup('<strong>Nullpunkt</strong><br>X=0, Y=0')
      .openPopup();
 
-    // Ecken:
-    var corners = [
-      { pos:[worldMinY, worldMinX], text:'SW: X='+worldMinX+', Y='+worldMinY },
-      { pos:[worldMinY, worldMaxX], text:'SE: X='+worldMaxX+', Y='+worldMinY },
-      { pos:[worldMaxY, worldMinX], text:'NW: X='+worldMinX+', Y='+worldMaxY },
-      { pos:[worldMaxY, worldMaxX], text:'NE: X='+worldMaxX+', Y='+worldMaxY }
-    ];
-    corners.forEach(function(c){
-      L.marker(c.pos).addTo(map).bindPopup(c.text);
+    [[worldMinY,worldMinX,'SW:<br>X='+worldMinX+',Y='+worldMinY],
+     [worldMinY,worldMaxX,'SE:<br>X='+worldMaxX+',Y='+worldMinY],
+     [worldMaxY,worldMinX,'NW:<br>X='+worldMinX+',Y='+worldMaxY],
+     [worldMaxY,worldMaxX,'NE:<br>X='+worldMaxX+',Y='+worldMaxY]
+    ].forEach(function(e){
+      L.marker([e[0],e[1]]).addTo(map).bindPopup(e[2]);
     });
 
     //
-    // 5) Klick-Popup: zeigt exakte GTA-Koordinaten
+    // 5) Klick-Popup → echte GTA-Koordinaten
     //
     map.on('click', function(e){
       var y = Math.round(e.latlng.lat),
@@ -136,27 +133,20 @@
     });
 
     //
-    // 6) Suchfeld: Karte auf X/Y zentrieren + Marker setzen
+    // 6) Suche nach X/Y
     //
     var searchMarker;
-    document.getElementById('btnSearch').addEventListener('click', function(){
+    document.getElementById('btnSearch').onclick = function(){
       var x = parseFloat(document.getElementById('inputX').value),
           y = parseFloat(document.getElementById('inputY').value);
-      if (isNaN(x) || isNaN(y)) {
-        return alert('Bitte gültige X- und Y-Zahlen eingeben.');
-      }
-      var ll = L.latLng(y, x);
-      if (!map.getMaxBounds().contains(ll)) {
-        return alert('Koordinaten außerhalb des Bereichs.');
-      }
-      var targetZoom = Math.max(map.getZoom(), maxNativeZoom);
-      map.setView(ll, targetZoom);
-      if (searchMarker) {
-        searchMarker.setLatLng(ll);
-      } else {
-        searchMarker = L.marker(ll).addTo(map);
-      }
-    });
+      if (isNaN(x)||isNaN(y)) return alert('Bitte gültige Werte!');
+      var ll = L.latLng(y,x);
+      if (!map.getMaxBounds().contains(ll)) return alert('Außerhalb!');
+      var tz = Math.max(map.getZoom(), maxNativeZoom);
+      map.setView(ll,tz);
+      if (searchMarker) searchMarker.setLatLng(ll);
+      else               searchMarker = L.marker(ll).addTo(map);
+    };
   </script>
 </body>
 </html>
