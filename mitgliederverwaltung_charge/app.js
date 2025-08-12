@@ -270,17 +270,24 @@ function displayCourses(record) {
     const container = $(`#${category}`);
     list.forEach(courseName => {
       const cfg = coursesConfig[courseName] || {};
-      if(!isEditingCourses) {
-        const hasAnyData = !!(
-          record[`${courseName} - Datum`] ||
-          record[`${courseName} - GÜLTIG BIS`] ||
-          record[`${courseName} - Ausbildner`] ||
-          record[`${courseName} - Information`] ||
-          record[`${courseName} - Zurückgezogen`] ||
-          record[`${courseName} - Absolviert`]
-        );
-        if(!hasAnyData) return;
-      }
+if (!isEditingCourses) {
+  const cfg = coursesConfig[courseName] || {};
+  let show = false;
+
+  if (cfg.hasCompleted) {
+    // Nur zeigen, wenn wirklich "Absolviert: Ja"
+    show = ((record[`${courseName} - Absolviert`] || '').toLowerCase() === 'ja');
+  } else if (cfg.hasValidUntil) {
+    // Für AKL-Test / ÖFAST: sichtbar, wenn "GÜLTIG BIS" gesetzt ist
+    show = !!record[`${courseName} - GÜLTIG BIS`];
+  } else {
+    // Fallback: sichtbar, wenn Datum gesetzt ist
+    show = !!record[`${courseName} - Datum`];
+  }
+
+  if (!show) return;
+}
+
       const card = makeCourseCard(courseName, record);
       container.append(card);
     });
