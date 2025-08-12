@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mitgliederverwaltung FFWN</title>
+  
+  <!-- jQuery & jQuery UI CSS/JS -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/smoothness/jquery-ui.css">
+  <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
+  <!-- Eigene Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- HEADER -->
+    <div class="header">
+      <span id="headerTitle">Mitgliederverwaltung</span>
+      <div style="position: relative;">
+        <input type="text" id="searchField" placeholder="Mitgliedsnummer, Vorname, Nachname" oninput="searchSuggestions()">
+        <div id="suggestions" class="suggestions"></div>
+      </div>
+    </div>
+
+    <div class="content-wrapper">
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="image-section" id="personalImage">Foto</div>
+        <div class="image-section dienstgrad-section" id="dienstgradImage">Dienstgrad</div>
+        <div class="sidebar-buttons">
+          <button id="statusToggle" class="status-toggle inactive" disabled>Inaktiv</button>
+          <button id="editCourseButton" onclick="activateCourseEditingMode()">Kursdaten bearbeiten</button>
+        </div>
+      </div>
+
+      <!-- CONTENT (Stammdaten) -->
+      <div class="content">
+        <div class="form-section"><label>Mitgliedsnummer</label><input type="text" id="mitgliedsnummer" disabled></div>
+        <div class="form-section"><label>Anrede</label><input type="text" id="anrede" disabled></div>
+        <div class="form-section"><label>Titel</label><input type="text" id="titel" disabled></div>
+        <div class="form-section"><label>Namen</label><input type="text" id="namen" disabled></div>
+        <div class="form-section"><label>Nachnamen</label><input type="text" id="nachnamen" disabled></div>
+        <div class="form-section"><label>Geburtsdatum</label><input type="text" class="datepicker" id="geburtsdatum" disabled></div>
+        <div class="form-section"><label>Beruf</label><input type="text" id="beruf" disabled></div>
+        <div class="form-section"><label>Geburtsort</label><input type="text" id="geburtsort" disabled></div>
+        <div class="form-section"><label>Familienstand</label><input type="text" id="familienstand" disabled></div>
+        <div class="form-section"><label>Staatsbürgerschaft</label><input type="text" id="staatsbuergerschaft" disabled></div>
+        <div class="form-section"><label>Identifikationsnummer</label><input type="text" id="identifikationsnummer" disabled></div>
+        <div class="form-section"><label>Telefonnummer</label><input type="tel" id="telefonnummer" disabled></div>
+        <div class="form-section"><label>Forumsname</label><input type="text" id="forumsname" disabled></div>
+        <div class="form-section"><label>Adresse</label><input type="text" id="adresse" disabled></div>
+        <div class="form-section"><label>Postleitzahl</label><input type="text" id="plz" disabled></div>
+        <div class="form-section"><label>Stadt</label><input type="text" id="stadt" disabled></div>
+        <div class="form-section"><label>D-Mail Adresse</label><input type="email" id="email" disabled></div>
+        <div class="form-section"><label>Abgemeldet Grund</label><input type="text" id="abgemeldet_grund" disabled></div>
+        <div class="form-section">
+          <label>Aktueller Dienstgrad</label>
+          <select id="dienstgrad" disabled>
+            <option value="" selected></option>
+            <optgroup label="Mannschaftsdienstgrade">
+              <option value="PFM">PFM</option>
+              <option value="FM">FM</option>
+              <option value="OFM">OFM</option>
+              <option value="HFM">HFM</option>
+              <option value="LM">LM</option>
+            </optgroup>
+            <optgroup label="Unteroffiziersdienstgrade">
+              <option value="OLM">OLM</option>
+              <option value="HLM">HLM</option>
+              <option value="BM">BM</option>
+              <option value="OBM">OBM</option>
+              <option value="HBM">HBM</option>
+            </optgroup>
+            <optgroup label="Offiziersdienstgrade">
+              <option value="BI">BI</option>
+              <option value="OBI">OBI</option>
+              <option value="HBI">HBI</option>
+              <option value="ABI">ABI</option>
+              <option value="BR">BR</option>
+              <option value="OBR">OBR</option>
+              <option value="LFR">LFR</option>
+              <option value="LBDSTV">LBDSTV</option>
+              <option value="LBD">LBD</option>
+            </optgroup>
+            <optgroup label="Verwaltungsdienstgrade">
+              <option value="VM">VM</option>
+              <option value="OVM">OVM</option>
+              <option value="HVM">HVM</option>
+              <option value="V">V</option>
+              <option value="OV">OV</option>
+              <option value="HV">HV</option>
+              <option value="VI">VI</option>
+              <option value="VR">VR</option>
+            </optgroup>
+            <optgroup label="Sonstige">
+              <option value="Bundesfeuerwehrpräsident">Bundesfeuerwehrpräsident</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-section"><label>Letzte Beförderung</label><input type="text" class="datepicker" id="beforderung" disabled></div>
+        <div class="form-section"><label>Funktion</label><input type="text" id="funktion" disabled></div>
+        <div class="form-section" id="ausbildnerEditContainer"><label>Ausbildner?</label><input type="checkbox" id="ausbildnerCheckbox"></div>
+        <div class="form-section" id="ausbildnerFuerSection" style="display: none;"><label>Ausbildner für</label><input type="text" id="ausbildner_fuer" disabled></div>
+      </div>
+    </div>
+
+    <!-- Kursübersicht -->
+    <div id="courseSection" class="course-section">
+      <div class="section-header" id="generalModulesHeader">Allgemein</div>
+      <div class="course-list" id="generalModules"></div>
+      <div class="section-header" id="branddienstModulesHeader">Branddienst / Atemschutz</div>
+      <div class="course-list" id="branddienstModules"></div>
+      <div class="section-header" id="techModulesHeader">Technisch</div>
+      <div class="course-list" id="techModules"></div>
+      <div class="section-header" id="hazardModulesHeader">Schadstoff</div>
+      <div class="course-list" id="hazardModules"></div>
+      <div class="section-header" id="waterModulesHeader">Wasserdienst</div>
+      <div class="course-list" id="waterModules"></div>
+      <div class="section-header" id="emModulesHeader">Einsatzmaschinist</div>
+      <div class="course-list" id="emModules"></div>
+      <div class="section-header" id="officerModulesHeader">Führung / Chargen</div>
+      <div class="course-list" id="officerModules"></div>
+    </div>
+
+  </div>
+
+  <!-- Datalists -->
+  <datalist id="activeMembersList"></datalist>
+  <datalist id="trainersList"></datalist>
+
+  <!-- Eigene App-Logik -->
+  <script src="app.js" defer></script>
+</body>
+</html>
