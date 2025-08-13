@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Einsatzberichte</title>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #212121;
+      color: #f0f0f0;
+      margin: 20px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .container {
+      width: 100%;
+      max-width: 1050px;
+      padding: 20px;
+      background-color: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 12px; text-align: left; border-bottom: 1px solid #555; color: #e0e0e0;
+    }
+    th { background-color: #AB2328; color: #fff; font-weight: bold; }
+    input[type="date"], select {
+      width: 100%; padding: 8px; margin: 4px 0; border: 1px solid #444; background-color: #3a3a3a;
+      color: #f0f0f0; border-radius: 5px; box-sizing: border-box;
+    }
+    .button-container {
+      margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px;
+    }
+    .button-container .btn {
+      padding: 10px 20px; font-size: 16px; background-color: #AB2328; color: white;
+      border: none; border-radius: 5px; cursor: pointer; transition: background-color .3s, font-weight .3s;
+    }
+    .button-container .btn:hover { background-color: #8A1F22; font-weight: bold; }
+
+    .report-list {
+      margin-top: 20px; width: 100%; max-width: 1050px; padding: 20px; background-color: #2a2a2a;
+      border: 1px solid #444; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.7);
+    }
+    .report-item {
+      margin-bottom: 15px; padding: 10px; border: 1px solid #444; border-radius: 5px; background-color: #3a3a3a;
+      display: flex; justify-content: space-between; align-items: center; color: #e0e0e0; gap: 10px;
+    }
+    .open-report-button {
+      padding: 10px 15px; background-color: #AB2328; color: white; border: none; border-radius: 5px;
+      cursor: pointer; transition: background-color 0.3s; font-size: 16px; white-space: nowrap;
+    }
+    .open-report-button:hover { background-color: #8A1F22; }
+
+    #reportDetailsContainer {
+      width: 100%; max-width: 1050px; padding: 20px; background-color: #2a2a2a; border: 1px solid #444;
+      border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.7); margin-top: 20px; display: none; color: #e0e0e0;
+    }
+    .report-section { margin-bottom: 15px; }
+    .report-section h2 { background-color: #444; padding: 10px; border-radius: 5px; color: #e0e0e0; }
+    .report-field {
+      margin: 10px 0; display: flex; justify-content: space-between; border-bottom: 1px solid #555; padding-bottom: 5px; color: #e0e0e0;
+    }
+    .report-field label { font-weight: bold; flex-basis: 35%; max-width: 35%; }
+    .report-field span {
+      background-color: #3a3a3a; padding: 5px 10px; border-radius: 5px; flex-basis: 60%; max-width: 60%; white-space: pre-wrap;
+    }
+
+    /* Fahrzeug-Kacheln (Grid) */
+    .vehicle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+      width: 100%;
+    }
+    .vehicle-card {
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    }
+    .vehicle-card-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+    .vehicle-card ul { margin: 0; padding-left: 18px; }
+    .vehicle-card li { margin: 2px 0; }
+
+    /* Druck: Kacheln dezent */
+    @media print {
+      .vehicle-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .vehicle-card { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container" id="searchContainer">
+  <h1>Einsatzberichte</h1>
+  <table>
+    <tr>
+      <th>Datum von (Alarmierung)</th>
+      <th>Datum bis (Alarmierung)</th>
+      <th>Einsatzstichwort</th>
+      <th>Berichtnr.</th>
+    </tr>
+    <tr>
+      <td><input type="date" id="datumVon"></td>
+      <td><input type="date" id="datumBis"></td>
+      <td>
+        <select id="stichwort">
+          <option value="">Bitte wählen</option>
+        </select>
+      </td>
+      <td>
+        <select id="berichtnr">
+          <option value="">Bitte wählen</option>
+        </select>
+      </td>
+    </tr>
+  </table>
+  <div class="button-container">
+    <button class="btn" onclick="filterDatasets()">Suchen</button>
+    <button class="btn" onclick="resetFilters()">Zurücksetzen</button>
+  </div>
+</div>
+
+<div class="report-list" id="reportList"></div>
+
+<div id="reportDetailsContainer">
+  <div id="reportDetailsContent"></div>
+  <div class="button-container">
+    <button class="btn" onclick="printReport()">Bericht drucken</button>
+    <button class="btn" onclick="closeReport()">Bericht schließen</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+<script>
+  /*
+    SPALTEN (Index):
+    [0]  Einsatzberichtnummer
+    [1]  Datum (Alarmierung)
+    [2]  Uhrzeit (Alarmierung)
+    [3]  Datum (Einsatzende)
+    [4]  Uhrzeit (Einsatzende)
+    [5]  Objekt
+    [6]  Einsatzort Bezirk
+    [7]  Einsatzort Straße
+    [8]  Hausnummer
+    [9]  Postleitzahl
+    [10] Eigener Einsatzbereich
+    [11] Einsatzstichwort
+    [12] Bericht erstellt durch
+    [13] Meldung
+    [14] Alarmierung
+    [15] Anwesend
+    [16] Wetter
+    [17] Gefahrenklasse
+    [18] Lage beim Eintreffen
+    [19] Maßnahmen am Einsatzort
+    [20] Bemerkungen
+    [21] Anzahl Verletzte Personen
+    [22] Anzahl Getötete Personen
+    [23] Anzahl Gerettete Personen
+    [24] Anzahl Verletzte Feuerwehrmitglieder
+    [25] Anzahl Getötete Feuerwehrmitglieder
+    [26] Anzahl Gerettete Feuerwehrmitglieder
+    [27] Anzahl Verletzte Tiere
+    [28] Anzahl Getötete Tiere
+    [29] Anzahl Gerettete Tiere
+    [30] Eingesetze Fahrzeuge  <-- JSON-Array [{kennzeichen, fahrzeugName}, ...]
+    [31] Eingesetzte Mannschaft <-- JSON: { "<kennzeichen>": { "0": {memberId, displayText, role}, ... }, ... }
+    [32] Gruppenkommandanten    <-- Text; wird mit Crew-GCs ergänzt
+    [33] Einsatzleiter          <-- Text; wird mit Crew-EL ergänzt
+  */
+
+  let data = [];
+  let currentRow = null;
+
+  async function loadData() {
+    const tsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=1016482411&single=true&output=tsv';
+
+    const res = await fetch(tsvUrl, { cache: 'no-store' });
+    if (!res.ok) {
+      console.error('Fehler beim Laden der Daten:', res.status, res.statusText);
+      return;
+    }
+    const tsvText = (await res.text()).replace(/^\uFEFF/, ''); // BOM entfernen
+    const parsed = Papa.parse(tsvText, {
+      header: false,
+      delimiter: '\t',
+      quoteChar: '"',
+      escapeChar: '"',
+      skipEmptyLines: 'greedy',
+      fastMode: false
+    });
+
+    // Header entfernen und leere Zeilen filtern
+    data = parsed.data.slice(1).filter(r => Array.isArray(r) && r.some(c => (c ?? '').toString().trim() !== ''));
+
+    populateDropdowns();
+  }
+
+  function populateDropdowns() {
+    const berichtnrSelect = document.getElementById('berichtnr');
+    const nums = [...new Set(data.map(row => (row[0]||'').trim()).filter(Boolean))].sort();
+    nums.forEach(num => {
+      const opt = document.createElement('option');
+      opt.value = num; opt.textContent = num;
+      berichtnrSelect.appendChild(opt);
+    });
+
+    const stichwortSelect = document.getElementById('stichwort');
+    const words = [...new Set(data.map(row => (row[11]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'));
+    words.forEach(sw => {
+      const opt = document.createElement('option');
+      opt.value = sw; opt.textContent = sw;
+      stichwortSelect.appendChild(opt);
+    });
+  }
+
+  function parseDateFlexible(d) {
+    if (!d) return null;
+    const s = (''+d).trim();
+    if (!s) return null;
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(s)) {
+      const [dd, mm, yyyy] = s.split('.');
+      const date = new Date(+yyyy, +mm - 1, +dd);
+      return isNaN(date) ? null : date;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [yyyy, mm, dd] = s.split('-');
+      const date = new Date(+yyyy, +mm - 1, +dd);
+      return isNaN(date) ? null : date;
+    }
+    const date = new Date(s);
+    return isNaN(date) ? null : date;
+  }
+
+  function resetFilters() {
+    document.getElementById('datumVon').value = '';
+    document.getElementById('datumBis').value = '';
+    document.getElementById('stichwort').value = '';
+    document.getElementById('berichtnr').value = '';
+    displayResults([]); // leert die Liste
+  }
+
+  function filterDatasets() {
+    const datumVon = document.getElementById('datumVon').value;
+    const datumBis = document.getElementById('datumBis').value;
+    const stichwort = document.getElementById('stichwort').value;
+    const berichtnr = document.getElementById('berichtnr').value;
+
+    const startDate = datumVon ? new Date(datumVon) : null;
+    const endDate = datumBis ? new Date(datumBis) : null;
+    if (startDate) startDate.setHours(0,0,0,0);
+    if (endDate)   endDate.setHours(23,59,59,999);
+
+    const filtered = data.filter(row => {
+      const alarmDate = parseDateFlexible(row[1]); // Datum (Alarmierung)
+      const inRange = (!startDate || (alarmDate && alarmDate >= startDate))
+                   && (!endDate   || (alarmDate && alarmDate <= endDate));
+      const stichwortMatch = stichwort ? (row[11] === stichwort) : true;
+      const nrMatch = berichtnr ? (row[0] === berichtnr) : true;
+      return inRange && stichwortMatch && nrMatch;
+    });
+
+    displayResults(filtered);
+  }
+
+  function displayResults(results) {
+    const list = document.getElementById('reportList');
+    list.innerHTML = '';
+
+    const resultCount = document.createElement('h3');
+    resultCount.textContent = `${results.length} Ergebnisse gefunden.`;
+    list.appendChild(resultCount);
+
+    if (results.length === 0) {
+      list.innerHTML += '<p>Keine Ergebnisse gefunden.</p>';
+      return;
+    }
+
+    results.forEach(row => {
+      const item = document.createElement('div');
+      item.className = 'report-item';
+
+      const details = document.createElement('div');
+      details.className = 'report-details';
+      const alarmDatum = row[1] || '';
+      const alarmZeit  = row[2] || '';
+      details.innerHTML = `
+        <strong>Berichtnr.:</strong> ${row[0] || ''}<br>
+        <strong>Alarmierung:</strong> ${alarmDatum} ${alarmZeit}<br>
+        <strong>Einsatzstichwort:</strong> ${row[11] || ''}<br>
+        <strong>Bezirk:</strong> ${row[6] || ''}<br>
+      `;
+
+      const openBtn = document.createElement('button');
+      openBtn.className = 'open-report-button';
+      openBtn.textContent = 'Bericht öffnen';
+      openBtn.onclick = () => openReport(row);
+
+      item.appendChild(details);
+      item.appendChild(openBtn);
+      list.appendChild(item);
+    });
+  }
+
+  // ---- Parser & Renderer ----
+  function parseVehicles(raw) {
+    if (!raw) return [];
+    try {
+      const val = JSON.parse(raw);
+      if (Array.isArray(val)) {
+        return val
+          .filter(v => v && (v.fahrzeugName || v.kennzeichen))
+          .map(v => ({
+            fahrzeugName: (v.fahrzeugName || '').toString().trim(),
+            kennzeichen: (v.kennzeichen || '').toString().trim()
+          }));
+      }
+      if (typeof val === 'object' && val) {
+        return [{
+          fahrzeugName: (val.fahrzeugName || '').toString().trim(),
+          kennzeichen: (val.kennzeichen || '').toString().trim()
+        }];
+      }
+    } catch (e) {
+      const txt = String(raw);
+      const parts = txt.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
+      return parts.map(p => {
+        const m = p.split(/\s*-\s*/);
+        return { fahrzeugName: (m[0]||''), kennzeichen: (m[1]||'') };
+      });
+    }
+    return [];
+  }
+
+  // Mannschaft: { "<kennzeichen>": { "0": {memberId, displayText, role}, ... }, ... }
+  function parseCrew(raw) {
+    const result = {};
+    if (!raw) return result;
+    try {
+      const obj = JSON.parse(raw);
+      Object.keys(obj || {}).forEach(plate => {
+        const membersObj = obj[plate] || {};
+        const arr = [];
+        Object.keys(membersObj).forEach(k => {
+          const m = membersObj[k];
+          if (m && (m.displayText || m.memberId)) {
+            arr.push({
+              memberId: (m.memberId || '').toString().trim(),
+              name: (m.displayText || '').toString().trim(),
+              role: (m.role || '').toString().trim()
+            });
+          }
+        });
+        result[(plate || '').toString().trim()] = arr;
+      });
+    } catch(e) { /* ignore */ }
+    return result;
+  }
+
+  function extractLeaders(crewMap) {
+    const gcs = new Set();
+    const els = new Set();
+    Object.values(crewMap).forEach(arr => {
+      arr.forEach(m => {
+        const role = (m.role || '').toLowerCase();
+        if (role === 'gruppenkommandant') gcs.add(m.name);
+        if (role === 'einsatzleiter') els.add(m.name);
+      });
+    });
+    return { gcs: [...gcs], els: [...els] };
+  }
+
+  function renderVehicleCards(vehicles, crewMap) {
+    if (!vehicles.length) return '—';
+    const cards = vehicles.map(v => {
+      const title = `${v.fahrzeugName || 'Fahrzeug'}${v.kennzeichen ? ' – ' + v.kennzeichen : ''}`;
+      const members = crewMap[(v.kennzeichen || '').toString().trim()] || [];
+      const list = members.length
+        ? `<ul>${members.map(m => `<li>${escapeHtml(m.role || 'Rolle')} – ${escapeHtml(m.name || '')}</li>`).join('')}</ul>`
+        : '—';
+      return `<div class="vehicle-card">
+                <div class="vehicle-card-title">${escapeHtml(title)}</div>
+                ${list}
+              </div>`;
+    }).join('');
+    return `<div class="vehicle-grid">${cards}</div>`;
+  }
+
+  function vehiclesToPrintCards(vehicles, crewMap) {
+    if (!vehicles.length) return '—';
+    return vehicles.map(v => {
+      const title = `${v.fahrzeugName || 'Fahrzeug'}${v.kennzeichen ? ' – ' + v.kennzeichen : ''}`;
+      const members = crewMap[(v.kennzeichen || '').toString().trim()] || [];
+      const list = members.length
+        ? members.map(m => `• ${m.role || 'Rolle'} – ${m.name || ''}`).join('<br>')
+        : '—';
+      return `<div class="block"><strong>${escapeHtml(title)}</strong><br>${list}</div>`;
+    }).join('<br>');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  // Merge vorhandenen Text + aus Crew extrahierte Namen (einzigartig)
+  function mergePeopleTextWithArray(text, arr) {
+    const out = new Set();
+    (text || '').split(/[,;/\n]+/).map(s => s.trim()).filter(Boolean).forEach(n => out.add(n));
+    (arr || []).map(s => (s || '').trim()).filter(Boolean).forEach(n => out.add(n));
+    return Array.from(out).join(', ');
+  }
+
+  function openReport(row) {
+    currentRow = row;
+    document.getElementById('searchContainer').style.display = 'none';
+    document.getElementById('reportList').style.display = 'none';
+
+    const wrap = (v) => (v && (''+v).trim()) ? v : '—';
+
+    const vehicles = parseVehicles(row[30]);
+    const crewMap  = parseCrew(row[31]);
+    const leaders  = extractLeaders(crewMap);
+
+    const vehicleCardsHtml = renderVehicleCards(vehicles, crewMap);
+
+    // GC/EL-Felder mit Crew-Leads ergänzen
+    const gcCombined = mergePeopleTextWithArray(row[32], leaders.gcs);
+    const elCombined = mergePeopleTextWithArray(row[33], leaders.els);
+
+    const container = document.getElementById('reportDetailsContainer');
+    container.style.display = 'block';
+
+    const content = document.getElementById('reportDetailsContent');
+    content.innerHTML = `
+      <div class="report-section">
+        <h2>Allgemeine Einsatzinformationen</h2>
+        <div class="report-field"><label>Einsatzbericht-Nr.:</label><span>${wrap(row[0])}</span></div>
+        <div class="report-field"><label>Datum der Alarmierung:</label><span>${wrap(row[1])}</span></div>
+        <div class="report-field"><label>Uhrzeit der Alarmierung:</label><span>${wrap(row[2])}</span></div>
+        <div class="report-field"><label>Datum (Einsatzende):</label><span>${wrap(row[3])}</span></div>
+        <div class="report-field"><label>Uhrzeit (Einsatzende):</label><span>${wrap[row[4]]}</span></div>
+        <div class="report-field"><label>Einsatzstichwort:</label><span>${wrap(row[11])}</span></div>
+        <div class="report-field"><label>Eigener Einsatzbereich:</label><span>${wrap(row[10])}</span></div>
+      </div>
+
+      <div class="report-section">
+        <h2>Einsatzort</h2>
+        <div class="report-field"><label>Objekt:</label><span>${wrap(row[5])}</span></div>
+        <div class="report-field"><label>Bezirk:</label><span>${wrap(row[6])}</span></div>
+        <div class="report-field"><label>Straße:</label><span>${wrap(row[7])}</span></div>
+        <div class="report-field"><label>Hausnummer:</label><span>${wrap(row[8])}</span></div>
+        <div class="report-field"><label>Postleitzahl:</label><span>${wrap(row[9])}</span></div>
+      </div>
+
+      <div class="report-section">
+        <h2>Lage und Maßnahmen</h2>
+        <div class="report-field"><label>Meldung:</label><span>${wrap(row[13])}</span></div>
+        <div class="report-field"><label>Alarmierung:</label><span>${wrap(row[14])}</span></div>
+        <div class="report-field"><label>Anwesend:</label><span>${wrap(row[15])}</span></div>
+        <div class="report-field"><label>Wetter:</label><span>${wrap(row[16])}</span></div>
+        <div class="report-field"><label>Gefahrenklasse:</label><span>${wrap(row[17])}</span></div>
+        <div class="report-field"><label>Lage beim Eintreffen:</label><span>${wrap(row[18])}</span></div>
+        <div class="report-field"><label>Maßnahmen am Einsatzort:</label><span>${wrap(row[19])}</span></div>
+        <div class="report-field"><label>Bemerkungen:</label><span>${wrap(row[20])}</span></div>
+      </div>
+
+      <div class="report-section">
+        <h2>Ressourcen und Beteiligte</h2>
+        <div class="report-field" style="display:block;">
+          <label style="display:block; margin-bottom:8px;">Fahrzeuge & Mannschaft:</label>
+          <span style="display:block; padding:0; background:none; border-radius:0;">${vehicleCardsHtml}</span>
+        </div>
+        <div class="report-field"><label>Gruppenkommandanten:</label><span>${escapeHtml(gcCombined || '—')}</span></div>
+        <div class="report-field"><label>Einsatzleiter:</label><span>${escapeHtml(elCombined || '—')}</span></div>
+      </div>
+
+      <div class="report-section">
+        <h2>Formales</h2>
+        <div class="report-field"><label>Bericht erstellt durch:</label><span>${wrap(row[12])}</span></div>
+      </div>
+    `;
+
+    // fürs Drucken speichern
+    content.dataset.vehicles = JSON.stringify(vehicles);
+    content.dataset.crewMap = JSON.stringify(crewMap);
+    content.dataset.gcCombined = gcCombined;
+    content.dataset.elCombined = elCombined;
+  }
+
+  function closeReport() {
+    document.getElementById('reportDetailsContainer').style.display = 'none';
+    document.getElementById('searchContainer').style.display = 'block';
+    document.getElementById('reportList').style.display = 'block';
+  }
+
+  function printReport() {
+    const row = currentRow;
+    if (!row) return;
+
+    const reportNumber = row[0];
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+
+    const logoLeft  = "https://i.postimg.cc/8PNcctrc/logo-ffwrn-und-schriftzug-v4-1.png";
+    const logoRight = "https://i.postimg.cc/kGfmBNkR/Logo-Final-3-0-ohne-Schein-black-1.png";
+
+    const wrap = (v) => (v && (''+v).trim()) ? v : '—';
+
+    // Daten aus DOM holen
+    const content = document.getElementById('reportDetailsContent');
+    const vehicles = JSON.parse(content.dataset.vehicles || '[]');
+    const crewMap  = JSON.parse(content.dataset.crewMap || '{}');
+    const gcCombined = content.dataset.gcCombined || '';
+    const elCombined = content.dataset.elCombined || '';
+
+    const crewCards = vehiclesToPrintCards(vehicles, crewMap);
+
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Kopie zum Einsatzbericht Nr. ${reportNumber}</title>
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 10mm; font-size: 10pt; }
+          header { margin-bottom: 5mm; }
+          .header-container { display: flex; align-items: center; justify-content: space-between; }
+          .header-title { font-weight: bold; font-size: 14pt; text-align: center; margin: 0 10px; flex: 1; }
+          footer {
+            position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 8pt;
+            padding-top: 5mm; background-color: #fff;
+          }
+          .report-section { border: 1px solid #000; margin-bottom: 5px; }
+          .report-section h2 { margin: 0; padding: 4px; font-size: 10pt; background: #fff; color: #000; }
+          table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+          th, td { border: 1px solid #000; padding: 3px; vertical-align: top; word-wrap: break-word; }
+          th { background-color: #eee; width: 22%; white-space: nowrap; }
+          .block { margin: 4px 0; }
+          @page { margin-bottom: 20mm; }
+        </style>
+      </head>
+      <body>
+        <header>
+          <div class="header-container">
+            <img src="${logoLeft}" style="height:10mm;">
+            <div class="header-title">Kopie zum Einsatzbericht Nr.: ${reportNumber}</div>
+            <img src="${logoRight}" style="height:10mm;">
+          </div>
+        </header>
+
+        <div class="report-section">
+          <h2>Allgemeine Einsatzinformationen</h2>
+          <table>
+            <tr><th>Einsatzbericht-Nr.:</th><td>${wrap(row[0])}</td><th>Einsatzstichwort:</th><td>${wrap(row[11])}</td></tr>
+            <tr><th>Datum Alarmierung:</th><td>${wrap(row[1])}</td><th>Uhrzeit Alarmierung:</th><td>${wrap(row[2])}</td></tr>
+            <tr><th>Datum Einsatzende:</th><td>${wrap(row[3])}</td><th>Uhrzeit Einsatzende:</th><td>${wrap(row[4])}</td></tr>
+            <tr><th>Eigener Einsatzbereich:</th><td colspan="3">${wrap(row[10])}</td></tr>
+          </table>
+        </div>
+
+        <div class="report-section">
+          <h2>Einsatzort</h2>
+          <table>
+            <tr><th>Objekt:</th><td>${wrap(row[5])}</td><th>Bezirk:</th><td>${wrap(row[6])}</td></tr>
+            <tr><th>Straße:</th><td>${wrap(row[7])}</td><th>Hausnummer:</th><td>${wrap(row[8])}</td></tr>
+            <tr><th>Postleitzahl:</th><td colspan="3">${wrap(row[9])}</td></tr>
+          </table>
+        </div>
+
+        <div class="report-section">
+          <h2>Lage und Maßnahmen</h2>
+          <table>
+            <tr><th>Meldung:</th><td>${wrap(row[13])}</td><th>Alarmierung:</th><td>${wrap(row[14])}</td></tr>
+            <tr><th>Anwesend:</th><td>${wrap(row[15])}</td><th>Wetter:</th><td>${wrap(row[16])}</td></tr>
+            <tr><th>Gefahrenklasse:</th><td>${wrap(row[17])}</td><th>Lage beim Eintreffen:</th><td>${wrap(row[18])}</td></tr>
+            <tr><th>Maßnahmen am Einsatzort:</th><td colspan="3">${wrap(row[19])}</td></tr>
+            <tr><th>Bemerkungen:</th><td colspan="3">${wrap(row[20])}</td></tr>
+          </table>
+        </div>
+
+        <div class="report-section">
+          <h2>Ressourcen und Beteiligte</h2>
+          <table>
+            <tr><th>Fahrzeuge & Mannschaft:</th><td colspan="3">${crewCards}</td></tr>
+            <tr><th>Gruppenkommandanten:</th><td>${escapeHtml(gcCombined || '—')}</td><th>Einsatzleiter:</th><td>${escapeHtml(elCombined || '—')}</td></tr>
+          </table>
+        </div>
+
+        <div class="report-section">
+          <h2>Formales</h2>
+          <table>
+            <tr><th>Bericht erstellt durch:</th><td colspan="3">${wrap(row[12])}</td></tr>
+          </table>
+        </div>
+
+        <footer>
+          Gedruckt am: ${new Date().toLocaleDateString()} um ${new Date().toLocaleTimeString()} - Intranet Feuerwehr AustriaX by Dieserkleinmann
+        </footer>
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  }
+
+  // Start
+  loadData();
+</script>
+
+</body>
+</html>
