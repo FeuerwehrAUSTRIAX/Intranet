@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Euro Rescue – intern</title>
+
+  <style>
+    /* Seitenhintergrund & Grundlayout (schwarze Ränder links/rechts) */
+    :root {
+      --bg: #212121;     /* Seitenhintergrund (schwarz/dunkel) */
+      --card: #2a2a2a;   /* Container */
+      --accent: #AB2328; /* Rot */
+      --text: #f0f0f0;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px 0;      /* schiebt alles 20px nach unten */
+      overflow: hidden;
+    }
+
+    /* Zentrierter Container mit max Breite – links/rechts bleibt schwarz */
+    .container {
+      width: 100%;
+      max-width: 1050px;      /* wie bei dir */
+      max-height: 90vh;       /* wie bei dir */
+      background: var(--card);
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;       /* Inhalt scrollt kontrolliert */
+    }
+
+.header {
+  display: flex;
+  justify-content: center;   /* Text mittig horizontal */
+  align-items: center;       /* Text mittig vertikal */
+  background-color: #AB2328;
+  color: white;
+  padding: 15px 20px;
+  font-size: 1.5em;
+  font-weight: bold;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+
+    /* Iframe-Wrapper füllt den restlichen Platz im Container */
+    .iframe-wrap {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;          /* wichtig für korrektes flex-Scrolling */
+      background: #1c1c1c;    /* dunkel, falls iFrame noch lädt */
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .iframe-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #2a2a2a;    /* bleibt dunkel beim Laden */
+    }
+
+    /* Fallback-Overlay, falls das Einbetten blockiert wird */
+    .fallback {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg,#232323,#1b1b1b);
+      color: #f0f0f0;
+      padding: 24px;
+      text-align: center;
+      align-content: center;
+    }
+    .fallback button {
+      margin-top: 10px;
+      padding: 12px 16px;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .fallback small { display:block; margin-top:8px; color:#cfcfcf; }
+
+    /* Optional: kleiner Hinweis unten */
+    .foot {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #bdbdbd;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Schwarze Ränder = Body-Hintergrund außerhalb der max-width -->
+  <div class="container">
+    <div class="header">
+      <span>Rettungskarten - Datenbank</span>
+    </div>
+
+    <div class="iframe-wrap">
+      <iframe id="rescueFrame"
+              src="https://rescue.euroncap.com/"
+              allowfullscreen
+              referrerpolicy="no-referrer">
+      </iframe>
+
+      <!-- Fallback-Overlay -->
+      <div id="fallback" class="fallback">
+        <div>
+          <h2 style="margin:0 0 8px">Einbettung blockiert</h2>
+          <p style="margin:0">
+            Die Zielseite erlaubt eventuell keine iFrame-Einbettung.
+            Du kannst Euro Rescue hier öffnen:
+          </p>
+          <button onclick="window.open('https://rescue.euroncap.com/', '_blank')">
+            In neuem Tab öffnen
+          </button>
+          <small>Für direkte Einbettung im Intranet ggf. Reverse-Proxy verwenden.</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot"></div>
+  </div>
+
+  <script>
+    // Zeigt Fallback, falls das iFrame nicht lädt (z.B. X-Frame-Options/CSP).
+    const iframe = document.getElementById('rescueFrame');
+    const fallback = document.getElementById('fallback');
+    let loaded = false;
+
+    iframe.addEventListener('load', () => {
+      loaded = true;
+      fallback.style.display = 'none';
+    });
+
+    // nach 4s ohne load -> Fallback anzeigen
+    setTimeout(() => { if (!loaded) fallback.style.display = 'grid'; }, 4000);
+
+    // Dynamische Höhe im Container (nutzt die vorhandenen 90vh optimal)
+    function fit() {
+      const container = document.querySelector('.container');
+      const header = document.querySelector('.header');
+      const wrap = document.querySelector('.iframe-wrap');
+
+      const maxH = Math.min(window.innerHeight * 0.90, window.innerHeight - 40); // 90vh ≈ wie oben
+      const headerH = header ? header.offsetHeight : 0;
+      const padd = 20 /* oben */ + 20 /* unten */;
+
+      const inner = maxH - headerH - padd;
+      wrap.style.height = (inner > 300 ? inner : 300) + 'px';
+    }
+    window.addEventListener('resize', fit);
+    window.addEventListener('load', fit);
+  </script>
+</body>
+</html>
