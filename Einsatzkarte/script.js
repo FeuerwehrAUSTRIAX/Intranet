@@ -1,5 +1,5 @@
 /* ===========================================
- * Einsatzkarte – script.js (mit POIs-Feldern & BMA)
+ * Einsatzkarte – script.js (Marker-Slider & Modal)
  * =========================================== */
 
 /* ================== Projektion / Grundwerte ================== */
@@ -15,12 +15,16 @@ const scaleX = (mapRef2.lng - mapRef1.lng) / (gtaRef2.x - gtaRef1.x);
 const scaleY = (mapRef2.lat - mapRef1.lat) / (gtaRef2.y - gtaRef1.y);
 
 function toMap(x, y){
-  return { lng: mapRef1.lng + (x - gtaRef1.x) * scaleX,
-           lat: mapRef1.lat + (y - gtaRef1.y) * scaleY };
+  return {
+    lng: mapRef1.lng + (x - gtaRef1.x) * scaleX,
+    lat: mapRef1.lat + (y - gtaRef1.y) * scaleY
+  };
 }
 function fromMap(lat, lng){
-  return { x: Math.round(gtaRef1.x + (lng - mapRef1.lng) / scaleX),
-           y: Math.round(gtaRef1.y + (lat - mapRef1.lat) / scaleY) };
+  return {
+    x: Math.round(gtaRef1.x + (lng - mapRef1.lng) / scaleX),
+    y: Math.round(gtaRef1.y + (lat - mapRef1.lat) / scaleY)
+  };
 }
 
 /* ================== Karte ================== */
@@ -30,7 +34,7 @@ const ne = map.unproject([size, 0], maxZoom);
 const bounds = L.latLngBounds(sw, ne);
 map.setMaxBounds(bounds).fitBounds(bounds);
 
-L.tileLayer('tiles/{z}/{x}/{y}.png', {
+L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
   tileSize, minZoom, maxZoom, noWrap: true, bounds,
   attribution: '© FeuerwehrAUSTRIAX'
 }).addTo(map);
@@ -51,7 +55,9 @@ map.on('click', e => {
   const text = `${gta.x}, ${gta.y}`;
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).then(()=>toast(text)).catch(()=>fallbackCopy(text));
-  } else { fallbackCopy(text); }
+  } else {
+    fallbackCopy(text);
+  }
 });
 function fallbackCopy(text){
   const ta = document.createElement('textarea'); ta.value = text;
@@ -84,6 +90,52 @@ document.getElementById("categoryFilterHeader").addEventListener("click", functi
   contentDiv.style.display = open ? "none" : "block";
   toggleArrow.innerText = open ? "►" : "▼";
 });
+
+/* ================== Marker-Höhe (Slider) ================== */
+const markerSizeRange = document.getElementById('markerSizeRange');
+const markerSizeValue = document.getElementById('markerSizeValue');
+if (markerSizeRange) {
+  const setSize = (px) => {
+    document.documentElement.style.setProperty('--marker-h', px + 'px');
+    if (markerSizeValue) markerSizeValue.textContent = px + ' px';
+  };
+  setSize(markerSizeRange.value);
+  markerSizeRange.addEventListener('input', () => setSize(markerSizeRange.value));
+}
+
+/* ================== Modal (Brandschutzplan/Bild) ================== */
+const modalOverlay = document.getElementById('modalOverlay');
+const modalHeader  = document.getElementById('modalHeader');
+const modalBody    = document.getElementById('modalBody');
+const closeModalBtn= document.getElementById('closeModalBtn');
+
+function openModal(title, contentNodeOrHtml){
+  modalHeader.textContent = title || '';
+  modalBody.innerHTML = '';
+  if (typeof contentNodeOrHtml === 'string') {
+    modalBody.innerHTML = contentNodeOrHtml;
+  } else if (contentNodeOrHtml) {
+    modalBody.appendChild(contentNodeOrHtml);
+  }
+  modalOverlay.style.display = 'grid';
+}
+function closeModal(e){
+  if (e && e.target && e.target !== modalOverlay && e.target !== closeModalBtn) return;
+  modalOverlay.style.display = 'none';
+  modalBody.innerHTML = '';
+}
+modalOverlay?.addEventListener('click', closeModal);
+closeModalBtn?.addEventListener('click', closeModal);
+document.addEventListener('keydown', e=>{ if (e.key === 'Escape' && modalOverlay.style.display !== 'none') closeModal(); });
+
+function looksLikeImage(url){ return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(url); }
+function openPlan(url){
+  if (!url) return;
+  const html = looksLikeImage(url)
+    ? `<img src="${url}" alt="Plan" style="width:100%;height:100%;object-fit:contain;background:#111;">`
+    : `<iframe src="${url}" title="Plan" style="width:100%;height:100%;border:0;background:#111;"></iframe>`;
+  openModal('Brandschutzplan', html);
+}
 
 /* ================== Autocomplete ================== */
 const AC_MAX = 8;
@@ -170,7 +222,7 @@ function isIconAvailable(url){
 }
 function slugify(s){
   return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g, '');
 }
 function escapeHtml(s){
   return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
@@ -228,7 +280,8 @@ async function loadPois(file){
 
   const poiNames = new Set(); const plzFromPois = new Set();
   ALL_MARKERS = []; // reset
-  // Kategorien ggf. neu aufbauen
+
+  // Kategorien neu aufbauen
   Object.values(categoryLayers).forEach(grp => map.removeLayer(grp));
   for (const key of Object.keys(categoryLayers)) delete categoryLayers[key];
   for (const key of Object.keys(layerStates)) delete layerStates[key];
@@ -240,7 +293,7 @@ async function loadPois(file){
     const [x,y] = poi.Lage || [0,0];
     const { lat, lng } = toMap(x,y);
 
-    // --- Felder aus JSON (robust gegen Schreibweisen) ---
+    // --- Felder aus JSON (robust) ---
     const bmaVal   = (poi.BMA || poi['BMA'] || '').toString().trim().toLowerCase();
     const hasBma   = bmaVal === 'ja';
     const bmaCode  = poi['BMA-Code'] || poi.BMA_Code || '';
@@ -264,7 +317,7 @@ async function loadPois(file){
     const adresse = `${poi.Adresse_Strasse||''} ${poi.Hausnummer||''}, ${poi.PLZ||''} ${poi.Bezirk||''}`
       .replace(/\s+,/g, ',').replace(/^\s*,\s*|\s*,\s*$/g, '').trim();
 
-    // --- Popup: Basis ---
+    // --- Popup ---
     let popup = `
       <h3>${escapeHtml(poi.POI||'')}</h3>
       <table>
@@ -273,22 +326,23 @@ async function loadPois(file){
       </table>
     `;
 
-    // --- Popup: BMA-Infos nur wenn vorhanden ---
     if (hasBma) {
       popup += `
         <table>
           ${bmaCode ? `<tr><td>BMA-Code</td><td>${escapeHtml(bmaCode)}</td></tr>` : ``}
-          ${planUrl ? `<tr><td>Brandschutzplan</td><td><a href="${planUrl}" target="_blank" rel="noopener">Anzeigen</a></td></tr>` : ``}
+          ${
+            planUrl
+              ? `<tr><td>Brandschutzplan</td><td><a href="#" onclick="openPlan('${String(planUrl).replace(/'/g, "\\'")}');return false;">Anzeigen</a></td></tr>`
+              : ``
+          }
         </table>
       `;
     }
 
-    // Objektbild (falls vorhanden)
     if (objekt) {
       popup += `<img src="${objekt}" alt="Objektbild" style="width:100%;max-height:220px;object-fit:cover;border-radius:6px;margin-top:10px;">`;
     }
 
-    // Besonderheiten (als eigener Block)
     if (besond) {
       popup += `
         <div class="popup-section" style="margin-top:10px;">
@@ -299,12 +353,11 @@ async function loadPois(file){
       `;
     }
 
-    // Kontaktdaten (Tabellen-Parsing ähnlich deinem Beispiel)
     if (kontakt) {
       const rows = String(kontakt).split(/\r?\n/).filter(l=>l.trim()!=='').map(line=>{
         const parts = line.split(/Tel\.:/i);
-        const left = parts[0]?.trim() ?? '';
-        const right = parts[1]?.trim() ?? '';
+        const left = (parts[0]||'').trim();
+        const right = (parts[1]||'').trim();
         return `<tr>
                   <td style="padding:6px;border:1px solid #444;color:#fff;text-align:center;">${escapeHtml(left)}</td>
                   <td style="padding:6px;border:1px solid #444;text-align:center;">${escapeHtml(right)}</td>
@@ -328,15 +381,17 @@ async function loadPois(file){
 
     popup += `<button onclick="this.closest('.leaflet-popup').querySelector('.leaflet-popup-close-button').click()">Schließen</button>`;
 
-    const marker = L.marker([lat,lng],{icon})
-      .bindPopup(popup);
+    const marker = L.marker([lat,lng],{icon}).bindPopup(popup);
 
     marker.poiName = (poi.POI||'').toLowerCase();
     marker.plz     = (poi.PLZ||'').toLowerCase();
     marker._categoryName = poi.Kategorie || 'Sonstiges';
 
     ALL_MARKERS.push(marker);
-    if (!categoryLayers[marker._categoryName]){ categoryLayers[marker._categoryName] = L.layerGroup(); layerStates[marker._categoryName] = true; }
+    if (!categoryLayers[marker._categoryName]){
+      categoryLayers[marker._categoryName] = L.layerGroup();
+      layerStates[marker._categoryName] = true;
+    }
     marker.addTo(categoryLayers[marker._categoryName]);
   }
 
@@ -347,7 +402,7 @@ async function loadPois(file){
   buildFilterPanelFromCategories();
   rebuildAcData(poiNames, plzFromPois);
 
-  // BMA-Visibility-Status beim Laden anwenden
+  // BMA-Visibility anwenden
   applyBmaToggle();
 }
 
