@@ -2,6 +2,39 @@
  * Einsatzkarte – script.js (Marker-Slider & Modal)
  * =========================================== */
 
+/* ===== zentrierte Icons + BMA rechts daneben (einmaliges CSS) ===== */
+(() => {
+  const css = `
+    .marker-wrap{
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      /* Der Trick: Der Wrapper selbst wird um 50% nach links/oben verschoben,
+         dadurch liegt sein Mittelpunkt GENAU auf dem Ankerpunkt (0,0). */
+      transform: translate(-50%, -50%);
+      will-change: transform;
+      pointer-events: auto;
+    }
+    .marker-wrap .poi-img-icon{
+      width: var(--marker-h, 32px);
+      height: var(--marker-h, 32px);
+      object-fit: contain;
+      display: block;
+      image-rendering: auto;
+    }
+    .marker-wrap .bma-symbol{
+      width: calc(var(--marker-h, 32px) * 0.6);
+      height: calc(var(--marker-h, 32px) * 0.6);
+      margin-left: 6px;               /* -> rechts daneben */
+      display: inline-block;
+    }
+  `;
+  const tag = document.createElement('style');
+  tag.id = 'marker-centering-style';
+  tag.textContent = css;
+  document.head.appendChild(tag);
+})();
+
 /* ================== Projektion / Grundwerte ================== */
 const tileSize = 256, minZoom = 0, maxZoom = 5;
 const size = tileSize * Math.pow(2, maxZoom);
@@ -311,8 +344,14 @@ async function loadPois(file){
       ? `<img src="https://i.postimg.cc/RFZ23TVC/BMA.gif" class="bma-symbol" alt="BMA" />`
       : ``;
 
-    const markerHTML = `<div class="custom-marker">${leftHtml}${bmaHtml}</div>`;
-    const icon = L.divIcon({ html: markerHTML, className:'', iconSize:null, iconAnchor:[16,16], popupAnchor:[0,-20] });
+    /* ===== WICHTIG: Wrapper .marker-wrap
+       - liegt mittig über den Koordinaten (siehe CSS oben)
+       - BMA-Icon steht rechts daneben (margin-left)
+    ===== */
+    const markerHTML = `<div class="marker-wrap">${leftHtml}${bmaHtml}</div>`;
+
+    // iconAnchor = [0,0], weil der .marker-wrap selbst die Zentrierung übernimmt
+    const icon = L.divIcon({ html: markerHTML, className:'', iconSize: null, iconAnchor:[0,0], popupAnchor:[0,-20] });
 
     const adresse = `${poi.Adresse_Strasse||''} ${poi.Hausnummer||''}, ${poi.PLZ||''} ${poi.Bezirk||''}`
       .replace(/\s+,/g, ',').replace(/^\s*,\s*|\s*,\s*$/g, '').trim();
