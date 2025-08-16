@@ -1,83 +1,53 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <title>GTA5 Map – Kalibriertes Koordinatensystem mit Zoom</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #map { width: 100%; height: 100%; }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Einsatzkarte</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Suche -->
+  <div id="controlsSearch">
+    <input type="text" id="searchBox" placeholder="POI oder PLZ suchen…" />
+    <button id="clearBtn" type="button">Zurücksetzen</button>
+  </div>
+
+  <!-- Sidebar: Filter + Refresh -->
+  <div id="controlPanel">
+    <div id="categoryFilter">
+      <div id="categoryFilterHeader">
+        <span>Filter</span>
+        <span id="toggleArrow">►</span>
+      </div>
+      <div id="categoryFilterContent">
+        <label>
+          <input type="checkbox" id="toggle-all" checked /> Alle Kategorien
+        </label>
+        <div id="categories"></div>
+        <label>
+          <input type="checkbox" id="toggle-plz" /> PLZ-Labels (ab Zoom 4)
+        </label>
+        <label>
+          <input type="checkbox" id="bmaToggle" checked /> BMA Symbol anzeigen
+        </label>
+      </div>
+    </div>
+    <div id="refreshButton">
+      <button id="reloadBtn" type="button">Daten aktualisieren</button>
+    </div>
+  </div>
+
   <div id="map"></div>
+  <div id="coordTip"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-  <script>
-    // Bildgröße (in px, z. B. 8192×8192)
-    const imageSize = 8192;
-
-    // GTA-Weltkoordinaten der Bildecken
-    const minX = -6127.37;
-    const maxX =  6758.06;
-    const minY = -4059.996;
-    const maxY =  8426.432;
-
-    const worldWidth  = maxX - minX;
-    const worldHeight = maxY - minY;
-
-    // Maßstab
-    const scaleX = imageSize / worldWidth;
-    const scaleY = imageSize / worldHeight;
-
-    // Transformation (Spielkoordinaten ↔ Pixel)
-    L.CRS.Simple.transformation = new L.Transformation(
-      scaleX, -minX * scaleX,
-     -scaleY,  maxY * scaleY
-    );
-
-    const map = L.map('map', {
-      crs: L.CRS.Simple,
-      minZoom: 0,
-      maxZoom: 5,
-      maxNativeZoom: 5,
-      zoom: 2,
-      center: [ (maxY + minY) / 2, (minX + maxX) / 2 ],
-      preferCanvas: true
-    });
-
-    // Grenzen festlegen
-    const bounds = L.latLngBounds(
-      [ maxY, minX ],
-      [ minY, maxX ]
-    );
-    map.setMaxBounds(bounds);
-
-    // Tiles laden
-    L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
-      tileSize: 256,
-      noWrap: true,
-      bounds: bounds,
-      minZoom: 0,
-      maxZoom: 5,
-      attribution: '© DeinProjekt'
-    }).addTo(map);
-
-    // Marker bei Klick setzen
-    let marker;
-    map.on('click', function(e) {
-      const lat = e.latlng.lat;
-      const lng = e.latlng.lng;
-
-      if (marker) map.removeLayer(marker);
-
-      marker = L.marker([lat, lng])
-        .addTo(map)
-        .bindPopup(`<b>X: ${lng.toFixed(2)} | Y: ${lat.toFixed(2)}</b>`)
-        .openPopup();
-
-      map.setView([lat, lng], 5);
-    });
-  </script>
+  <!-- App -->
+  <script src="script.js"></script>
 </body>
 </html>
