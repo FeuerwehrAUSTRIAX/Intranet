@@ -1,0 +1,342 @@
+[
+  {
+    "POI": "MA / ASFINAG",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Museumstraße",
+    "Hausnummer": "17",
+    "PLZ": "7102",
+    "Bezirk": "Döbling",
+    "Lage": [681, 120],
+    "ICON": "https://i.postimg.cc/GhNFPt0s/download.png",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Berufsfeuerwehr Wien",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Favoritenstraße",
+    "Hausnummer": "14",
+    "PLZ": "9332",
+    "Bezirk": "Favoriten",
+    "Lage": [-1103, -1617],
+    "ICON": "https://www.bundesfeuerwehrverband.at/wp-content/uploads/2017/03/lfv_wien-1030x1030.png",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "PI Wiener Neustadt",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Fischauergasse",
+    "Hausnummer": "2",
+    "PLZ": "1038",
+    "Bezirk": "Wiener Neustadt",
+    "Lage": [-440, 5999],
+    "ICON": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRk7mHCk4SnZT3gwQ6JkDuqqiO6nd4Ft4Qlg&s",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "TEST",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "PI Mödling",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Corneliusgasse",
+    "Hausnummer": "4",
+    "PLZ": "3006",
+    "Bezirk": "Mödling",
+    "Lage": [1855, 3686],
+    "ICON": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRk7mHCk4SnZT3gwQ6JkDuqqiO6nd4Ft4Qlg&s",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "SPK 1",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Deutschmeisterplatz",
+    "Hausnummer": "3",
+    "PLZ": "8047",
+    "Bezirk": "Innere Stadt",
+    "Lage": [452, -995],
+    "ICON": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRk7mHCk4SnZT3gwQ6JkDuqqiO6nd4Ft4Qlg&s",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "LKA",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Schwenkgasse",
+    "Hausnummer": "",
+    "PLZ": "8083",
+    "Bezirk": "Meidling",
+    "Lage": [-825, -705],
+    "ICON": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRk7mHCk4SnZT3gwQ6JkDuqqiO6nd4Ft4Qlg&s",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Feuerwehr Wiener Neustadt",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Fischauergasse",
+    "Hausnummer": "122",
+    "PLZ": "1042",
+    "Bezirk": "Wiener Neustadt",
+    "Lage": [-369, 6110],
+    "ICON": "https://www.ff-natschbach.at/wp-content/uploads/2018/05/cropped-2000px-Korpsabzeichen-FFOE.svg_-2.png",
+    "BMA": "Ja",
+    "BMA-Code": "4968",
+    "Objektbild": "https://i.postimg.cc/Fzy6wJyz/image.png",
+    "Brandschutzplan": "https://i.postimg.cc/wBcM0wPs/1211-PI-Wr-Neustadt.png",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Justizzentrum Josefstadt",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Zubringer A21",
+    "Hausnummer": "",
+    "PLZ": "4000",
+    "Bezirk": "Justizanstalt",
+    "Lage": [1693, 2577],
+    "ICON": "https://swiss-policepatches.ch/home_new/wp-content/uploads/2018/11/oesterreich_justizwache_justizanstalt_josefstadt_einsatzgruppe_gelber_rand.jpg",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Langenlebern Kaserne",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Tulbingerstraße",
+    "Hausnummer": "",
+    "PLZ": "5005",
+    "Bezirk": "Langenlebarn-Kaserne",
+    "Lage": [-2230, 3121],
+    "ICON": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Roundel_of_Austria.svg/2048px-Roundel_of_Austria.svg.png",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "PI Rossauer Kaserne",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "A1 Westautobahn",
+    "Hausnummer": "",
+    "PLZ": "7004",
+    "Bezirk": "Alsergrund",
+    "Lage": [95, -348],
+    "ICON": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRk7mHCk4SnZT3gwQ6JkDuqqiO6nd4Ft4Qlg&s",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Einsatztrainingsanlage Polizei",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Mannswörther Straße",
+    "Hausnummer": "",
+    "PLZ": "10098",
+    "Bezirk": "Simmering",
+    "Lage": [481, -3081],
+    "ICON": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRk7mHCk4SnZT3gwQ6JkDuqqiO6nd4Ft4Qlg&s",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Wasserpolizei Handelskai",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Brigittenauer Lände",
+    "Hausnummer": "",
+    "PLZ": "8240",
+    "Bezirk": "Brigittenau",
+    "Lage": [-766, -1485],
+    "ICON": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRk7mHCk4SnZT3gwQ6JkDuqqiO6nd4Ft4Qlg&s",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Feuerwehrhafen Brigittenau",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Brigittenauer Lände",
+    "Hausnummer": "",
+    "PLZ": "8240",
+    "Bezirk": "Brigittenau",
+    "Lage": [-756, -1386],
+    "ICON": "https://www.ff-natschbach.at/wp-content/uploads/2018/05/cropped-2000px-Korpsabzeichen-FFOE.svg_-2.png",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Berufsrettung Wien",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Breitenfurterstraße",
+    "Hausnummer": "",
+    "PLZ": "8212",
+    "Bezirk": "Rudolfsheim-Fünfhaus",
+    "Lage": [-1289, -1354],
+    "ICON": "https://notrufnoe.com/wp-content/uploads/2020/07/logo-MA70.jpg",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "MA48 KFZ Verwahrstelle",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Lainzerstraße Hauptstraße",
+    "Hausnummer": "",
+    "PLZ": "8161",
+    "Bezirk": "Innere Stadt",
+    "Lage": [-345, -62],
+    "ICON": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSGuBP_MXuA8tnI4K-VJKz51kNGQCBzKMRIkw&s",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Feuerwehrhafen Mödling",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Kaltenleutgebner Strßae",
+    "Hausnummer": "",
+    "PLZ": "3017",
+    "Bezirk": "Mödling",
+    "Lage": [1563, 3900],
+    "ICON": "https://www.ff-natschbach.at/wp-content/uploads/2018/05/cropped-2000px-Korpsabzeichen-FFOE.svg_-2.png",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Bergrettung Mödling",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "Corneliusgasse",
+    "Hausnummer": "",
+    "PLZ": "3000",
+    "Bezirk": "Mödling",
+    "Lage": [1690, 3591],
+    "ICON": "https://www.bergrettung-vorarlberg.at/fileadmin//user_upload/Presse/Download_Logos/BR_Logo_Dienstabzeichen.jpg",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "Feuerwehrhafen Wiener Neustadt",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "A22 Donauuferautobahn",
+    "Hausnummer": "",
+    "PLZ": "1106",
+    "Bezirk": "Wiener Neustadt",
+    "Lage": [-756, 6144],
+    "ICON": "https://www.ff-natschbach.at/wp-content/uploads/2018/05/cropped-2000px-Korpsabzeichen-FFOE.svg_-2.png",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  },
+
+
+  {
+    "POI": "NÖ Feuerwehr- und Sicherheitszentrum",
+    "Kategorie": "BOS",
+    "Adresse_Strasse": "",
+    "Hausnummer": "",
+    "PLZ": "",
+    "Bezirk": "",
+    "Lage": [1566, 3574],
+    "ICON": "https://www.noefsz.at/opmodule/user/noefsz/bilder/a_logofsz.jpg",
+    "BMA": "",
+    "BMA-Code": "",
+    "Objektbild": "",
+    "Brandschutzplan": "",
+    "Besonderheit": "",
+    "Kontaktdaten": ""
+  }
+]

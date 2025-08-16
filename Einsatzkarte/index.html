@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Einsatzkarte</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Suche -->
+  <div id="controlsSearch">
+    <input type="text" id="searchBox" placeholder="POI oder PLZ suchen…" />
+    <button id="clearBtn" type="button">Zurücksetzen</button>
+  </div>
+
+  <!-- Sidebar: Filter + Refresh -->
+  <div id="controlPanel">
+    <div id="categoryFilter">
+      <div id="categoryFilterHeader">
+        <span>Filter</span>
+        <span id="toggleArrow">►</span>
+      </div>
+      <div id="categoryFilterContent">
+        <label>
+          <input type="checkbox" id="toggle-all" checked /> Alle Kategorien
+        </label>
+        <div id="categories"></div>
+        <label>
+          <input type="checkbox" id="toggle-plz" /> PLZ-Labels (ab Zoom 4)
+        </label>
+        <label>
+          <input type="checkbox" id="bmaToggle" checked /> BMA Symbol anzeigen
+        </label>
+      </div>
+    </div>
+    <div id="refreshButton">
+      <button id="reloadBtn" type="button">Daten aktualisieren</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+  <div id="coordTip"></div>
+
+  <!-- App -->
+  <script src="script.js"></script>
+</body>
+</html>
