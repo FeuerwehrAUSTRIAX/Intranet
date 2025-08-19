@@ -72,6 +72,24 @@ function setVal(id, val) {
   else el.value = val || '';
 }
 
+function saveRow(record, rowIndex) {
+  const payload = { row: rowIndex, record };
+
+  fetch(SCRIPT_URL, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" }
+  })
+    .then(res => res.json())
+    .then(data => {
+      console.log("Antwort vom Server:", data);
+      if (data.success) {
+        vehicles[rowIndex - 2] = { ...record }; // auch lokal aktualisieren
+      }
+    })
+    .catch(err => console.error("Fehler beim Speichern:", err));
+}
+
 function updateBadge(letzte, naechste) {
   const badge = document.getElementById('status-badge');
   const next = parseDate(naechste);
