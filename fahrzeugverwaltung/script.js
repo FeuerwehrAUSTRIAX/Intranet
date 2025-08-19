@@ -6,11 +6,15 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHdUx9PO27502Aar4wl
 
 // Daten laden
 async function loadData() {
-  const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=38083317&single=true&output=csv';
-  const text = await (await fetch(url)).text();
-  const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
-  vehicles = data || [];
-  buildCategories();
+  try {
+    const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=38083317&single=true&output=csv';
+    const text = await (await fetch(url)).text();
+    const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
+    vehicles = data || [];
+    buildCategories();
+  } catch (err) {
+    console.error("Fehler beim Laden der CSV:", err);
+  }
 }
 
 function buildCategories() {
@@ -62,6 +66,7 @@ function showVehicle(v) {
 
 function setVal(id, val) {
   const el = document.getElementById(id);
+  if (!el) return;
   if (el.tagName === "SELECT") el.value = val || el.options[0].value;
   else el.value = val || '';
 }
@@ -188,12 +193,10 @@ async function saveEntry() {
 async function saveRowChanges(record) {
   if (!record) return;
 
-  // Zeilenindex in vehicles finden
   const idx = vehicles.findIndex(v => v['Kennzeichen'] === record['Kennzeichen']);
   if (idx === -1) return;
   const rowIndex = idx + 2; // Header + 1-based
 
-  // Änderungen erkennen
   let changes = {};
   Object.keys(record).forEach(k => {
     if (record[k] !== vehicles[idx][k]) {
