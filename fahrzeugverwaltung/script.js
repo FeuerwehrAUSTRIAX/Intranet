@@ -44,6 +44,7 @@ function buildCategories() {
 
 function showVehicle(v) {
   current = v;
+  originalRecord = { ...v };
   setVal('kategorie', v['Kategorie']);
   setVal('fahrzeugbez', v['Fahrzeugbezeichnung']);
   setVal('taktisch', v['Taktische Bezeichnung']);
