@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fahrparkexplorer – Feuerwehr</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+</head>
+<body>
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="title">Fahrparkexplorer</div>
+      <div class="search">
+        <input id="search" placeholder="Suche..." oninput="filterVehicles()" />
+      </div>
+      <div id="cat-wrap"></div>
+      <button class="btn-red" onclick="newVehicle()">Neues Fahrzeug</button>
+    </aside>
+
+    <!-- Content -->
+    <section class="content">
+      <nav class="tabs">
+        <div class="tab active" data-tab="grunddaten" onclick="switchTab('grunddaten')">Grunddaten</div>
+        <div class="tab" data-tab="beladung" onclick="switchTab('beladung')">Beladung</div>
+        <div class="tab" data-tab="daten" onclick="switchTab('daten')">Daten</div>
+      </nav>
+
+      <div class="tab-body">
+        <!-- Grunddaten -->
+        <div id="tab-content-grunddaten" class="view" style="display:block;">
+          <div class="layout">
+            <!-- Links -->
+            <div class="form-card">
+              <div class="form">
+                <label>Kategorie</label>
+                <select id="kategorie" disabled>
+                  <option>Kommandofahrzeug</option>
+                  <option>Kleinlöschfahrzeug</option>
+                  <option>Tanklöschfahrzeug</option>
+                  <option>Hubrettungsfahrzeug</option>
+                  <option>Rüstfahrzeug</option>
+                  <option>Versorgungsfahrzeug</option>
+                  <option>Mannschaftstransportfahrzeug</option>
+                  <option>Anhänger</option>
+                  <option>Sonderfahrzeug</option>
+                </select>
+                <label>Fahrzeugbezeichnung</label><input id="fahrzeugbez" disabled>
+                <label>Taktische Bez.</label><input id="taktisch" disabled>
+                <label>Funkrufname</label><input id="funkruf" disabled>
+                <label>Kennzeichen</label><input id="kennzeichen" disabled>
+                <label>Fahrgestell</label><input id="fahrgestell" disabled>
+                <label>Aufbau</label><input id="aufbau" disabled>
+                <label>Kilometer</label><input id="km" disabled>
+                <label>Status</label>
+                <select id="status" disabled>
+                  <option>EB</option>
+                  <option>BEB</option>
+                  <option>NEB</option>
+                </select>
+                <label>Sitzplätze</label><input id="sitze" disabled>
+                <label>Type</label><input id="type" disabled>
+                <label>FZG-Type</label><input id="fzgtype" disabled>
+              </div>
+            </div>
+
+            <!-- Rechts -->
+            <div>
+              <div class="image-wrap">
+                <img id="fahrzeugbild" src="https://placehold.co/800x500" alt="Fahrzeugbild" />
+              </div>
+              <div class="pickerl-card">
+                <div><strong>Pickerl (§57a)</strong></div>
+                <div class="form">
+                  <label>Letzte Prüfung</label><input id="letzte" disabled>
+                  <label>Nächste Prüfung</label><input id="naechste" disabled>
+                </div>
+                <div id="status-badge" class="pickerl-status warn">Unbekannt</div>
+              </div>
+              <button id="edit-btn" class="btn-red" onclick="toggleEdit()">Bearbeiten</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Beladung -->
+        <div id="tab-content-beladung" class="view" style="display:none;">
+          <div class="form-card">
+            <div id="beladung-list"></div>
+            <button id="beladung-edit-btn" class="btn-red" onclick="toggleBeladungEdit()">Bearbeiten</button>
+          </div>
+        </div>
+
+        <!-- Daten -->
+        <div id="tab-content-daten" class="view" style="display:none;">
+          <div class="form-card">
+            <div id="daten-entries"></div>
+            <button id="daten-add-btn" class="btn-green" onclick="openModal()">+ Eintrag hinzufügen</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modal -->
+  <div id="entry-modal" class="modal">
+    <div class="modal-content">
+      <h3>Neuer Eintrag</h3>
+      <div class="form">
+        <label>Vorname</label><input id="data-vor">
+        <label>Nachname</label><input id="data-nach">
+        <label>Info</label><input id="data-info">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-green" onclick="saveEntry()">Speichern</button>
+        <button class="btn-red" onclick="closeModal()">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
