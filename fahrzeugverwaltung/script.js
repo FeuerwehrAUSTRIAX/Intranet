@@ -222,34 +222,42 @@ async function saveEntry() {
   await saveRow(current); // volle Zeile sofort speichern
 }
 
-/* Immer komplette Zeile speichern/ersetzen (oder anhängen) */
 async function saveRow(record) {
   if (!record) return;
 
-  // Wenn ein existierendes Fahrzeug selektiert ist, verwenden wir dessen Zeile
-  // Sonst (currentIdx === -1) -> row = 0 => Apps Script hängt an
+  // Falls ein vorhandenes Fahrzeug editiert wurde, Zeile berechnen, sonst 0 = anhängen
   const rowIndex = currentIdx >= 0 ? (currentIdx + 2) : 0;
   const payload = { row: rowIndex, record };
 
   try {
-    const resp = await fetch(SCRIPT_URL, {
+    // WICHTIG: keine Header setzen, 'no-cors' verwenden
+    await fetch(SCRIPT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      mode: "no-cors",
       body: JSON.stringify(payload)
     });
-    const data = await resp.json();
-    console.log("Antwort:", data);
-    if (data.success) {
-      // Lokale Daten aktualisieren (einfach neu laden, damit Index & Liste stimmen)
-      await loadData();
-      // Nach dem Reload versuchen wir, wieder auf das gespeicherte Fahrzeug zu springen
-      const key = record['Kennzeichen'];
-      const match = vehicles.find(v => v['Kennzeichen'] === key) || vehicles.find(v => v['Fahrzeugbezeichnung'] === record['Fahrzeugbezeichnung']);
-      if (match) showVehicle(match);
+
+    // Optimistisch lokal/Anzeige aktualisieren
+    if (currentIdx >= 0) {
+      vehicles[currentIdx] = { ...record };
+    } else {
+      vehicles.push({ ...record });
+      currentIdx = vehicles.length - 1;
     }
+
+    // UI aktualisieren
+    buildCategories();
+    // Nach Kennzeichen wieder selektieren (falls vorhanden)
+    const key = record['Kennzeichen'];
+    const match = vehicles.find(v => v['Kennzeichen'] === key) || vehicles.find(v => v['Fahrzeugbezeichnung'] === record['Fahrzeugbezeichnung']);
+    if (match) showVehicle(match);
+
+    // Optional: leicht verzögert neu laden, damit CSV-Publish nachkommt
+    setTimeout(loadData, 1500);
   } catch (err) {
-    console.error("Fehler beim Speichern:", err);
+    console.error("Fehler beim Speichern (Client):", err);
   }
 }
+
 
 loadData();
