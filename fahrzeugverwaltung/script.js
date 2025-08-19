@@ -222,42 +222,54 @@ async function saveEntry() {
   await saveRow(current); // volle Zeile sofort speichern
 }
 
+/* Speichern: Form-POST (x-www-form-urlencoded), kein Preflight/CORS */
 async function saveRow(record) {
   if (!record) return;
 
-  // Falls ein vorhandenes Fahrzeug editiert wurde, Zeile berechnen, sonst 0 = anhängen
+  // vorhandenes Fahrzeug -> ersetze; neues -> anhängen
   const rowIndex = currentIdx >= 0 ? (currentIdx + 2) : 0;
-  const payload = { row: rowIndex, record };
+
+  // wie in deinem Beispiel: URLSearchParams + Feld "json"
+  const formBody = new URLSearchParams({
+    json: JSON.stringify({ row: rowIndex, record })
+  });
 
   try {
-    // WICHTIG: keine Header setzen, 'no-cors' verwenden
-    await fetch(SCRIPT_URL, {
+    const resp = await fetch(SCRIPT_URL, {
       method: "POST",
-      mode: "no-cors",
-      body: JSON.stringify(payload)
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formBody
     });
 
-    // Optimistisch lokal/Anzeige aktualisieren
+    // tolerant lesen (kann JSON oder Text sein)
+    let payload = null;
+    const text = await resp.text();
+    try { payload = JSON.parse(text); } catch (_) { payload = { raw: text }; }
+
+    if (!resp.ok) {
+      console.error("Speicherfehler:", resp.status, payload);
+      return;
+    }
+
+    // Lokal/Anzeige aktualisieren
     if (currentIdx >= 0) {
       vehicles[currentIdx] = { ...record };
     } else {
       vehicles.push({ ...record });
       currentIdx = vehicles.length - 1;
     }
-
-    // UI aktualisieren
     buildCategories();
-    // Nach Kennzeichen wieder selektieren (falls vorhanden)
+
     const key = record['Kennzeichen'];
-    const match = vehicles.find(v => v['Kennzeichen'] === key) || vehicles.find(v => v['Fahrzeugbezeichnung'] === record['Fahrzeugbezeichnung']);
+    const match = vehicles.find(v => v['Kennzeichen'] === key)
+               || vehicles.find(v => v['Fahrzeugbezeichnung'] === record['Fahrzeugbezeichnung']);
     if (match) showVehicle(match);
 
-    // Optional: leicht verzögert neu laden, damit CSV-Publish nachkommt
-    setTimeout(loadData, 1500);
+    // CSV-Publish kann minimal verzögert sein
+    setTimeout(loadData, 1200);
   } catch (err) {
     console.error("Fehler beim Speichern (Client):", err);
   }
 }
-
 
 loadData();
