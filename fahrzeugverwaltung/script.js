@@ -1,10 +1,10 @@
-let vehicles = [], current = null, editing = false;
-let beladungEditing = false;
+let vehicles = [], current = null, currentIdx = -1;
+let editing = false, beladungEditing = false;
 
 // Google Apps Script URL
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHdUx9PO27502Aar4wl6dm8ILj-dbIdSMegvNNY7pf61E5-3yTnew1JPGrhFJ1KkgU2A/exec";
 
-// Daten laden
+// CSV-Daten laden
 async function loadData() {
   try {
     const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=38083317&single=true&output=csv';
@@ -34,7 +34,7 @@ function buildCategories() {
     groups[cat].forEach(v => {
       const li = document.createElement('div');
       li.className = 'vehicle-item';
-      li.innerHTML = `<div>${v['Fahrzeugbezeichnung']}</div><small>${v['Kennzeichen']}</small>`;
+      li.innerHTML = `<div>${v['Fahrzeugbezeichnung'] || ''}</div><small>${v['Kennzeichen'] || ''}</small>`;
       li.onclick = () => showVehicle(v);
       details.appendChild(li);
     });
@@ -43,24 +43,26 @@ function buildCategories() {
 }
 
 function showVehicle(v) {
-  current = v;
-  originalRecord = { ...v };
-  setVal('kategorie', v['Kategorie']);
-  setVal('fahrzeugbez', v['Fahrzeugbezeichnung']);
-  setVal('taktisch', v['Taktische Bezeichnung']);
-  setVal('funkruf', v['Funkrufname']);
-  setVal('kennzeichen', v['Kennzeichen']);
-  setVal('fahrgestell', v['Fahrgestell']);
-  setVal('aufbau', v['Aufbau']);
-  setVal('km', v['km']);
-  setVal('status', v['Status']);
-  setVal('sitze', v['Anzahl-Sitzplätze']);
-  setVal('type', v['Type']);
-  setVal('fzgtype', v['FZG-Type']);
-  setVal('letzte', v['Letzte Überprüfung']);
-  setVal('naechste', v['Nächste Überprüfung']);
-  document.getElementById('fahrzeugbild').src = v['Fahrzeugbild'] || 'https://placehold.co/800x500';
-  updateBadge(v['Letzte Überprüfung'], v['Nächste Überprüfung']);
+  currentIdx = vehicles.indexOf(v);
+  current = { ...v }; // eigenständige Kopie zum Bearbeiten
+
+  setVal('kategorie', current['Kategorie']);
+  setVal('fahrzeugbez', current['Fahrzeugbezeichnung']);
+  setVal('taktisch', current['Taktische Bezeichnung']);
+  setVal('funkruf', current['Funkrufname']);
+  setVal('kennzeichen', current['Kennzeichen']);
+  setVal('fahrgestell', current['Fahrgestell']);
+  setVal('aufbau', current['Aufbau']);
+  setVal('km', current['km']);
+  setVal('status', current['Status']);
+  setVal('sitze', current['Anzahl-Sitzplätze']);
+  setVal('type', current['Type']);
+  setVal('fzgtype', current['FZG-Type']);
+  setVal('letzte', current['Letzte Überprüfung']);
+  setVal('naechste', current['Nächste Überprüfung']);
+  document.getElementById('fahrzeugbild').src = current['Fahrzeugbild'] || 'https://placehold.co/800x500';
+
+  updateBadge(current['Letzte Überprüfung'], current['Nächste Überprüfung']);
   renderBeladung();
   renderEntries();
 }
@@ -68,26 +70,8 @@ function showVehicle(v) {
 function setVal(id, val) {
   const el = document.getElementById(id);
   if (!el) return;
-  if (el.tagName === "SELECT") el.value = val || el.options[0].value;
+  if (el.tagName === "SELECT") el.value = val || el.options[0]?.value || '';
   else el.value = val || '';
-}
-
-function saveRow(record, rowIndex) {
-  const payload = { row: rowIndex, record };
-
-  fetch(SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" }
-  })
-    .then(res => res.json())
-    .then(data => {
-      console.log("Antwort vom Server:", data);
-      if (data.success) {
-        vehicles[rowIndex - 2] = { ...record }; // auch lokal aktualisieren
-      }
-    })
-    .catch(err => console.error("Fehler beim Speichern:", err));
 }
 
 function updateBadge(letzte, naechste) {
@@ -100,12 +84,33 @@ function updateBadge(letzte, naechste) {
   else { badge.className = 'pickerl-status ok'; badge.textContent = 'Gültig'; }
 }
 function parseDate(s) { if (!s) return null; const p = s.split('.'); if (p.length !== 3) return null; return new Date(p[2], p[1] - 1, p[0]); }
+
 function filterVehicles() {
   const q = document.getElementById('search').value.toLowerCase();
   document.querySelectorAll('.vehicle-item').forEach(li => { li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none'; });
 }
+
 function newVehicle() {
-  current = null;
+  currentIdx = -1;
+  current = {
+    'Kategorie':'',
+    'Fahrzeugbezeichnung':'',
+    'Taktische Bezeichnung':'',
+    'Funkrufname':'',
+    'Kennzeichen':'',
+    'Fahrgestell':'',
+    'Aufbau':'',
+    'km':'',
+    'Status':'',
+    'Anzahl-Sitzplätze':'',
+    'Type':'',
+    'FZG-Type':'',
+    'Letzte Überprüfung':'',
+    'Nächste Überprüfung':'',
+    'Fahrzeugbild':'',
+    'Beladung':'',
+    'Daten-Allgemein':''
+  };
   ['kategorie','fahrzeugbez','taktisch','funkruf','kennzeichen','fahrgestell','aufbau','km','status','sitze','type','fzgtype','letzte','naechste']
     .forEach(id => setVal(id, ''));
   document.getElementById('fahrzeugbild').src = 'https://placehold.co/800x500';
@@ -113,6 +118,7 @@ function newVehicle() {
   document.getElementById('daten-entries').innerHTML = '';
   updateBadge('', '');
 }
+
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.view').forEach(v => v.style.display = (v.id === 'tab-content-' + name) ? 'block' : 'none');
@@ -125,6 +131,7 @@ const mapping = {
   aufbau:'Aufbau',km:'km',status:'Status',sitze:'Anzahl-Sitzplätze',
   type:'Type',fzgtype:'FZG-Type',letzte:'Letzte Überprüfung',naechste:'Nächste Überprüfung'
 };
+
 async function toggleEdit() {
   editing = !editing;
   const fields = Object.keys(mapping);
@@ -137,9 +144,10 @@ async function toggleEdit() {
     btn.textContent = "Bearbeiten";
     btn.className = "btn-red";
     if (current) {
+      // Eingabefelder zurück ins aktuelle Objekt schreiben
       fields.forEach(id => { current[mapping[id]] = document.getElementById(id).value; });
       updateBadge(current['Letzte Überprüfung'], current['Nächste Überprüfung']);
-      await saveRowChanges(current);
+      await saveRow(current); // komplette Zeile speichern (ersetzen/anhängen)
     }
   }
 }
@@ -149,7 +157,7 @@ function toggleBeladungEdit() {
   beladungEditing = !beladungEditing;
   const btn = document.getElementById("beladung-edit-btn");
   if (beladungEditing) { btn.textContent = "Speichern"; btn.className = "btn-green"; }
-  else { btn.textContent = "Bearbeiten"; btn.className = "btn-red"; saveRowChanges(current); }
+  else { btn.textContent = "Bearbeiten"; btn.className = "btn-red"; saveRow(current); }
   renderBeladung();
 }
 function renderBeladung() {
@@ -175,12 +183,18 @@ function renderBeladung() {
   }
 }
 function updateBeladung(i, menge, name) {
-  const arr=current["Beladung"].split("\n"); const m=arr[i].match(/^(\d+)x\s*(.+)$/);
+  const arr=(current["Beladung"]||"").split("\n").filter(Boolean);
+  const line = arr[i] || "1x Neuer Gegenstand";
+  const m = line.match(/^(\d+)x\s*(.+)$/);
   let oldMenge=m?m[1]:"1"; let oldName=m?m[2]:"";
-  arr[i]=`${menge||oldMenge}x ${name||oldName}`; current["Beladung"]=arr.join("\n");
+  arr[i]=`${menge||oldMenge}x ${name||oldName}`;
+  current["Beladung"]=arr.join("\n");
 }
 function removeBeladung(i) {
-  const arr=current["Beladung"].split("\n"); arr.splice(i,1); current["Beladung"]=arr.join("\n"); renderBeladung();
+  const arr=(current["Beladung"]||"").split("\n").filter(Boolean);
+  arr.splice(i,1);
+  current["Beladung"]=arr.join("\n");
+  renderBeladung();
 }
 
 /* Daten/Einträge */
@@ -205,41 +219,33 @@ async function saveEntry() {
   const newLine=`${ts} | ${vor} ${nach} | ${info}`;
   const raw=current["Daten-Allgemein"]||""; const lines=raw.split("\n").filter(Boolean); lines.push(newLine);
   current["Daten-Allgemein"]=lines.join("\n"); renderEntries(); closeModal();
-  await saveRowChanges(current); // sofort speichern
+  await saveRow(current); // volle Zeile sofort speichern
 }
 
-/* Neu: nur geänderte Felder senden */
-async function saveRowChanges(record) {
+/* Immer komplette Zeile speichern/ersetzen (oder anhängen) */
+async function saveRow(record) {
   if (!record) return;
 
-  const idx = vehicles.findIndex(v => v['Kennzeichen'] === record['Kennzeichen']);
-  if (idx === -1) return;
-  const rowIndex = idx + 2; // Header + 1-based
-
-  let changes = {};
-  Object.keys(record).forEach(k => {
-    if (record[k] !== vehicles[idx][k]) {
-      changes[k] = record[k];
-    }
-  });
-
-  if (Object.keys(changes).length === 0) {
-    console.log("Keine Änderungen – nix gesendet.");
-    return;
-  }
-
-  const payload = { row: rowIndex, changes };
+  // Wenn ein existierendes Fahrzeug selektiert ist, verwenden wir dessen Zeile
+  // Sonst (currentIdx === -1) -> row = 0 => Apps Script hängt an
+  const rowIndex = currentIdx >= 0 ? (currentIdx + 2) : 0;
+  const payload = { row: rowIndex, record };
 
   try {
     const resp = await fetch(SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify(payload),
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
     });
     const data = await resp.json();
     console.log("Antwort:", data);
     if (data.success) {
-      vehicles[idx] = { ...vehicles[idx], ...changes };
+      // Lokale Daten aktualisieren (einfach neu laden, damit Index & Liste stimmen)
+      await loadData();
+      // Nach dem Reload versuchen wir, wieder auf das gespeicherte Fahrzeug zu springen
+      const key = record['Kennzeichen'];
+      const match = vehicles.find(v => v['Kennzeichen'] === key) || vehicles.find(v => v['Fahrzeugbezeichnung'] === record['Fahrzeugbezeichnung']);
+      if (match) showVehicle(match);
     }
   } catch (err) {
     console.error("Fehler beim Speichern:", err);
