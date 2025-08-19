@@ -1,207 +1,205 @@
-let vehicles = [], current = null, editing = false;
-let beladungEditing = false;
 
-// Google Apps Script URL
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHdUx9PO27502Aar4wl6dm8ILj-dbIdSMegvNNY7pf61E5-3yTnew1JPGrhFJ1KkgU2A/exec";
+/********************* GLOBAL VARIABLEN *********************/
+let allRecords = [];
+let selectedRecord = null;
+let currentSuggestionIndex = -1;
+let isEditingCourses = false;
+let activeMembers = [];
+let csvHeaders = [];
 
-// Daten laden
-async function loadData() {
-  const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=38083317&single=true&output=csv';
-  const text = await (await fetch(url)).text();
-  const { data } = Papa.parse(text, { header: true, skipEmptyLines: true });
-  vehicles = data || [];
-  buildCategories();
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzHdUx9PO27502Aar4wl6dm8ILj-dbIdSMegvNNY7pf61E5-3yTnew1JPGrhFJ1KkgU2A/exec"; // <- URL vom Apps Script
+
+/******************** CSV Laden & Parsen ********************/
+$(document).ready(function() {
+  loadDataFromCSV();
+
+  $('#searchField').on('keydown', function(e) {
+    const suggestions = $('#suggestions .suggestion-item');
+    if (e.key === 'ArrowDown') {
+      if (suggestions.length > 0) {
+        currentSuggestionIndex = (currentSuggestionIndex + 1) % suggestions.length;
+        suggestions.removeClass('selected');
+        suggestions.eq(currentSuggestionIndex).addClass('selected');
+        e.preventDefault();
+      }
+    } else if (e.key === 'ArrowUp') {
+      if (suggestions.length > 0) {
+        currentSuggestionIndex = (currentSuggestionIndex - 1 + suggestions.length) % suggestions.length;
+        suggestions.removeClass('selected');
+        suggestions.eq(currentSuggestionIndex).addClass('selected');
+        e.preventDefault();
+      }
+    } else if (e.key === 'Enter') {
+      if (currentSuggestionIndex >= 0 && suggestions.length > 0) {
+        suggestions.eq(currentSuggestionIndex).click();
+        currentSuggestionIndex = -1;
+        e.preventDefault();
+      }
+    }
+  });
+
+  $('.datepicker').datepicker({ dateFormat: 'dd.mm.yy' });
+  $('#ausbildnerEditContainer').hide();
+});
+
+function loadDataFromCSV() {
+  const csvUrl = 'YOUR_GOOGLE_SHEET_CSV_URL';
+  fetch(csvUrl)
+    .then(response => response.text())
+    .then(csvText => {
+      allRecords = parseCSV(csvText);
+      activeMembers = allRecords.filter(r => (r['Aktives Mitglied?'] || '').toLowerCase() === 'ja');
+      fillActiveMembersDatalist(activeMembers);
+      const trainerMembers = activeMembers.filter(r => (r['Ausbildner?'] || '').toLowerCase() === 'ja');
+      fillTrainersDatalist(trainerMembers);
+    })
+    .catch(err => console.error('Fehler beim Laden der CSV:', err));
 }
 
-function buildCategories() {
-  const wrap = document.getElementById('cat-wrap');
-  wrap.innerHTML = '';
-  const groups = vehicles.reduce((a, v) => {
-    const k = v['Kategorie'] || 'Sonstige';
-    (a[k] || (a[k] = [])).push(v);
-    return a;
-  }, {});
-  Object.keys(groups).forEach(cat => {
-    const details = document.createElement('details');
-    details.className = 'category';
-    const sum = document.createElement('summary');
-    sum.textContent = cat;
-    details.appendChild(sum);
-    groups[cat].forEach(v => {
-      const li = document.createElement('div');
-      li.className = 'vehicle-item';
-      li.innerHTML = `<div>${v['Fahrzeugbezeichnung']}</div><small>${v['Kennzeichen']}</small>`;
-      li.onclick = () => showVehicle(v);
-      details.appendChild(li);
+function parseCSV(csvText) {
+  const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length);
+  csvHeaders = lines[0].split(',');
+  const records = lines.slice(1).map(line => {
+    const values = line.split(',');
+    let obj = {};
+    csvHeaders.forEach((header, i) => { obj[header.trim()] = (values[i] || '').trim(); });
+    return obj;
+  });
+  return records;
+}
+
+function fillActiveMembersDatalist(members) {
+  const datalist = $('#activeMembersList');
+  datalist.empty();
+  members.forEach(m => {
+    const name = `${m['Namen'] || ''} ${m['Nachnamen'] || ''}`.trim();
+    datalist.append(`<option value="${name}">`);
+  });
+}
+
+function fillTrainersDatalist(ausbildner) {
+  const datalist = $('#trainersList');
+  datalist.empty();
+  ausbildner.forEach(m => {
+    const name = `${m['Namen'] || ''} ${m['Nachnamen'] || ''}`.trim();
+    datalist.append(`<option value="${name}">`);
+  });
+}
+
+/********************* Suche & Vorschläge *******************/
+function searchSuggestions() {
+  const query = $('#searchField').val().toLowerCase();
+  if (query.length < 2) { $('#suggestions').empty(); return; }
+  const filtered = allRecords.filter(r =>
+    (r['Mitgliedsnummer'] && r['Mitgliedsnummer'].toLowerCase().includes(query)) ||
+    (r['Namen'] && r['Namen'].toLowerCase().includes(query)) ||
+    (r['Nachnamen'] && r['Nachnamen'].toLowerCase().includes(query))
+  );
+  displaySuggestions(filtered);
+}
+
+function displaySuggestions(records) {
+  const suggestionsBox = $('#suggestions');
+  suggestionsBox.empty();
+  currentSuggestionIndex = -1;
+  records.forEach((r, idx) => {
+    const item = $(`<div class="suggestion-item">${r['Mitgliedsnummer']} - ${r['Namen']} ${r['Nachnamen']}</div>`);
+    item.on('click', () => {
+      selectedRecord = Object.assign({}, r);
+      fillForm(selectedRecord);
+      suggestionsBox.empty();
+      $('body').css('overflow', 'auto');
+      isEditingCourses = false;
+      $('#courseSection').show();
+      $('.section-header').show();
+      displayCourses(selectedRecord, idx + 2); // +2 weil Header + 1-basiert
     });
-    wrap.appendChild(details);
+    suggestionsBox.append(item);
   });
 }
 
-function showVehicle(v) {
-  current = v;
-  setVal('kategorie', v['Kategorie']);
-  setVal('fahrzeugbez', v['Fahrzeugbezeichnung']);
-  setVal('taktisch', v['Taktische Bezeichnung']);
-  setVal('funkruf', v['Funkrufname']);
-  setVal('kennzeichen', v['Kennzeichen']);
-  setVal('fahrgestell', v['Fahrgestell']);
-  setVal('aufbau', v['Aufbau']);
-  setVal('km', v['km']);
-  setVal('status', v['Status']);
-  setVal('sitze', v['Anzahl-Sitzplätze']);
-  setVal('type', v['Type']);
-  setVal('fzgtype', v['FZG-Type']);
-  setVal('letzte', v['Letzte Überprüfung']);
-  setVal('naechste', v['Nächste Überprüfung']);
-  document.getElementById('fahrzeugbild').src = v['Fahrzeugbild'] || 'https://placehold.co/800x500';
-  updateBadge(v['Letzte Überprüfung'], v['Nächste Überprüfung']);
-  renderBeladung();
-  renderEntries();
+/**************** Formular füllen & Editing ****************/
+function fillForm(record) {
+  $('#mitgliedsnummer').val(record['Mitgliedsnummer'] || '');
+  $('#anrede').val(record['Anrede'] || '');
+  $('#titel').val(record['Titel'] || '');
+  $('#namen').val(record['Namen'] || '');
+  $('#nachnamen').val(record['Nachnamen'] || '');
+  $('#geburtsdatum').val(record['Geburtsdatum'] || '');
+  $('#beruf').val(record['Beruf'] || '');
+  $('#geburtsort').val(record['Geburtsort'] || '');
+  $('#familienstand').val(record['Familienstand'] || '');
+  $('#staatsbuergerschaft').val(record['Staatsbürgerschaft'] || '');
+  $('#identifikationsnummer').val(record['Identifikationsnummer'] || '');
+  $('#telefonnummer').val(record['Telefonnummer'] || '');
+  $('#forumsname').val(record['Forumsname'] || '');
+  $('#adresse').val(record['Adresse'] || '');
+  $('#plz').val(record['Postleitzahl'] || '');
+  $('#stadt').val(record['Stadt'] || '');
+  $('#email').val(record['D-Mail Adresse'] || '');
+  $('#abgemeldet_grund').val(record['Abgemeldet Grund'] || '');
+  $('#dienstgrad').val(record['Aktueller Dienstgrad'] || '');
+  $('#beforderung').val(record['Letzte Beförderung'] || '');
+  $('#funktion').val(record['Funktion'] || '');
 }
 
-function setVal(id, val) {
-  const el = document.getElementById(id);
-  if (el.tagName === "SELECT") el.value = val || el.options[0].value;
-  else el.value = val || '';
+/**************** Kursdaten speichern ****************/
+function activateCourseEditingMode() {
+  if(!selectedRecord) return;
+  isEditingCourses = true;
+  displayCourses(selectedRecord);
+  $('#editCourseButton').text('Speichern Kursdaten').attr('onclick','saveCourseData()');
 }
 
-function updateBadge(letzte, naechste) {
-  const badge = document.getElementById('status-badge');
-  const next = parseDate(naechste);
-  if (!next) { badge.className = 'pickerl-status warn'; badge.textContent = 'Unbekannt'; return; }
-  const today = new Date();
-  if (today > next) { badge.className = 'pickerl-status err'; badge.textContent = 'Abgelaufen'; }
-  else if ((next - today) / (1000 * 3600 * 24) <= 30) { badge.className = 'pickerl-status warn'; badge.textContent = 'Bald fällig'; }
-  else { badge.className = 'pickerl-status ok'; badge.textContent = 'Gültig'; }
-}
-function parseDate(s) { if (!s) return null; const p = s.split('.'); if (p.length !== 3) return null; return new Date(p[2], p[1] - 1, p[0]); }
-function filterVehicles() {
-  const q = document.getElementById('search').value.toLowerCase();
-  document.querySelectorAll('.vehicle-item').forEach(li => { li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none'; });
-}
-function newVehicle() {
-  current = null;
-  ['kategorie','fahrzeugbez','taktisch','funkruf','kennzeichen','fahrgestell','aufbau','km','status','sitze','type','fzgtype','letzte','naechste']
-    .forEach(id => setVal(id, ''));
-  document.getElementById('fahrzeugbild').src = 'https://placehold.co/800x500';
-  document.getElementById('beladung-list').innerHTML = '';
-  document.getElementById('daten-entries').innerHTML = '';
-  updateBadge('', '');
-}
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-  document.querySelectorAll('.view').forEach(v => v.style.display = (v.id === 'tab-content-' + name) ? 'block' : 'none');
-}
-
-/* Grunddaten Bearbeiten/Speichern */
-const mapping = {
-  kategorie:'Kategorie',fahrzeugbez:'Fahrzeugbezeichnung',taktisch:'Taktische Bezeichnung',
-  funkruf:'Funkrufname',kennzeichen:'Kennzeichen',fahrgestell:'Fahrgestell',
-  aufbau:'Aufbau',km:'km',status:'Status',sitze:'Anzahl-Sitzplätze',
-  type:'Type',fzgtype:'FZG-Type',letzte:'Letzte Überprüfung',naechste:'Nächste Überprüfung'
-};
-async function toggleEdit() {
-  editing = !editing;
-  const fields = Object.keys(mapping);
-  fields.forEach(id => { document.getElementById(id).disabled = !editing; });
-  const btn = document.getElementById("edit-btn");
-  if (editing) {
-    btn.textContent = "Speichern";
-    btn.className = "btn-green";
-  } else {
-    btn.textContent = "Bearbeiten";
-    btn.className = "btn-red";
-    if (current) {
-      fields.forEach(id => { current[mapping[id]] = document.getElementById(id).value; });
-      updateBadge(current['Letzte Überprüfung'], current['Nächste Überprüfung']);
-      await uploadCSVToGoogle();
-    }
-  }
-}
-
-/* Beladung */
-function toggleBeladungEdit() {
-  beladungEditing = !beladungEditing;
-  const btn = document.getElementById("beladung-edit-btn");
-  if (beladungEditing) { btn.textContent = "Speichern"; btn.className = "btn-green"; }
-  else { btn.textContent = "Bearbeiten"; btn.className = "btn-red"; uploadCSVToGoogle(); }
-  renderBeladung();
-}
-function renderBeladung() {
-  const wrap = document.getElementById("beladung-list"); wrap.innerHTML = ""; if (!current) return;
-  const raw = current["Beladung"] || ""; const items = raw.split('\n').filter(Boolean);
-  items.forEach((line,i) => {
-    const m = line.match(/^(\d+)x\s*(.+)$/); let menge=m?m[1]:""; let name=m?m[2]:line;
-    if (beladungEditing) {
-      const row=document.createElement("div"); row.className="form"; row.style.gridTemplateColumns="80px 1fr 80px";
-      row.innerHTML=`<input value="${menge}" onchange="updateBeladung(${i}, this.value, null)">
-                     <input value="${name}" onchange="updateBeladung(${i}, null, this.value)">
-                     <button class="btn-red" onclick="removeBeladung(${i})">Löschen</button>`;
-      wrap.appendChild(row);
-    } else {
-      const div=document.createElement("div"); div.className="beladung-item";
-      div.innerHTML=`<div class="menge">${menge}x</div><div>${name}</div>`; wrap.appendChild(div);
-    }
-  });
-  if (beladungEditing) {
-    const addBtn=document.createElement("button"); addBtn.className="btn-green"; addBtn.textContent="+ Neu";
-    addBtn.onclick=()=>{items.push("1x Neuer Gegenstand"); current["Beladung"]=items.join("\n"); renderBeladung();};
-    wrap.appendChild(addBtn);
-  }
-}
-function updateBeladung(i, menge, name) {
-  const arr=current["Beladung"].split("\n"); const m=arr[i].match(/^(\d+)x\s*(.+)$/);
-  let oldMenge=m?m[1]:"1"; let oldName=m?m[2]:"";
-  arr[i]=`${menge||oldMenge}x ${name||oldName}`; current["Beladung"]=arr.join("\n");
-}
-function removeBeladung(i) {
-  const arr=current["Beladung"].split("\n"); arr.splice(i,1); current["Beladung"]=arr.join("\n"); renderBeladung();
-}
-
-/* Daten/Einträge */
-function renderEntries() {
-  const wrap=document.getElementById("daten-entries"); wrap.innerHTML=""; if (!current) return;
-  const raw=current["Daten-Allgemein"]||""; const lines=raw.split("\n").filter(Boolean);
-  lines.forEach(line => {
-    const div=document.createElement("div"); div.className="entry";
-    const parts=line.split(" | ");
-    div.innerHTML=`<div class="meta">${parts[0]||""}</div><div>${parts[1]||""}</div><div>${parts[2]||""}</div>`;
-    wrap.insertBefore(div,wrap.firstChild);
-  });
-}
-function openModal() { document.getElementById("entry-modal").style.display="flex"; }
-function closeModal() { document.getElementById("entry-modal").style.display="none"; }
-async function saveEntry() {
-  const vor=document.getElementById("data-vor").value.trim();
-  const nach=document.getElementById("data-nach").value.trim();
-  const info=document.getElementById("data-info").value.trim();
-  if(!vor||!nach||!info)return;
-  const ts=new Date().toLocaleString("de-DE");
-  const newLine=`${ts} | ${vor} ${nach} | ${info}`;
-  const raw=current["Daten-Allgemein"]||""; const lines=raw.split("\n").filter(Boolean); lines.push(newLine);
-  current["Daten-Allgemein"]=lines.join("\n"); renderEntries(); closeModal();
-  await uploadCSVToGoogle(); // sofort speichern
-}
-
-/* Upload ins Google Sheet */
-async function uploadCSVToGoogle() {
-  if (vehicles.length === 0) return;
+function saveCourseData() {
+  if(!selectedRecord) return;
   
-  const header = Object.keys(vehicles[0] || {});
-  const rows = [header.join(",")];
-  vehicles.forEach(v => {
-    rows.push(header.map(h => `"${(v[h] || "").replace(/"/g, '""')}"`).join(","));
-  });
-  const csv = rows.join("\n");
+  // Hier würdest du die Kursdaten in selectedRecord schreiben (wie bisher)
+  // ...
 
-  // NEU: per GET statt POST
-  const resp = await fetch(SCRIPT_URL + "?csv=" + encodeURIComponent(csv));
-  const text = await resp.text();
-  console.log(text); // sollte "OK: xx Zeilen gespeichert" zurückgeben
+  // Zeilenindex ermitteln
+  let rowIndex = allRecords.findIndex(r => r['Mitgliedsnummer'] === selectedRecord['Mitgliedsnummer']);
+  if (rowIndex === -1) return;
+  rowIndex += 2; // Header + 1-basiert
 
-  loadData(); // nach Upload neu laden
+  // Änderungen an Backend schicken
+  saveRowChanges(selectedRecord, rowIndex);
+
+  isEditingCourses = false;
+  displayCourses(selectedRecord);
+  $('#editCourseButton').text('Kursdaten bearbeiten').attr('onclick','activateCourseEditingMode()');
 }
 
+/**************** Nur Änderungen senden ****************/
+function saveRowChanges(record, rowIndex) {
+  let changes = {};
+  Object.keys(record).forEach(key => {
+    if (record[key] !== allRecords[rowIndex - 2][key]) {
+      changes[key] = record[key];
+    }
+  });
 
-loadData();
+  if (Object.keys(changes).length === 0) {
+    console.log("Keine Änderungen – nix gesendet.");
+    return;
+  }
+
+  const payload = {
+    row: rowIndex,
+    changes: changes
+  };
+
+  fetch(WEB_APP_URL, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("Antwort vom Server:", data);
+    if (data.success) {
+      allRecords[rowIndex - 2] = { ...allRecords[rowIndex - 2], ...changes };
+    }
+  })
+  .catch(err => console.error("Fehler beim Speichern:", err));
+}
