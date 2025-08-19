@@ -396,26 +396,20 @@ const dienstgradBilder = {
   "VI": "https://i.postimg.cc/DzvR9KMx/Dgrd-vi-noe-svg.png",
   "VR": "https://i.postimg.cc/V6SZwsBW/Dgrd-vr-noe-svg.png"
 };
-
-/********************** CSV Upload ************************/
 function uploadCSVToGoogle() {
   const csvContent = generateCSV(allRecords);
-  fetch(WEB_APP_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ csv: csvContent })
-  })
-  .then(response => response.text())
-  .then(data => {
-    console.log('Antwort vom Google-Script:', data);
-    // Optionales Feedback
-    // alert('Daten erfolgreich hochgeladen!');
-  })
-  .catch(err => {
-    console.error('Fehler beim Hochladen:', err);
-    // alert('Fehler beim Hochladen der Daten!');
-  });
+  const url = WEB_APP_URL + "?csv=" + encodeURIComponent(csvContent);
+
+  fetch(url)
+    .then(response => response.text())
+    .then(data => {
+      console.log("Antwort vom Google-Script:", data);
+    })
+    .catch(err => {
+      console.error("Fehler beim Hochladen:", err);
+    });
 }
+
 
 function generateCSV(records) {
   // Dynamische Spalten aus Daten sicherstellen
