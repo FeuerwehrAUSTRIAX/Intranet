@@ -187,15 +187,21 @@ async function saveEntry() {
 /* Upload ins Google Sheet */
 async function uploadCSVToGoogle() {
   if (vehicles.length === 0) return;
-  const header=Object.keys(vehicles[0]||{}); const rows=[header.join(",")];
-  vehicles.forEach(v=>{rows.push(header.map(h=>`"${(v[h]||"").replace(/"/g,'""')}"`).join(","));});
-  const csv=rows.join("\n");
-  const resp=await fetch(SCRIPT_URL,{
-    method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
-    body:"csv="+encodeURIComponent(csv)
+  
+  const header = Object.keys(vehicles[0] || {});
+  const rows = [header.join(",")];
+  vehicles.forEach(v => {
+    rows.push(header.map(h => `"${(v[h] || "").replace(/"/g, '""')}"`).join(","));
   });
-  console.log(await resp.text());
+  const csv = rows.join("\n");
+
+  // NEU: per GET statt POST
+  const resp = await fetch(SCRIPT_URL + "?csv=" + encodeURIComponent(csv));
+  const text = await resp.text();
+  console.log(text); // sollte "OK: xx Zeilen gespeichert" zurückgeben
+
   loadData(); // nach Upload neu laden
 }
+
 
 loadData();
