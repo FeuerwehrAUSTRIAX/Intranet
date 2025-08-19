@@ -6,7 +6,7 @@ let isEditingCourses = false;
 let activeMembers = [];
 let csvHeaders = [];
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbydfJRfAAyFCQfHnxE3Ee5aSyiYgpf8yns8-hT9Uomk4QbRvqAj9MxyEtyogjpBn6eh/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzHdUx9PO27502Aar4wl6dm8ILj-dbIdSMegvNNY7pf61E5-3yTnew1JPGrhFJ1KkgU2A/exec";
 
 /******************** CSV Laden & Parsen ********************/
 $(document).ready(function() {
