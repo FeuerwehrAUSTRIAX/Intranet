@@ -1,64 +1,65 @@
 /* ===========================================
- * Einsatzkarte – script.js (Marker-Slider & Modal)
+ * Marker -> Info-Modal -> BSP-Modal
+ * + Autocomplete für POI & PLZ (ab 2 Zeichen)
  * =========================================== */
 
-/* ===== zentrierte Icons + BMA rechts daneben (einmaliges CSS) ===== */
+
 (() => {
   const css = `
+    :root{
+      --marker-h: 32px;   /* Haupt-Icon-Größe */
+      --bma-scale: .65;   /* BMA relativ zum Haupt-Icon */
+    }
+
+    /* Container des Markers: NICHT mehr width:0/height:0! */
     .marker-wrap{
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      /* Der Trick: Der Wrapper selbst wird um 50% nach links/oben verschoben,
-         dadurch liegt sein Mittelpunkt GENAU auf dem Ankerpunkt (0,0). */
-      transform: translate(-50%, -50%);
-      will-change: transform;
-      pointer-events: auto;
+      display:flex;
+      flex-direction:column;   /* übereinander */
+      align-items:center;      /* zentriert */
+      transform:translate(-50%, -100%); /* Ankerpunkt: Spitze unten mittig */
+      pointer-events:auto;
     }
+
+    /* Haupt-Icon */
     .marker-wrap .poi-img-icon{
-      width: var(--marker-h, 32px);
-      height: var(--marker-h, 32px);
-      object-fit: contain;
-      display: block;
-      image-rendering: auto;
+      width:var(--marker-h);
+      height:var(--marker-h);
+      object-fit:contain;
+      display:block;
     }
+
+    /* BMA-Symbol unter dem Icon, sauber skalierbar */
     .marker-wrap .bma-symbol{
-      width: calc(var(--marker-h, 32px) * 0.6);
-      height: calc(var(--marker-h, 32px) * 0.6);
-      margin-left: 6px;               /* -> rechts daneben */
-      display: inline-block;
+      margin-top:4px;
+      width:calc(var(--marker-h) * var(--bma-scale));
+      height:calc(var(--marker-h) * var(--bma-scale)); /* quadratisch, nie riesig */
+      object-fit:contain;
+      display:block;
     }
   `;
   const tag = document.createElement('style');
-  tag.id = 'marker-centering-style';
   tag.textContent = css;
   document.head.appendChild(tag);
 })();
+
+
+
+
 
 /* ================== Projektion / Grundwerte ================== */
 const tileSize = 256, minZoom = 0, maxZoom = 5;
 const size = tileSize * Math.pow(2, maxZoom);
 
-const mapRef1 = { lng: 34.90625, lat: -7.62500 };
-const gtaRef1 = { x: -4000, y: 8000 };
+// Referenzpunkte
+const mapRef1 = { lng: 34.90625,  lat: -7.62500 };
+const gtaRef1 = { x: -4000,       y: 8000 };
 const mapRef2 = { lng: 241.12500, lat: -255.1875 };
-const gtaRef2 = { x: 6000, y: -4000 };
+const gtaRef2 = { x: 6000,        y: -4000 };
 
 const scaleX = (mapRef2.lng - mapRef1.lng) / (gtaRef2.x - gtaRef1.x);
 const scaleY = (mapRef2.lat - mapRef1.lat) / (gtaRef2.y - gtaRef1.y);
-
-function toMap(x, y){
-  return {
-    lng: mapRef1.lng + (x - gtaRef1.x) * scaleX,
-    lat: mapRef1.lat + (y - gtaRef1.y) * scaleY
-  };
-}
-function fromMap(lat, lng){
-  return {
-    x: Math.round(gtaRef1.x + (lng - mapRef1.lng) / scaleX),
-    y: Math.round(gtaRef1.y + (lat - mapRef1.lat) / scaleY)
-  };
-}
+function toMap(x, y){ return { lng: mapRef1.lng + (x - gtaRef1.x) * scaleX, lat: mapRef1.lat + (y - gtaRef1.y) * scaleY }; }
+function fromMap(lat, lng){ return { x: Math.round(gtaRef1.x + (lng - mapRef1.lng) / scaleX), y: Math.round(gtaRef1.y + (lat - mapRef1.lat) / scaleY) }; }
 
 /* ================== Karte ================== */
 const map = L.map('map', { crs: L.CRS.Simple, minZoom, maxZoom });
@@ -67,10 +68,50 @@ const ne = map.unproject([size, 0], maxZoom);
 const bounds = L.latLngBounds(sw, ne);
 map.setMaxBounds(bounds).fitBounds(bounds);
 
-L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
-  tileSize, minZoom, maxZoom, noWrap: true, bounds,
-  attribution: '© FeuerwehrAUSTRIAX'
-}).addTo(map);
+// --- Basiskarten ---
+const BASESETS = [
+  { key: 'atl', name: 'Atlas',     path: 'tiles_atl' },
+  { key: 'sat', name: 'Satellit',  path: 'tiles_sat' }
+];
+const basemapLayers = {};
+let currentBasemapKey = 'atl';
+
+async function detectExtForTileset(basePath){
+  const tryExt = async (ext) => {
+    try { const url = `${basePath}/0/0/0.${ext}`; const res = await fetch(url, { method: 'HEAD', cache: 'no-store' }); return res.ok; }
+    catch { return false; }
+  };
+  if (await tryExt('jpg')) return 'jpg';
+  if (await tryExt('png')) return 'png';
+  return 'jpg';
+}
+async function buildBasemaps(){
+  for (const set of BASESETS){
+    const ext = await detectExtForTileset(set.path);
+    basemapLayers[set.key] = L.tileLayer(`${set.path}/{z}/{x}/{y}.${ext}`, {
+      tileSize, minZoom, maxZoom, noWrap: true, bounds,
+      attribution: '© FeuerwehrAUSTRIAX'
+    });
+  }
+  setBasemap(currentBasemapKey);
+}
+function setBasemap(key){
+  if (currentBasemapKey === key && map.hasLayer(basemapLayers[key])) return;
+  Object.values(basemapLayers).forEach(l => { if (l && map.hasLayer(l)) map.removeLayer(l); });
+  const layer = basemapLayers[key];
+  if (layer) { layer.addTo(map); currentBasemapKey = key; }
+}
+function initBasemapToggle(){
+  const opts = document.querySelectorAll('#basemapSwitch .switch-option');
+  opts.forEach(opt=>{
+    opt.addEventListener('click', ()=>{
+      opts.forEach(o=>o.classList.remove('active'));
+      opt.classList.add('active');
+      setBasemap(opt.dataset.key);
+    });
+  });
+}
+initBasemapToggle(); buildBasemaps();
 
 /* ================== Koordinaten-Tipp + Kopieren ================== */
 const tip = document.getElementById('coordTip');
@@ -88,9 +129,7 @@ map.on('click', e => {
   const text = `${gta.x}, ${gta.y}`;
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).then(()=>toast(text)).catch(()=>fallbackCopy(text));
-  } else {
-    fallbackCopy(text);
-  }
+  } else { fallbackCopy(text); }
 });
 function fallbackCopy(text){
   const ta = document.createElement('textarea'); ta.value = text;
@@ -114,7 +153,6 @@ const categoriesBox = document.getElementById('categories');
 const toggleAllEl  = document.getElementById('toggle-all');
 const togglePlzEl  = document.getElementById('toggle-plz');
 const bmaToggleEl  = document.getElementById('bmaToggle');
-const reloadBtn    = document.getElementById('reloadBtn');
 
 document.getElementById("categoryFilterHeader").addEventListener("click", function(){
   const contentDiv = document.getElementById("categoryFilterContent");
@@ -124,57 +162,78 @@ document.getElementById("categoryFilterHeader").addEventListener("click", functi
   toggleArrow.innerText = open ? "►" : "▼";
 });
 
-/* ================== Marker-Höhe (Slider) ================== */
-const markerSizeRange = document.getElementById('markerSizeRange');
-const markerSizeValue = document.getElementById('markerSizeValue');
-if (markerSizeRange) {
-  const setSize = (px) => {
-    document.documentElement.style.setProperty('--marker-h', px + 'px');
-    if (markerSizeValue) markerSizeValue.textContent = px + ' px';
+/* ================== MODALS ================== */
+function openInfoModalFromPOI(p){
+  document.getElementById('infoPOI').textContent = p.POI || '—';
+  document.getElementById('infoKategorie').textContent = p.Kategorie || '—';
+
+  const adresse = [
+    [p.Adresse_Strasse || p['Adresse Straße'] || '', p.Hausnummer || ''].filter(Boolean).join(' ').trim(),
+    [p.PLZ || p['Adresse PLZ'] || '', p.Bezirk || p['Adresse Bezirk'] || ''].filter(Boolean).join(' ').trim()
+  ].filter(Boolean).join(', ');
+  document.getElementById('infoAdresse').textContent = adresse || '—';
+
+  const bmaTxt = (p.BMA || '').toString().trim() ? (String(p.BMA).toUpperCase()) : '—';
+  document.getElementById('infoBMA').textContent = bmaTxt;
+  document.getElementById('infoBMACode').textContent = p['BMA-Code'] || p.BMA_Code || '—';
+
+  const img = document.getElementById('infoObjektbild');
+  if (p.Objektbild){ img.src = p.Objektbild; img.style.display = 'block'; }
+  else { img.removeAttribute('src'); img.style.display = 'none'; }
+
+  const bes = (p.Besonderheit || '').replace(/\r?\n/g, '<br>');
+  const kd  = (p.Kontaktdaten || '').replace(/^"+|"+$/g,'').replace(/\r?\n/g, '<br>');
+  document.getElementById('infoBesonderheit').innerHTML = bes || '—';
+  document.getElementById('infoKontaktdaten').innerHTML = kd  || '—';
+  document.getElementById('boxBesonderheit').hidden = true;
+  document.getElementById('boxKontakt').hidden = true;
+
+  document.getElementById('btnBesonderheit').onclick = () => {
+    const box = document.getElementById('boxBesonderheit');
+    box.hidden = !box.hidden;
   };
-  setSize(markerSizeRange.value);
-  markerSizeRange.addEventListener('input', () => setSize(markerSizeRange.value));
+  document.getElementById('btnKontakt').onclick = () => {
+    const box = document.getElementById('boxKontakt');
+    box.hidden = !box.hidden;
+  };
+  document.getElementById('btnPlan').onclick = () => {
+    closeInfoModal();
+    openPlanModalFromPOI(p);
+  };
+
+  document.getElementById('infoModal').setAttribute('aria-hidden','false');
 }
+function closeInfoModal(){ document.getElementById('infoModal').setAttribute('aria-hidden','true'); }
 
-/* ================== Modal (Brandschutzplan/Bild) ================== */
-const modalOverlay = document.getElementById('modalOverlay');
-const modalHeader  = document.getElementById('modalHeader');
-const modalBody    = document.getElementById('modalBody');
-const closeModalBtn= document.getElementById('closeModalBtn');
+function openPlanModalFromPOI(p){
+  const planUrl = p.Brandschutzplan || p.Objektbild || "";
+  const img = document.getElementById('planImage');
+  img.src = planUrl || "";
+  img.alt = `Brandschutzplan – ${p.POI ?? ""}`;
+  document.getElementById('planModal').setAttribute('aria-hidden','false');
+}
+function closePlanModal(){ document.getElementById('planModal').setAttribute('aria-hidden','true'); }
 
-function openModal(title, contentNodeOrHtml){
-  modalHeader.textContent = title || '';
-  modalBody.innerHTML = '';
-  if (typeof contentNodeOrHtml === 'string') {
-    modalBody.innerHTML = contentNodeOrHtml;
-  } else if (contentNodeOrHtml) {
-    modalBody.appendChild(contentNodeOrHtml);
+document.getElementById('infoClose').addEventListener('click', closeInfoModal);
+document.getElementById('planClose').addEventListener('click', closePlanModal);
+document.addEventListener('keydown', (e)=>{
+  if (e.key==='Escape'){
+    if (document.getElementById('planModal').getAttribute('aria-hidden')==='false') closePlanModal();
+    else if (document.getElementById('infoModal').getAttribute('aria-hidden')==='false') closeInfoModal();
   }
-  modalOverlay.style.display = 'grid';
-}
-function closeModal(e){
-  if (e && e.target && e.target !== modalOverlay && e.target !== closeModalBtn) return;
-  modalOverlay.style.display = 'none';
-  modalBody.innerHTML = '';
-}
-modalOverlay?.addEventListener('click', closeModal);
-closeModalBtn?.addEventListener('click', closeModal);
-document.addEventListener('keydown', e=>{ if (e.key === 'Escape' && modalOverlay.style.display !== 'none') closeModal(); });
-
-function looksLikeImage(url){ return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(url); }
-function openPlan(url){
-  if (!url) return;
-  const html = looksLikeImage(url)
-    ? `<img src="${url}" alt="Plan" style="width:100%;height:100%;object-fit:contain;background:#111;">`
-    : `<iframe src="${url}" title="Plan" style="width:100%;height:100%;border:0;background:#111;"></iframe>`;
-  openModal('Brandschutzplan', html);
-}
+});
+document.getElementById('infoModal').addEventListener('click', (e)=>{ if(e.target.id==='infoModal') closeInfoModal(); });
+document.getElementById('planModal').addEventListener('click', (e)=>{ if(e.target.id==='planModal') closePlanModal(); });
 
 /* ================== Autocomplete ================== */
+const AC_MIN = 2;
 const AC_MAX = 8;
-let AC_DATA = []; // { value, kind: 'poi'|'plz' }
+let AC_DATA = []; // [{value, kind:'poi'|'plz'}]
 let acIndex = -1;
-const acBox = document.createElement('div'); acBox.id = 'acBox'; document.body.appendChild(acBox);
+
+const acBox = document.createElement('div');
+acBox.id = 'acBox';
+document.body.appendChild(acBox);
 
 function positionAcBox(){
   const r = searchBox.getBoundingClientRect();
@@ -189,54 +248,70 @@ function renderAc(items){
   acBox.innerHTML = '';
   items.forEach((it,i)=>{
     const row = document.createElement('div');
-    row.textContent = it.value; row.title = it.value;
-    row.dataset.value = it.value; row.dataset.kind = it.kind;
-    const tag = document.createElement('span'); tag.className='tag'; tag.textContent = it.kind==='plz'?'PLZ':'POI';
+    row.className = 'ac-row';
+    const label = document.createElement('span');
+    label.className = 'ac-text';
+    label.textContent = it.value;
+    const tag = document.createElement('span');
+    tag.className = 'ac-tag';
+    tag.textContent = it.kind === 'plz' ? 'PLZ' : 'POI';
+    row.appendChild(label);
     row.appendChild(tag);
     row.addEventListener('mouseenter', ()=>setAcIndex(i));
     row.addEventListener('mousedown', e=>{ e.preventDefault(); chooseSuggestion(i); });
     acBox.appendChild(row);
   });
-  setAcIndex(items.length?0:-1);
+  setAcIndex(items.length ? 0 : -1);
   positionAcBox();
   acBox.style.display = items.length ? 'block' : 'none';
 }
 function setAcIndex(i){
   acIndex = i;
-  [...acBox.children].forEach((el,idx)=>{ el.style.background = idx===acIndex ? '#e8f0fe' : '#fff'; });
+  [...acBox.children].forEach((el,idx)=>{
+    el.classList.toggle('active', idx === acIndex);
+  });
 }
-function hideAc(){ acBox.style.display='none'; acIndex=-1; }
+function hideAc(){ acBox.style.display='none'; acIndex = -1; }
 
 searchBox.addEventListener('input', ()=>{
   const q = searchBox.value.trim().toLowerCase();
-  if (q.length < 4){ hideAc(); return; }
-  const list = AC_DATA
-    .filter(it => it.kind==='plz' ? it.value.toLowerCase().startsWith(q) : it.value.toLowerCase().includes(q))
-    .slice(0, AC_MAX);
+  if (q.length < AC_MIN){ hideAc(); return; }
+  const list = AC_DATA.filter(it =>
+    it.kind === 'plz'
+      ? it.value.toLowerCase().startsWith(q)
+      : it.value.toLowerCase().includes(q)
+  ).slice(0, AC_MAX);
   renderAc(list);
 });
-searchBox.addEventListener('blur', ()=>setTimeout(hideAc,100));
+searchBox.addEventListener('focus', ()=>{
+  if (searchBox.value.trim().length >= AC_MIN) searchBox.dispatchEvent(new Event('input'));
+});
+searchBox.addEventListener('blur', ()=> setTimeout(hideAc, 120));
 searchBox.addEventListener('keydown', e=>{
-  const visible = acBox.style.display==='block';
+  const visible = acBox.style.display === 'block';
   if (!visible){
-    if (e.key==='Enter'){ e.preventDefault(); performSearch(searchBox.value.trim()); }
+    if (e.key === 'Enter'){ e.preventDefault(); performSearch(searchBox.value.trim()); }
     return;
   }
-  if (e.key==='ArrowDown'){ e.preventDefault(); if (acBox.children.length) setAcIndex((acIndex+1)%acBox.children.length); }
-  else if (e.key==='ArrowUp'){ e.preventDefault(); if (acBox.children.length) setAcIndex((acIndex-1+acBox.children.length)%acBox.children.length); }
-  else if (e.key==='Enter'){ e.preventDefault(); if (acIndex<0 && acBox.children.length) setAcIndex(0); if (acIndex>=0) chooseSuggestion(acIndex); }
-  else if (e.key==='Escape'){ hideAc(); }
+  if (e.key === 'ArrowDown'){ e.preventDefault(); if (acBox.children.length) setAcIndex((acIndex+1)%acBox.children.length); }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); if (acBox.children.length) setAcIndex((acIndex-1+acBox.children.length)%acBox.children.length); }
+  else if (e.key === 'Enter'){ e.preventDefault(); if (acIndex < 0 && acBox.children.length) setAcIndex(0); if (acIndex >= 0) chooseSuggestion(acIndex); }
+  else if (e.key === 'Escape'){ hideAc(); }
 });
 function chooseSuggestion(i){
-  const row = acBox.children[i]; if (!row) return;
-  const val = row.dataset.value || ''; hideAc(); searchBox.value = val; performSearch(val);
+  const row = acBox.children[i];
+  if (!row) return;
+  const val = row.querySelector('.ac-text').textContent;
+  hideAc();
+  searchBox.value = val;
+  performSearch(val);
 }
 
 /* ================== Ebenen / Daten ================== */
-const categoryLayers = {};  // { Kategorie: L.layerGroup() }
-const layerStates = {};     // { Kategorie: true/false }
+const categoryLayers = {};
+const layerStates = {};
 const highlightLayer = L.layerGroup().addTo(map);
-const plzLayer = L.layerGroup(); // per Toggle sichtbar
+const plzLayer = L.layerGroup();
 const PLZ_MIN_ZOOM = 4;
 
 const plzFile = 'source/plz.txt';
@@ -253,15 +328,7 @@ function isIconAvailable(url){
     const img = new Image(); img.onload=()=>resolve(true); img.onerror=()=>resolve(false); img.src=url;
   });
 }
-function slugify(s){
-  return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g, '');
-}
-function escapeHtml(s){
-  return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
-    .replaceAll('"','&quot;').replaceAll("'",'&#39;');
-}
-function nl2br(s){ return String(s||'').replace(/\r?\n/g, '<br>'); }
+function slugify(s){ return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
 
 /* ================== PLZ laden & rendern ================== */
 fetch(plzFile).then(r=>r.text()).then(text=>{
@@ -276,7 +343,8 @@ fetch(plzFile).then(r=>r.text()).then(text=>{
   }).filter(Boolean);
 
   updatePlzVisibility();
-  rebuildAcData(); // PLZ in Vorschläge aufnehmen
+  // Autocomplete: PLZ rein (POIs kommen, sobald geladen)
+  rebuildAcData(); 
 }).catch(err=>console.error('PLZ laden fehlgeschlagen:', err));
 
 function renderPlzLabels(){
@@ -314,7 +382,7 @@ async function loadPois(file){
   const poiNames = new Set(); const plzFromPois = new Set();
   ALL_MARKERS = []; // reset
 
-  // Kategorien neu aufbauen
+  // Kategorien leeren
   Object.values(categoryLayers).forEach(grp => map.removeLayer(grp));
   for (const key of Object.keys(categoryLayers)) delete categoryLayers[key];
   for (const key of Object.keys(layerStates)) delete layerStates[key];
@@ -326,101 +394,27 @@ async function loadPois(file){
     const [x,y] = poi.Lage || [0,0];
     const { lat, lng } = toMap(x,y);
 
-    // --- Felder aus JSON (robust) ---
     const bmaVal   = (poi.BMA || poi['BMA'] || '').toString().trim().toLowerCase();
     const hasBma   = bmaVal === 'ja';
-    const bmaCode  = poi['BMA-Code'] || poi.BMA_Code || '';
-    const planUrl  = poi.Brandschutzplan || poi['Brandschutzplan'] || '';
-    const objekt   = poi.Objektbild || poi['Objektbild'] || '';
-    const besond   = poi.Besonderheit || poi['Besonderheit'] || '';
-    const kontakt  = poi.Kontaktdaten || poi['Kontaktdaten'] || '';
-    const iconUrl  = poi.ICON || poi.Icon || '';
+    const iconUrl  = poi.ICON || '';
 
     const iconAvailable = await isIconAvailable(iconUrl);
     const leftHtml = iconAvailable
-      ? `<img src="${iconUrl}" class="poi-img-icon" alt="${escapeHtml(poi.POI||'')}" />`
+      ? `<img src="${iconUrl}" class="poi-img-icon" alt="${poi.POI || ''}" />`
       : `<span class="plz-box-icon"><span>??</span></span>`;
-    const bmaHtml  = hasBma
-      ? `<img src="https://i.postimg.cc/RFZ23TVC/BMA.gif" class="bma-symbol" alt="BMA" />`
-      : ``;
+const bmaHtml = hasBma
+  ? `<img src="https://i.postimg.cc/RFZ23TVC/BMA.gif"
+           class="bma-symbol"
+           alt="BMA"
+           style="margin-top:35px;" />`
+  : ``;
 
-    /* ===== WICHTIG: Wrapper .marker-wrap
-       - liegt mittig über den Koordinaten (siehe CSS oben)
-       - BMA-Icon steht rechts daneben (margin-left)
-    ===== */
+
     const markerHTML = `<div class="marker-wrap">${leftHtml}${bmaHtml}</div>`;
-
-    // iconAnchor = [0,0], weil der .marker-wrap selbst die Zentrierung übernimmt
     const icon = L.divIcon({ html: markerHTML, className:'', iconSize: null, iconAnchor:[0,0], popupAnchor:[0,-20] });
 
-    const adresse = `${poi.Adresse_Strasse||''} ${poi.Hausnummer||''}, ${poi.PLZ||''} ${poi.Bezirk||''}`
-      .replace(/\s+,/g, ',').replace(/^\s*,\s*|\s*,\s*$/g, '').trim();
-
-    // --- Popup ---
-    let popup = `
-      <h3>${escapeHtml(poi.POI||'')}</h3>
-      <table>
-        <tr><td>Kategorie</td><td>${escapeHtml(poi.Kategorie||'')}</td></tr>
-        <tr><td>Adresse</td><td>${escapeHtml(adresse)}</td></tr>
-      </table>
-    `;
-
-    if (hasBma) {
-      popup += `
-        <table>
-          ${bmaCode ? `<tr><td>BMA-Code</td><td>${escapeHtml(bmaCode)}</td></tr>` : ``}
-          ${
-            planUrl
-              ? `<tr><td>Brandschutzplan</td><td><a href="#" onclick="openPlan('${String(planUrl).replace(/'/g, "\\'")}');return false;">Anzeigen</a></td></tr>`
-              : ``
-          }
-        </table>
-      `;
-    }
-
-    if (objekt) {
-      popup += `<img src="${objekt}" alt="Objektbild" style="width:100%;max-height:220px;object-fit:cover;border-radius:6px;margin-top:10px;">`;
-    }
-
-    if (besond) {
-      popup += `
-        <div class="popup-section" style="margin-top:10px;">
-          <div class="section-content">
-            <strong>Besonderheiten</strong><br>${nl2br(besond)}
-          </div>
-        </div>
-      `;
-    }
-
-    if (kontakt) {
-      const rows = String(kontakt).split(/\r?\n/).filter(l=>l.trim()!=='').map(line=>{
-        const parts = line.split(/Tel\.:/i);
-        const left = (parts[0]||'').trim();
-        const right = (parts[1]||'').trim();
-        return `<tr>
-                  <td style="padding:6px;border:1px solid #444;color:#fff;text-align:center;">${escapeHtml(left)}</td>
-                  <td style="padding:6px;border:1px solid #444;text-align:center;">${escapeHtml(right)}</td>
-                </tr>`;
-      }).join('');
-      popup += `
-        <div class="popup-section" style="margin-top:10px;">
-          <div class="section-content">
-            <strong>Kontaktdaten</strong>
-            <table style="width:100%;border-collapse:collapse;margin-top:6px;">
-              <tr>
-                <th style="padding:6px;border:1px solid #444;color:#fff;text-align:center;">Position / Name</th>
-                <th style="padding:6px;border:1px solid #444;text-align:center;">Telefonnummer</th>
-              </tr>
-              ${rows}
-            </table>
-          </div>
-        </div>
-      `;
-    }
-
-    popup += `<button onclick="this.closest('.leaflet-popup').querySelector('.leaflet-popup-close-button').click()">Schließen</button>`;
-
-    const marker = L.marker([lat,lng],{icon}).bindPopup(popup);
+    const marker = L.marker([lat,lng], { icon });
+    marker.on('click', () => openInfoModalFromPOI(poi));
 
     marker.poiName = (poi.POI||'').toLowerCase();
     marker.plz     = (poi.PLZ||'').toLowerCase();
@@ -437,8 +431,10 @@ async function loadPois(file){
   // Kategorien sichtbar machen
   Object.values(categoryLayers).forEach(grp=>{ if (!map.hasLayer(grp)) grp.addTo(map); });
 
-  // Sidebar-Filter & Vorschläge
+  // Sidebar-Filter
   buildFilterPanelFromCategories();
+
+  // >>> Autocomplete aktualisieren (POIs + alle PLZ)
   rebuildAcData(poiNames, plzFromPois);
 
   // BMA-Visibility anwenden
@@ -453,10 +449,7 @@ function buildFilterPanelFromCategories(){
   cats.forEach(cat=>{
     const id = `cat-${slugify(cat)}`;
     const line = document.createElement('label');
-    line.innerHTML = `
-      <input type="checkbox" id="${id}" data-cat="${encodeURIComponent(cat)}" ${layerStates[cat] ? 'checked' : ''} />
-      ${escapeHtml(cat)}
-    `;
+    line.innerHTML = `<input type="checkbox" id="${id}" data-cat="${encodeURIComponent(cat)}" ${layerStates[cat] ? 'checked' : ''} /> ${cat}`;
     categoriesBox.appendChild(line);
   });
 
@@ -477,9 +470,7 @@ function buildFilterPanelFromCategories(){
     });
   });
 
-  reloadBtn.onclick = ()=>{ loadPois(poiFilePrimary).catch(()=>loadPois(poiFileFallback)).catch(console.error); };
   bmaToggleEl.onchange = applyBmaToggle;
-
   syncToggleAllState();
 }
 function syncToggleAllState(){
@@ -492,82 +483,53 @@ function syncToggleAllState(){
 /* ================== BMA-Icon ein/aus ================== */
 function applyBmaToggle(){
   const on = !!bmaToggleEl?.checked;
-  document.querySelectorAll('.bma-symbol').forEach(el=>{
-    el.style.display = on ? 'inline-block' : 'none';
-  });
+  document.querySelectorAll('.bma-symbol').forEach(el=>{ el.style.display = on ? 'inline-block' : 'none'; });
 }
 
-/* ================== Blink-Logik ================== */
-function blinkMarker(marker, openPopup = true){
-  const isPlz = !!marker._isPlz;
-  const visible = !!marker._icon && (
-    isPlz ? map.hasLayer(plzLayer)
-          : (marker._categoryName && categoryLayers[marker._categoryName] && map.hasLayer(categoryLayers[marker._categoryName]))
-  );
-  if (visible){
-    if (openPopup && marker.openPopup) marker.openPopup();
-    marker._icon.classList.add('blinking');
-    setTimeout(()=>{ if (marker._icon) marker._icon.classList.remove('blinking'); }, 10000);
-    return;
-  }
-  const ll = marker.getLatLng();
-  const temp = L.marker(ll, { icon: marker.options.icon, zIndexOffset: 1000 }).addTo(highlightLayer);
-  if (openPopup){
-    const content = marker.getPopup?.()?.getContent?.() ?? '';
-    if (content) temp.bindPopup(content).openPopup();
-  }
-  setTimeout(()=>{ if (temp._icon) temp._icon.classList.add('blinking'); }, 0);
-  setTimeout(()=>{ if (temp._icon) temp._icon.classList.remove('blinking'); highlightLayer.removeLayer(temp); }, 10000);
-}
-
-/* ================== Suche (Enter & Autocomplete) ================== */
+/* ================== Suche ================== */
 function performSearch(raw){
   const q = (raw||'').trim().toLowerCase(); if (!q) return;
 
   // 1) POI exakter Name
   const exactPoi = ALL_MARKERS.find(m=>m.poiName===q);
-  if (exactPoi){ map.setView(exactPoi.getLatLng(),5); blinkMarker(exactPoi,true); return; }
+  if (exactPoi){ map.setView(exactPoi.getLatLng(),5); exactPoi._icon?.classList.add('blinking'); setTimeout(()=>exactPoi._icon?.classList.remove('blinking'), 3000); return; }
 
-  // 2) PLZ im aktuellen Ausschnitt (nur wenn PLZ-Layer sichtbar)
+  // 2) PLZ im aktuellen Ausschnitt
   const plzMatches = plzLayer.getLayers().filter(m=>m.plz===q);
   if (plzMatches.length){
     const group = L.featureGroup(plzMatches);
     map.fitBounds(group.getBounds(), { maxZoom:5, padding:[20,20] });
-    plzMatches.forEach(m=>blinkMarker(m,false));
+    plzMatches.forEach(m=>m._icon?.classList.add('blinking'));
+    setTimeout(()=>plzMatches.forEach(m=>m._icon?.classList.remove('blinking')), 3000);
     return;
   }
 
-  // 3) Fallback: PLZ existiert, aber nicht im View
+  // 3) PLZ global
   const matchPlz = PLZ_DATA.find(p=>p.code.toLowerCase()===q);
   if (matchPlz){
     const tempIcon = L.divIcon({ className:'plz-box-icon', html:`<span>${matchPlz.code}</span>`, iconSize:[40,20], iconAnchor:[20,10] });
     const temp = L.marker([matchPlz.lat,matchPlz.lng], { icon: tempIcon, zIndexOffset: 1000 }).addTo(highlightLayer);
     map.setView([matchPlz.lat,matchPlz.lng], 5);
-    setTimeout(()=>{ if (temp._icon) temp._icon.classList.add('blinking'); },0);
-    setTimeout(()=>highlightLayer.removeLayer(temp), 10000);
-    return;
+    setTimeout(()=>temp._icon?.classList.add('blinking'),0);
+    setTimeout(()=>highlightLayer.removeLayer(temp), 3000);
   }
-
-  console.warn('Kein Treffer für:', q);
 }
 
-/* ================== Autocomplete-Daten ================== */
+/* ================== Autocomplete-Daten füllen ================== */
 function rebuildAcData(poiNamesSet=null, plzSetFromPoi=null){
   const poiNames = poiNamesSet ? Array.from(poiNamesSet) : [];
   const plzCodes = new Set(PLZ_DATA.map(p=>p.code));
-  if (plzSetFromPoi) for (const z of plzSetFromPoi) plzCodes.add(z);
+  if (plzSetFromPoi) for (const z of plzSetFromPoi) plzCodes.add(String(z));
 
   AC_DATA = [
-    ...poiNames.map(v=>({ value:v, kind:'poi' })),
+    ...poiNames.map(v=>({ value:String(v), kind:'poi' })),
     ...Array.from(plzCodes).map(v=>({ value:String(v), kind:'plz' }))
   ].sort((a,b)=>a.value.localeCompare(b.value,'de'));
 }
 
-/* ================== Clear & Refresh ================== */
+/* ================== Clear ================== */
 clearBtn.addEventListener('click', ()=>{
-  hideAc(); searchBox.value = '';
+  searchBox.value = '';
+  hideAc();
   map.setView([(mapRef1.lat+mapRef2.lat)/2, (mapRef1.lng+mapRef2.lng)/2], minZoom);
-});
-reloadBtn.addEventListener('click', ()=>{
-  loadPois(poiFilePrimary).catch(()=>loadPois(poiFileFallback)).catch(console.error);
 });
