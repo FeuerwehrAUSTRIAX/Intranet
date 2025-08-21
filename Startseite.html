@@ -6,22 +6,23 @@
   <title>Intranet Feuerwehr WN</title>
   <style>
     body {
-      font-family: Arial, Helvetica, sans-serif;
-      background-color: #212121;
-      color: #f0f0f0;
       margin: 0;
-      padding: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a1a, #212121);
+      color: #fff;
     }
     header {
-      background-color: #333333;
+      backdrop-filter: blur(10px);
+      background-color: rgba(30,30,30,0.7);
+      border-bottom: 1px solid #444;
       padding: 20px;
       text-align: center;
-      border-bottom: 2px solid #444;
     }
     header h1 {
       margin: 0;
-      font-size: 24px;
       color: #AB2328;
+      font-size: 26px;
+      letter-spacing: 1px;
     }
     .login-container {
       display: flex;
@@ -30,55 +31,90 @@
       height: 80vh;
     }
     .login-box {
-      background-color: #2a2a2a;
-      padding: 30px;
-      border-radius: 10px;
+      backdrop-filter: blur(20px);
+      background: rgba(40,40,40,0.7);
+      padding: 40px;
+      border-radius: 15px;
+      border: 1px solid #444;
       text-align: center;
-      border: 1px solid #444;
+      width: 300px;
     }
-    select, button {
-      padding: 10px;
-      margin-top: 15px;
-      border-radius: 5px;
-      border: 1px solid #444;
-      background-color: #3a3a3a;
-      color: #f0f0f0;
+    .login-box h2 {
+      margin-bottom: 20px;
+      color: #fff;
+    }
+    .login-box input {
+      width: 90%;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border: none;
+      background: #333;
+      color: #fff;
+    }
+    .login-box button {
+      width: 95%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background: #AB2328;
+      color: #fff;
+      font-size: 16px;
       cursor: pointer;
     }
-    button {
-      background-color: #AB2328;
-      border: none;
+    .login-box button:hover {
+      background: #922020;
     }
-    button:hover {
-      background-color: #922020;
+    .dashboard {
+      display: none;
+      padding: 20px;
     }
-    .container {
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    .clock {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .last-mission {
+      backdrop-filter: blur(15px);
+      background: rgba(50,50,50,0.6);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    .last-mission h2 {
+      margin: 0 0 10px;
+      color: #AB2328;
+    }
+    .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 20px;
-      padding: 30px;
     }
     .card {
-      background-color: #2a2a2a;
-      border: 1px solid #444;
-      border-radius: 10px;
+      backdrop-filter: blur(15px);
+      background: rgba(40,40,40,0.6);
+      border-radius: 12px;
       padding: 20px;
       text-align: center;
-      cursor: pointer;
-      transition: transform 0.2s, background-color 0.2s;
-      display: none; /* wird durch JS sichtbar gemacht */
+      transition: transform 0.2s, background 0.2s;
+      display: none;
     }
     .card:hover {
-      background-color: #AB2328;
+      background: rgba(171, 35, 40, 0.8);
       transform: translateY(-5px);
     }
     .card h3 {
-      margin-top: 10px;
-      color: #f0f0f0;
+      margin: 10px 0 5px;
+      color: #fff;
     }
     .card p {
+      color: #ccc;
       font-size: 14px;
-      color: #aaa;
     }
     .icon {
       font-size: 40px;
@@ -89,119 +125,141 @@
 </head>
 <body>
   <header>
-    <h1>👨‍🚒 Intranet – Feuerwehr Wiener Neustadt</h1>
+    <h1>🚒 Intranet – Feuerwehr Wiener Neustadt</h1>
   </header>
 
   <!-- Login -->
   <div id="login" class="login-container">
     <div class="login-box">
-      <h2>Bitte Rolle auswählen</h2>
-      <select id="role">
-        <option value="mannschaft">Mannschaft</option>
-        <option value="charge">Charge</option>
-        <option value="kommando">Kommando</option>
-      </select>
-      <br>
-      <button onclick="login()">Anmelden</button>
+      <h2>Anmelden</h2>
+      <input type="text" id="username" placeholder="Benutzername">
+      <input type="password" id="password" placeholder="Passwort">
+      <button onclick="login()">Login</button>
+      <p id="login-error" style="color:red; display:none;">❌ Ungültige Daten</p>
     </div>
   </div>
 
   <!-- Dashboard -->
-  <div id="dashboard" style="display:none;">
-    <div class="container">
+  <div id="dashboard" class="dashboard">
+    <div class="topbar">
+      <div class="welcome">👋 Willkommen, <span id="user-name"></span> (<span id="user-role"></span>)</div>
+      <div class="clock" id="clock"></div>
+    </div>
+
+    <div class="last-mission">
+      <h2>Letzter Einsatz</h2>
+      <p id="last-mission-data">Keine Einsatzdaten geladen (Platzhalter).</p>
+    </div>
+
+    <div class="grid">
       <!-- Mannschaft -->
       <a href="einsatzkarte.html" class="card mannschaft">
         <div class="icon"><i class="fas fa-map"></i></div>
-        <h3>Einsatzkarte</h3>
-        <p>Übersicht der Einsätze</p>
+        <h3>Einsatzkarte</h3><p>Übersicht der Einsätze</p>
       </a>
-
       <a href="Einsatzbericht.html" class="card mannschaft">
         <div class="icon"><i class="fas fa-file-alt"></i></div>
-        <h3>Einsatzberichte</h3>
-        <p>Alle Einsatzberichte ansehen</p>
+        <h3>Einsatzberichte</h3><p>Alle Berichte ansehen</p>
       </a>
-
       <a href="rettungskarte.html" class="card mannschaft">
         <div class="icon"><i class="fas fa-ambulance"></i></div>
-        <h3>Rettungskarte</h3>
-        <p>Fahrzeuginfos für Rettung</p>
+        <h3>Rettungskarte</h3><p>Fahrzeuginfos</p>
       </a>
-
       <a href="Kontakt.html" class="card mannschaft">
         <div class="icon"><i class="fas fa-address-book"></i></div>
-        <h3>Kontakt</h3>
-        <p>Wichtige Ansprechpartner</p>
+        <h3>Kontakt</h3><p>Wichtige Ansprechpartner</p>
       </a>
 
       <!-- Charge -->
       <a href="fahrzeugverwaltung/index.html" class="card charge">
         <div class="icon"><i class="fas fa-truck"></i></div>
-        <h3>Fahrzeugverwaltung</h3>
-        <p>Fahrpark & Status</p>
+        <h3>Fahrzeugverwaltung</h3><p>Fahrpark & Status</p>
       </a>
-
       <a href="mitgliederverwaltung_charge/index.html" class="card charge">
         <div class="icon"><i class="fas fa-users-cog"></i></div>
-        <h3>Mitgliederverwaltung (Charge)</h3>
-        <p>Verwaltung für Chargen</p>
+        <h3>Mitgliederverwaltung (Charge)</h3><p>Verwaltung für Chargen</p>
       </a>
-
       <a href="einsatzberichtsuche.html" class="card charge">
         <div class="icon"><i class="fas fa-search"></i></div>
-        <h3>Einsatzbericht Suche</h3>
-        <p>Schnell Berichte finden</p>
+        <h3>Einsatzbericht Suche</h3><p>Schnell Berichte finden</p>
       </a>
 
       <!-- Kommando -->
       <a href="mitgliederverwaltung_kommando/index.html" class="card kommando">
         <div class="icon"><i class="fas fa-user-shield"></i></div>
-        <h3>Mitgliederverwaltung (Kommando)</h3>
-        <p>Erweiterte Verwaltung</p>
+        <h3>Mitgliederverwaltung (Kommando)</h3><p>Erweiterte Verwaltung</p>
       </a>
-
       <a href="aktivität.html" class="card kommando">
         <div class="icon"><i class="fas fa-calendar-check"></i></div>
-        <h3>Aktivitäten</h3>
-        <p>Planung & Übersicht</p>
+        <h3>Aktivitäten</h3><p>Planung & Übersicht</p>
       </a>
-
       <a href="kassenverwaltung.html" class="card kommando">
         <div class="icon"><i class="fas fa-cash-register"></i></div>
-        <h3>Kassenverwaltung</h3>
-        <p>Finanzen im Blick</p>
+        <h3>Kassenverwaltung</h3><p>Finanzen</p>
       </a>
-
       <a href="mitgliederanmeldung.html" class="card kommando">
         <div class="icon"><i class="fas fa-user-plus"></i></div>
-        <h3>Mitgliederanmeldung</h3>
-        <p>Neue Mitglieder aufnehmen</p>
+        <h3>Mitgliederanmeldung</h3><p>Neue Mitglieder aufnehmen</p>
       </a>
-
       <a href="token.html" class="card kommando">
         <div class="icon"><i class="fas fa-key"></i></div>
-        <h3>Token Verwaltung</h3>
-        <p>Zugriffsrechte verwalten</p>
+        <h3>Token Verwaltung</h3><p>Zugriffsrechte</p>
       </a>
     </div>
   </div>
 
   <script>
-    function login() {
-      const role = document.getElementById('role').value;
-      document.getElementById('login').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
+    let users = [];
 
-      // Mannschaft immer sichtbar
-      document.querySelectorAll('.mannschaft').forEach(el => el.style.display = 'block');
+    // CSV von Google Sheets laden
+    async function loadUsers() {
+      const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7dF0DvwqCYIwvKEXk0pTQcIZtrAJMqmB6u93Nm5squ7P80afz5q7F5fjSF8GXlkpDghbji7p_g_rI/pub?gid=783414426&single=true&output=csv";
+      const response = await fetch(url);
+      const csv = await response.text();
+      const rows = csv.trim().split("\n").map(r => r.split(","));
+      const headers = rows.shift();
+      users = rows.map(r => {
+        let obj = {};
+        headers.forEach((h, i) => obj[h.trim()] = r[i].trim());
+        return obj;
+      });
+    }
 
-      if (role === "charge" || role === "kommando") {
-        document.querySelectorAll('.charge').forEach(el => el.style.display = 'block');
+    async function login() {
+      if (users.length === 0) await loadUsers();
+      const u = document.getElementById("username").value.trim();
+      const p = document.getElementById("password").value.trim();
+
+      const user = users.find(x => x.Benutzername === u && x.Passwort === p);
+      if (!user) {
+        document.getElementById("login-error").style.display = "block";
+        return;
       }
-      if (role === "kommando") {
-        document.querySelectorAll('.kommando').forEach(el => el.style.display = 'block');
+
+      document.getElementById("login").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+      document.getElementById("user-name").innerText = user.Vorname + " " + user.Nachname;
+      document.getElementById("user-role").innerText = user.Funktion;
+
+      // Karten freischalten
+      document.querySelectorAll(".mannschaft").forEach(el => el.style.display = "block");
+      if (user.Funktion.toLowerCase() === "charge" || user.Funktion.toLowerCase() === "kommando") {
+        document.querySelectorAll(".charge").forEach(el => el.style.display = "block");
+      }
+      if (user.Funktion.toLowerCase() === "kommando") {
+        document.querySelectorAll(".kommando").forEach(el => el.style.display = "block");
       }
     }
+
+    // Uhrzeit live anzeigen
+    function updateClock() {
+      const now = new Date();
+      const time = now.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+      const date = now.toLocaleDateString("de-DE");
+      document.getElementById("clock").innerText = date + " " + time;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
   </script>
 </body>
 </html>
