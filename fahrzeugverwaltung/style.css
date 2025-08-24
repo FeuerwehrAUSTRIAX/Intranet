@@ -60,3 +60,52 @@ button { padding:10px; border:none; border-radius:8px; cursor:pointer; font-weig
 /* Daten */
 .entry { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:10px; margin-bottom:10px; }
 .entry .meta { font-size:12px; color:#ccc; margin-bottom:6px; }
+
+/* Abstand und volle Breite für Bearbeiten-Button */
+#edit-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px; /* Abstand zum Pickerl-Block */
+}
+
+/* Abstand für + Neues Fahrzeug */
+.sidebar button.btn-red {
+  margin-top: 20px; /* Abstand zu den Kategorien */
+}
+
+/* Container immer volle Breite */
+#edit-actions {
+  width: 100%;
+}
+
+/* Im Bearbeiten-Modus: Buttons untereinander */
+#edit-actions.dual {
+  display: flex;
+  flex-direction: column; /* untereinander */
+  align-items: stretch;   /* volle Breite */
+  gap: 10px;              /* Abstand zwischen den Buttons */
+  margin-top: 16px;
+}
+
+#edit-actions.dual button {
+  width: 100%;   /* jeder Button volle Breite */
+  display: block;
+}
+
+/* Beladung – Edit-Modus: Zeilenabstand */
+#beladung-list .form {
+  margin-bottom: 10px;           /* Abstand zwischen den Zeilen */
+}
+
+/* Abstand über dem +Neu-Button (der im beladung-list steckt) */
+#beladung-list > .btn-green {
+  margin-top: 12px;
+}
+
+/* Abstand zwischen Liste (+Neu) und dem Speichern-Button darunter */
+.form-card #beladung-edit-btn {
+  margin-top: 12px;
+}
+
+
+
