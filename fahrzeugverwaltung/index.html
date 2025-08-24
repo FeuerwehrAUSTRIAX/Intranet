@@ -70,6 +70,14 @@
               <div class="image-wrap">
                 <img id="fahrzeugbild" src="https://placehold.co/800x500" alt="Fahrzeugbild" />
               </div>
+
+              <!-- Bild-URL direkt unter dem Bild -->
+              <div class="form" style="margin-top:10px; grid-template-columns:160px 1fr;">
+                <label>Bild-URL</label>
+                <input id="imageurl" disabled
+                  oninput="document.getElementById('fahrzeugbild').src = this.value || 'https://placehold.co/800x500'">
+              </div>
+
               <div class="pickerl-card">
                 <div><strong>Pickerl (§57a)</strong></div>
                 <div class="form">
@@ -78,7 +86,11 @@
                 </div>
                 <div id="status-badge" class="pickerl-status warn">Unbekannt</div>
               </div>
-              <button id="edit-btn" class="btn-red" onclick="toggleEdit()">Bearbeiten</button>
+
+              <!-- Button-Bereich (Bearbeiten / Speichern / Abbrechen) -->
+              <div id="edit-actions">
+                <button id="edit-btn" class="btn-red" onclick="toggleEdit()">Bearbeiten</button>
+              </div>
             </div>
           </div>
         </div>
