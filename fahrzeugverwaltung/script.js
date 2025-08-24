@@ -17,20 +17,32 @@ async function loadData() {
   }
 }
 
+/* Kategorien rendern – geöffneten Zustand merken */
 function buildCategories() {
   const wrap = document.getElementById('cat-wrap');
+
+  // Geöffnete Kategorien + Scrollposition merken
+  const openCats = Array.from(wrap.querySelectorAll('.category[open]'))
+    .map(d => d.querySelector('summary')?.textContent?.trim());
+  const prevScroll = wrap.scrollTop;
+
   wrap.innerHTML = '';
+
   const groups = vehicles.reduce((a, v) => {
     const k = v['Kategorie'] || 'Sonstige';
     (a[k] || (a[k] = [])).push(v);
     return a;
   }, {});
+
   Object.keys(groups).forEach(cat => {
     const details = document.createElement('details');
     details.className = 'category';
+    if (openCats && openCats.includes(cat)) details.open = true;
+
     const sum = document.createElement('summary');
     sum.textContent = cat;
     details.appendChild(sum);
+
     groups[cat].forEach(v => {
       const li = document.createElement('div');
       li.className = 'vehicle-item';
@@ -38,13 +50,18 @@ function buildCategories() {
       li.onclick = () => showVehicle(v);
       details.appendChild(li);
     });
+
     wrap.appendChild(details);
   });
+
+  // Filter erneut anwenden + Scrollposition wiederherstellen
+  if (document.getElementById('search').value) filterVehicles();
+  wrap.scrollTop = prevScroll;
 }
 
 function showVehicle(v) {
   currentIdx = vehicles.indexOf(v);
-  current = { ...v }; // eigenständige Kopie zum Bearbeiten
+  current = { ...v }; // Kopie zum Bearbeiten
 
   setVal('kategorie', current['Kategorie']);
   setVal('fahrzeugbez', current['Fahrzeugbezeichnung']);
@@ -60,11 +77,21 @@ function showVehicle(v) {
   setVal('fzgtype', current['FZG-Type']);
   setVal('letzte', current['Letzte Überprüfung']);
   setVal('naechste', current['Nächste Überprüfung']);
-  document.getElementById('fahrzeugbild').src = current['Fahrzeugbild'] || 'https://placehold.co/800x500';
+  setVal('imageurl', current['Fahrzeugbild']); // Bild-URL Feld
+
+  document.getElementById('fahrzeugbild').src =
+    current['Fahrzeugbild'] || 'https://placehold.co/800x500';
 
   updateBadge(current['Letzte Überprüfung'], current['Nächste Überprüfung']);
   renderBeladung();
   renderEntries();
+
+  // Falls man einen Datensatz offen hatte: Buttons zurück auf "Bearbeiten"
+  const actions = document.getElementById("edit-actions");
+  if (actions) {
+    actions.classList.remove("dual");
+    actions.innerHTML = `<button id="edit-btn" class="btn-red" onclick="toggleEdit()">Bearbeiten</button>`;
+  }
 }
 
 function setVal(id, val) {
@@ -87,7 +114,9 @@ function parseDate(s) { if (!s) return null; const p = s.split('.'); if (p.lengt
 
 function filterVehicles() {
   const q = document.getElementById('search').value.toLowerCase();
-  document.querySelectorAll('.vehicle-item').forEach(li => { li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+  document.querySelectorAll('.vehicle-item').forEach(li => {
+    li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
 }
 
 function newVehicle() {
@@ -111,12 +140,19 @@ function newVehicle() {
     'Beladung':'',
     'Daten-Allgemein':''
   };
-  ['kategorie','fahrzeugbez','taktisch','funkruf','kennzeichen','fahrgestell','aufbau','km','status','sitze','type','fzgtype','letzte','naechste']
+  ['kategorie','fahrzeugbez','taktisch','funkruf','kennzeichen','fahrgestell','aufbau','km','status','sitze','type','fzgtype','letzte','naechste','imageurl']
     .forEach(id => setVal(id, ''));
   document.getElementById('fahrzeugbild').src = 'https://placehold.co/800x500';
   document.getElementById('beladung-list').innerHTML = '';
   document.getElementById('daten-entries').innerHTML = '';
   updateBadge('', '');
+
+  // Buttonbereich resetten
+  const actions = document.getElementById("edit-actions");
+  if (actions) {
+    actions.classList.remove("dual");
+    actions.innerHTML = `<button id="edit-btn" class="btn-red" onclick="toggleEdit()">Bearbeiten</button>`;
+  }
 }
 
 function switchTab(name) {
@@ -129,27 +165,51 @@ const mapping = {
   kategorie:'Kategorie',fahrzeugbez:'Fahrzeugbezeichnung',taktisch:'Taktische Bezeichnung',
   funkruf:'Funkrufname',kennzeichen:'Kennzeichen',fahrgestell:'Fahrgestell',
   aufbau:'Aufbau',km:'km',status:'Status',sitze:'Anzahl-Sitzplätze',
-  type:'Type',fzgtype:'FZG-Type',letzte:'Letzte Überprüfung',naechste:'Nächste Überprüfung'
+  type:'Type',fzgtype:'FZG-Type',letzte:'Letzte Überprüfung',naechste:'Nächste Überprüfung',
+  imageurl:'Fahrzeugbild' // Bild-URL
 };
 
-async function toggleEdit() {
-  editing = !editing;
+async function toggleEdit(save = false) {
   const fields = Object.keys(mapping);
-  fields.forEach(id => { document.getElementById(id).disabled = !editing; });
-  const btn = document.getElementById("edit-btn");
-  if (editing) {
-    btn.textContent = "Speichern";
-    btn.className = "btn-green";
+  const actions = document.getElementById("edit-actions");
+
+  if (!editing) {
+    // in Bearbeiten-Modus wechseln
+    editing = true;
+    fields.forEach(id => { document.getElementById(id).disabled = false; });
+
+    actions.classList.add("dual");
+    actions.innerHTML = `
+      <button id="save-btn" class="btn-green" onclick="toggleEdit(true)">Speichern</button>
+      <button id="cancel-btn" class="btn-red" onclick="cancelEdit()">Abbrechen</button>
+    `;
   } else {
-    btn.textContent = "Bearbeiten";
-    btn.className = "btn-red";
-    if (current) {
-      // Eingabefelder zurück ins aktuelle Objekt schreiben
+    // speichern (falls gewünscht) und Modus verlassen
+    if (save && current) {
       fields.forEach(id => { current[mapping[id]] = document.getElementById(id).value; });
       updateBadge(current['Letzte Überprüfung'], current['Nächste Überprüfung']);
-      await saveRow(current); // komplette Zeile speichern (ersetzen/anhängen)
+      await saveRow(current); // lokal aktualisieren + asynchron ins Sheet
     }
+
+    editing = false;
+    fields.forEach(id => { document.getElementById(id).disabled = true; });
+
+    actions.classList.remove("dual");
+    actions.innerHTML = `<button id="edit-btn" class="btn-red" onclick="toggleEdit()">Bearbeiten</button>`;
   }
+}
+
+function cancelEdit() {
+  // Änderungen verwerfen → aktuellen Datensatz neu anzeigen
+  if (currentIdx >= 0) showVehicle(vehicles[currentIdx]); else newVehicle();
+
+  editing = false;
+  const fields = Object.keys(mapping);
+  fields.forEach(id => { document.getElementById(id).disabled = true; });
+
+  const actions = document.getElementById("edit-actions");
+  actions.classList.remove("dual");
+  actions.innerHTML = `<button id="edit-btn" class="btn-red" onclick="toggleEdit()">Bearbeiten</button>`;
 }
 
 /* Beladung */
@@ -219,54 +279,42 @@ async function saveEntry() {
   const newLine=`${ts} | ${vor} ${nach} | ${info}`;
   const raw=current["Daten-Allgemein"]||""; const lines=raw.split("\n").filter(Boolean); lines.push(newLine);
   current["Daten-Allgemein"]=lines.join("\n"); renderEntries(); closeModal();
-  await saveRow(current); // volle Zeile sofort speichern
+  await saveRow(current); // volle Zeile speichern
 }
 
-/* Speichern: Form-POST (x-www-form-urlencoded), kein Preflight/CORS */
+/* Speichern: lokal sofort aktualisieren, dann asynchron ins Sheet */
 async function saveRow(record) {
   if (!record) return;
 
   // vorhandenes Fahrzeug -> ersetze; neues -> anhängen
   const rowIndex = currentIdx >= 0 ? (currentIdx + 2) : 0;
 
-  // wie in deinem Beispiel: URLSearchParams + Feld "json"
   const formBody = new URLSearchParams({
     json: JSON.stringify({ row: rowIndex, record })
   });
 
+  // Lokale Daten sofort aktualisieren
+  if (currentIdx >= 0) {
+    vehicles[currentIdx] = { ...record };
+  } else {
+    vehicles.push({ ...record });
+    currentIdx = vehicles.length - 1;
+  }
+  buildCategories();
+
+  // Auswahl beibehalten
+  const match = vehicles[currentIdx];
+  if (match) showVehicle(match);
+
+  // Asynchron ins Sheet schreiben (ohne Reload)
   try {
     const resp = await fetch(SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: formBody
     });
-
-    // tolerant lesen (kann JSON oder Text sein)
-    let payload = null;
     const text = await resp.text();
-    try { payload = JSON.parse(text); } catch (_) { payload = { raw: text }; }
-
-    if (!resp.ok) {
-      console.error("Speicherfehler:", resp.status, payload);
-      return;
-    }
-
-    // Lokal/Anzeige aktualisieren
-    if (currentIdx >= 0) {
-      vehicles[currentIdx] = { ...record };
-    } else {
-      vehicles.push({ ...record });
-      currentIdx = vehicles.length - 1;
-    }
-    buildCategories();
-
-    const key = record['Kennzeichen'];
-    const match = vehicles.find(v => v['Kennzeichen'] === key)
-               || vehicles.find(v => v['Fahrzeugbezeichnung'] === record['Fahrzeugbezeichnung']);
-    if (match) showVehicle(match);
-
-    // CSV-Publish kann minimal verzögert sein
-    setTimeout(loadData, 1200);
+    try { JSON.parse(text); } catch (_) { /* egal */ }
   } catch (err) {
     console.error("Fehler beim Speichern (Client):", err);
   }
