@@ -1,265 +1,467 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Intranet Feuerwehr WN</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: "Segoe UI", Arial, sans-serif;
-      background: linear-gradient(135deg, #1a1a1a, #212121);
-      color: #fff;
-    }
-    header {
-      backdrop-filter: blur(10px);
-      background-color: rgba(30,30,30,0.7);
-      border-bottom: 1px solid #444;
-      padding: 20px;
-      text-align: center;
-    }
-    header h1 {
-      margin: 0;
-      color: #AB2328;
-      font-size: 26px;
-      letter-spacing: 1px;
-    }
-    .login-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 80vh;
-    }
-    .login-box {
-      backdrop-filter: blur(20px);
-      background: rgba(40,40,40,0.7);
-      padding: 40px;
-      border-radius: 15px;
-      border: 1px solid #444;
-      text-align: center;
-      width: 300px;
-    }
-    .login-box h2 {
-      margin-bottom: 20px;
-      color: #fff;
-    }
-    .login-box input {
-      width: 90%;
-      padding: 12px;
-      margin: 10px 0;
-      border-radius: 8px;
-      border: none;
-      background: #333;
-      color: #fff;
-    }
-    .login-box button {
-      width: 95%;
-      padding: 12px;
-      border-radius: 8px;
-      border: none;
-      background: #AB2328;
-      color: #fff;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    .login-box button:hover {
-      background: #922020;
-    }
-    .dashboard {
-      display: none;
-      padding: 20px;
-    }
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-    }
-    .clock {
-      font-size: 20px;
-      font-weight: bold;
-    }
-    .last-mission {
-      backdrop-filter: blur(15px);
-      background: rgba(50,50,50,0.6);
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 30px;
-    }
-    .last-mission h2 {
-      margin: 0 0 10px;
-      color: #AB2328;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-    }
-    .card {
-      backdrop-filter: blur(15px);
-      background: rgba(40,40,40,0.6);
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      transition: transform 0.2s, background 0.2s;
-      display: none;
-    }
-    .card:hover {
-      background: rgba(171, 35, 40, 0.8);
-      transform: translateY(-5px);
-    }
-    .card h3 {
-      margin: 10px 0 5px;
-      color: #fff;
-    }
-    .card p {
-      color: #ccc;
-      font-size: 14px;
-    }
-    .icon {
-      font-size: 40px;
-    }
-  </style>
-  <!-- Icons -->
-  <script src="https://kit.fontawesome.com/4ad4b5c97c.js" crossorigin="anonymous"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>FF Wiener Neustadt – Intranet</title>
+<style>
+  :root{
+    --bg:#212121; --panel:#2a2a2a; --surface:#3a3a3a; --text:#f0f0f0;
+    --muted:#c7c7c7; --border:#444; --accent:#AB2328;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text)}
+
+  /* Header */
+  header.appbar{ position:sticky; top:0; z-index:100;
+    background:linear-gradient(180deg, var(--panel) 0%, #282828 100%);
+    border-bottom:1px solid var(--border); box-shadow:0 8px 20px rgba(0,0,0,.45); }
+  header.appbar::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px;
+    background:linear-gradient(90deg, transparent, var(--accent), #ff6b72, var(--accent), transparent);
+    background-size:200% 100%; animation:barflow 9s linear infinite; }
+  @keyframes barflow{ to{ background-position:-200% 0; } }
+  .bar{ padding:10px clamp(16px,4vw,36px);
+    display:grid; grid-template-columns:minmax(240px,1fr) auto minmax(240px,1fr);
+    align-items:center; gap:14px; }
+  .left{display:flex; align-items:center; gap:12px; min-width:0}
+  .logo{width:36px; height:36px; flex:0 0 36px}
+  .logo img{width:100%; height:100%; object-fit:contain; display:block}
+  .title{font-weight:900; font-size:20px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .center{ display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:6px 12px; border-radius:10px; border:1px solid var(--border);
+    background:var(--surface); font-variant-numeric:tabular-nums; min-width:220px; }
+  .date{color:var(--muted); font-size:13px}
+  .time{font-size:17px; font-weight:700}
+  .right{position:relative; display:flex; justify-content:flex-end; align-items:center}
+  .who{ display:flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid var(--border);
+    border-radius:10px; background:var(--surface); font-weight:600; cursor:pointer; }
+  .dot{width:8px; height:8px; border-radius:50%; background:#4CAF50}
+  .menu{ position:absolute; right:0; top:calc(100% + 8px); display:none; flex-direction:column; min-width:260px; overflow:hidden;
+    background:rgba(42,42,42,0.9); backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%); border:1px solid rgba(255,255,255,0.08);
+    border-radius:12px; box-shadow:0 18px 40px rgba(0,0,0,.5);
+    transform-origin: top right; opacity:0; transform: translateY(-6px) scale(.98);
+    transition: opacity .18s ease, transform .18s ease; }
+  .menu.open{ display:flex; opacity:1; transform: translateY(0) scale(1); }
+  .menu a{ padding:12px 16px; text-decoration:none; color:var(--text); font-size:14px; display:flex; align-items:center; gap:10px;
+    border-bottom:1px solid rgba(255,255,255,0.06); }
+  .menu a:last-child{ border-bottom:none }
+  .menu a:hover{ background:rgba(255,255,255,0.12) }
+
+  /* Seite / Grid */
+  main{padding:16px clamp(16px,4vw,36px);}
+  .parent{ display:grid; grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(6, minmax(60px,1fr)); gap:8px; }
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px }
+  .div1{ grid-column: span 2 / span 2; grid-row: span 4 / span 4; }
+  .div2{ grid-row: span 6 / span 6; grid-column-start:3; }
+  .div3{ grid-column: span 2 / span 2; grid-row: span 2 / span 2; grid-row-start:5; }
+
+  /* Kurzwahl-Kacheln */
+  .quick{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .tile{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:18px 12px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:.2s ease;
+    text-align:center; min-height:110px; }
+  .tile:hover{ border-color:var(--accent); box-shadow:0 0 12px rgba(171,35,40,.5); transform:translateY(-2px); }
+  .icon{ display:grid; place-items:center; width:44px; height:44px; margin-bottom:10px; }
+  .icon svg{ width:100%; height:100%; color:#fff; }
+  .label{font-size:14px; color:var(--text); font-weight:700}
+
+  /* Wetter */
+  .weather-col{ display:grid; grid-auto-rows:minmax(100px, auto); gap:8px; }
+  .weather{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .weather h4{ margin:0; font-size:16px }
+  .weather .meta{ color:var(--muted); font-size:13px }
+  .weather .temp{ font-size:28px; font-weight:800 }
+  .wicon{ width:28px; height:28px; margin-right:8px; color:#fff }
+  .wx{ display:flex; align-items:center; gap:8px }
+
+  /* Einsätze */
+  .incidents{ display:grid; gap:8px; }
+  .incident{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px;
+    display:grid; grid-template-columns: 160px 200px 1fr; gap:10px; align-items:center;
+  }
+  .pill{background:#3a3a3a;border:1px solid var(--border);border-radius:8px;padding:6px 10px; font-variant-numeric:tabular-nums}
+  .emph{font-weight:700}
+  @media (max-width:900px){
+    .incident{ grid-template-columns:1fr; align-items:start }
+  }
+  @media (max-width:1100px){
+    .parent{ grid-template-columns:1fr; grid-template-rows:none; }
+    .div1, .div2, .div3{ grid-column:auto; grid-row:auto; }
+    .quick{ grid-template-columns:repeat(2,1fr); }
+  }
+
+  /* Login Modal */
+  .modal-backdrop{
+    position:fixed; inset:0; display:none; place-items:center;
+    background:rgba(0,0,0,.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    z-index:200;
+  }
+  .modal{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px; width:min(420px,92vw);
+    box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .modal h3{ margin:0 0 12px 0 }
+  .row{ display:grid; gap:10px; }
+  .row label{ font-size:13px; color:var(--muted) }
+  .row input{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text) }
+  .actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px }
+  .btn{ padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--accent); color:#fff; cursor:pointer; font-weight:700 }
+  .btn.secondary{ background:var(--surface) }
+  .err{ color:#ffb0b0; font-size:13px; min-height:18px }
+</style>
 </head>
 <body>
-  <header>
-    <h1>🚒 Intranet – Feuerwehr Wiener Neustadt</h1>
-  </header>
 
-  <!-- Login -->
-  <div id="login" class="login-container">
-    <div class="login-box">
-      <h2>Anmelden</h2>
-      <input type="text" id="username" placeholder="Benutzername">
-      <input type="password" id="password" placeholder="Passwort">
-      <button onclick="login()">Login</button>
-      <p id="login-error" style="color:red; display:none;">❌ Ungültige Daten</p>
+<header class="appbar">
+  <div class="bar">
+    <div class="left">
+      <div class="logo">
+        <img src="https://www.ff-natschbach.at/wp-content/uploads/2018/05/cropped-2000px-Korpsabzeichen-FFOE.svg_-2.png" alt="Logo Feuerwehr" />
+      </div>
+      <div class="title">Feuerwehr Wiener Neustadt</div>
+    </div>
+    <div class="center">
+      <div class="date" id="date">—</div>
+      <div class="time" id="time">—:—:—</div>
+    </div>
+    <div class="right">
+      <div class="who" id="userBtn" title="Benutzermenü öffnen" style="display:none">
+        <span class="dot"></span>
+        <span id="whoName">—</span>
+      </div>
+      <nav class="menu" id="userMenu" aria-label="Benutzermenü">
+        <a href="#">👤 Eigene Daten ändern</a>
+        <a href="#">📚 Kurs- & Beförderungshistorie</a>
+        <a href="#">🔑 Passwort & Einstellungen</a>
+        <a href="#" id="logoutBtn">🚪 Abmelden</a>
+      </nav>
     </div>
   </div>
+</header>
 
-  <!-- Dashboard -->
-  <div id="dashboard" class="dashboard">
-    <div class="topbar">
-      <div class="welcome">👋 Willkommen, <span id="user-name"></span> (<span id="user-role"></span>)</div>
-      <div class="clock" id="clock"></div>
+<main>
+  <div class="parent">
+    <!-- div1: Kurzwahl -->
+    <section class="card div1">
+      <h3 style="margin:0 0 8px 0;">Kurzwahl</h3>
+      <div class="quick" id="tiles"></div>
+      <div id="noAccessMsg" style="display:none; opacity:.8; margin-top:10px;">
+        Keine Kacheln für diese Rolle konfiguriert.
+      </div>
+    </section>
+
+    <!-- div2: Wetter -->
+    <aside class="card div2">
+      <h3 style="margin:0 0 8px 0;">Wetter</h3>
+      <div class="weather-col">
+        <div class="weather" data-city="Wiener Neustadt">
+          <div><h4 class="wx"><svg class="wicon" viewBox="0 0 24 24"><path fill="currentColor" d="M7 18a5 5 0 1 1 .9-9.93A6.5 6.5 0 1 1 17 18H7z"/></svg>Wiener Neustadt</h4>
+            <div class="meta">aktualisiert: —</div></div>
+          <div style="text-align:right"><div class="temp">—°C</div><div class="meta wind">Wind: — km/h</div></div>
+        </div>
+        <div class="weather" data-city="Mödling">
+          <div><h4 class="wx"><svg class="wicon" viewBox="0 0 24 24"><path fill="currentColor" d="M7 18a5 5 0 1 1 .9-9.93A6.5 6.5 0 1 1 17 18H7z"/></svg>Mödling</h4>
+            <div class="meta">aktualisiert: —</div></div>
+          <div style="text-align:right"><div class="temp">—°C</div><div class="meta wind">Wind: — km/h</div></div>
+        </div>
+        <div class="weather" data-city="Schneeberg">
+          <div><h4 class="wx"><svg class="wicon" viewBox="0 0 24 24"><path fill="currentColor" d="M7 18a5 5 0 1 1 .9-9.93A6.5 6.5 0 1 1 17 18H7z"/></svg>Schneeberg</h4>
+            <div class="meta">aktualisiert: —</div></div>
+          <div style="text-align:right"><div class="temp">—°C</div><div class="meta wind">Wind: — km/h</div></div>
+        </div>
+        <div class="weather" data-city="Wien">
+          <div><h4 class="wx"><svg class="wicon" viewBox="0 0 24 24"><path fill="currentColor" d="M7 18a5 5 0 1 1 .9-9.93A6.5 6.5 0 1 1 17 18H7z"/></svg>Wien</h4>
+            <div class="meta">aktualisiert: —</div></div>
+          <div style="text-align:right"><div class="temp">—°C</div><div class="meta wind">Wind: — km/h</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- div3: Letzte Einsätze -->
+    <section class="card div3">
+      <h3 style="margin:0 0 8px 0;">Letzte Einsätze</h3>
+      <div class="incidents" id="incidents"></div>
+    </section>
+  </div>
+</main>
+
+<!-- Login Modal -->
+<div class="modal-backdrop" id="loginBack">
+  <div class="modal">
+    <h3>Anmelden</h3>
+    <div class="row">
+      <label for="user">Benutzername</label>
+      <input id="user" autocomplete="username" />
+      <label for="pass">Passwort</label>
+      <input id="pass" type="password" autocomplete="current-password" />
+      <div class="err" id="loginErr"></div>
     </div>
-
-    <div class="last-mission">
-      <h2>Letzter Einsatz</h2>
-      <p id="last-mission-data">Keine Einsatzdaten geladen (Platzhalter).</p>
+    <div class="actions">
+      <button class="btn secondary" id="cancelLogin">Abbrechen</button>
+      <button class="btn" id="doLogin">Login</button>
     </div>
-
-    <div class="grid">
-      <!-- Mannschaft -->
-      <a href="einsatzkarte.html" class="card mannschaft">
-        <div class="icon"><i class="fas fa-map"></i></div>
-        <h3>Einsatzkarte</h3><p>Übersicht der Einsätze</p>
-      </a>
-      <a href="Einsatzbericht.html" class="card mannschaft">
-        <div class="icon"><i class="fas fa-file-alt"></i></div>
-        <h3>Einsatzberichte</h3><p>Alle Berichte ansehen</p>
-      </a>
-      <a href="rettungskarte.html" class="card mannschaft">
-        <div class="icon"><i class="fas fa-ambulance"></i></div>
-        <h3>Rettungskarte</h3><p>Fahrzeuginfos</p>
-      </a>
-      <a href="Kontakt.html" class="card mannschaft">
-        <div class="icon"><i class="fas fa-address-book"></i></div>
-        <h3>Kontakt</h3><p>Wichtige Ansprechpartner</p>
-      </a>
-
-      <!-- Charge -->
-      <a href="fahrzeugverwaltung/index.html" class="card charge">
-        <div class="icon"><i class="fas fa-truck"></i></div>
-        <h3>Fahrzeugverwaltung</h3><p>Fahrpark & Status</p>
-      </a>
-      <a href="mitgliederverwaltung_charge/index.html" class="card charge">
-        <div class="icon"><i class="fas fa-users-cog"></i></div>
-        <h3>Mitgliederverwaltung (Charge)</h3><p>Verwaltung für Chargen</p>
-      </a>
-      <a href="einsatzberichtsuche.html" class="card charge">
-        <div class="icon"><i class="fas fa-search"></i></div>
-        <h3>Einsatzbericht Suche</h3><p>Schnell Berichte finden</p>
-      </a>
-
-      <!-- Kommando -->
-      <a href="mitgliederverwaltung_kommando/index.html" class="card kommando">
-        <div class="icon"><i class="fas fa-user-shield"></i></div>
-        <h3>Mitgliederverwaltung (Kommando)</h3><p>Erweiterte Verwaltung</p>
-      </a>
-      <a href="aktivität.html" class="card kommando">
-        <div class="icon"><i class="fas fa-calendar-check"></i></div>
-        <h3>Aktivitäten</h3><p>Planung & Übersicht</p>
-      </a>
-      <a href="kassenverwaltung.html" class="card kommando">
-        <div class="icon"><i class="fas fa-cash-register"></i></div>
-        <h3>Kassenverwaltung</h3><p>Finanzen</p>
-      </a>
-      <a href="mitgliederanmeldung.html" class="card kommando">
-        <div class="icon"><i class="fas fa-user-plus"></i></div>
-        <h3>Mitgliederanmeldung</h3><p>Neue Mitglieder aufnehmen</p>
-      </a>
-      <a href="token.html" class="card kommando">
-        <div class="icon"><i class="fas fa-key"></i></div>
-        <h3>Token Verwaltung</h3><p>Zugriffsrechte</p>
-      </a>
+    <div style="opacity:.7; font-size:12px; margin-top:6px">
+      Hinweis: Demo-Login lädt Nutzer aus Google-Sheet (CSV). Echte Sicherheit nur mit Server-Login!
     </div>
   </div>
+</div>
 
-  <script>
-    let users = [];
+<script>
+  /* ===== Uhr/Datum ===== */
+  const $date=document.getElementById('date'), $time=document.getElementById('time');
+  function tick(){
+    const d=new Date();
+    const ds=new Intl.DateTimeFormat('de-AT',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}).format(d);
+    const ts=d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    $date.textContent = ds.charAt(0).toUpperCase()+ds.slice(1); $time.textContent = ts;
+  }
+  tick(); setInterval(tick,1000);
 
-    // CSV von Google Sheets laden
-    async function loadUsers() {
-      const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS7dF0DvwqCYIwvKEXk0pTQcIZtrAJMqmB6u93Nm5squ7P80afz5q7F5fjSF8GXlkpDghbji7p_g_rI/pub?gid=783414426&single=true&output=csv";
-      const response = await fetch(url);
-      const csv = await response.text();
-      const rows = csv.trim().split("\n").map(r => r.split(","));
-      const headers = rows.shift();
-      users = rows.map(r => {
-        let obj = {};
-        headers.forEach((h, i) => obj[h.trim()] = r[i].trim());
-        return obj;
+  /* ===== User-Menü ===== */
+  const userBtn=document.getElementById('userBtn'), userMenu=document.getElementById('userMenu');
+  function toggleMenu(){
+    const open=userMenu.classList.contains('open');
+    if(open){ userMenu.classList.remove('open'); setTimeout(()=>{ if(!userMenu.classList.contains('open')) userMenu.style.display='none'; },180); }
+    else{ userMenu.style.display='flex'; void userMenu.offsetWidth; userMenu.classList.add('open');}
+  }
+  userBtn.addEventListener('click', toggleMenu);
+  document.addEventListener('click', e=>{ if(!userBtn.contains(e.target)&&!userMenu.contains(e.target)&&userMenu.classList.contains('open')) toggleMenu(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'&&userMenu.classList.contains('open')) toggleMenu(); });
+  document.getElementById('logoutBtn').addEventListener('click', (e)=>{ e.preventDefault(); localStorage.removeItem('fw_session'); location.reload(); });
+
+  function navTo(href){ location.href = href; }
+
+  /* ===== Wetter (Open-Meteo) ===== */
+  const CITY_COORDS = {
+    "Wiener Neustadt": { lat: 47.804, lon: 16.231 },
+    "Mödling":         { lat: 48.085, lon: 16.283 },
+    "Schneeberg":      { lat: 47.766, lon: 15.804 },
+    "Wien":            { lat: 48.208, lon: 16.373 }
+  };
+  const WMO = {0:"Klar",1:"Überwiegend klar",2:"Wolkig",3:"Bedeckt",45:"Nebel",48:"Nebel",51:"Niesel",53:"Niesel",55:"Niesel",
+               61:"Regen",63:"Regen",65:"Starker Regen",66:"Gefr. Regen",67:"Gefr. Regen",71:"Schnee",73:"Schnee",75:"Starker Schnee",
+               77:"Schneekörner",80:"Schauer",81:"Schauer",82:"Starker Schauer",85:"Schneeschauer",86:"Schneeschauer",95:"Gewitter",96:"Gewitter",99:"Gewitter"};
+  async function fetchCityWeather(city, el){
+    const {lat, lon} = CITY_COORDS[city];
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+    try{
+      const res = await fetch(url);
+      const data = await res.json();
+      const cw = data.current_weather;
+      el.querySelector('.temp').textContent = `${cw.temperature.toFixed(1)}°C`;
+      el.querySelector('.wind').textContent = `Wind: ${cw.windspeed.toFixed(0)} km/h`;
+      el.querySelector('.meta').textContent = `${WMO[cw.weathercode]||'—'} · aktualisiert: ` +
+        new Date(cw.time).toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'});
+    }catch(e){ el.querySelector('.meta').textContent = 'Fehler beim Laden'; console.warn('Weather error', city, e); }
+  }
+  function refreshWeather(){ document.querySelectorAll('.weather').forEach(w=>fetchCityWeather(w.dataset.city,w)); }
+  refreshWeather(); setInterval(refreshWeather, 10*60*1000);
+
+  /* ===== Einsätze (CSV) ===== */
+  const INCIDENTS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=1016482411&single=true&output=csv";
+
+  async function fetchCsvText(url){
+    const res = await fetch(url, {cache:'no-store'});
+    if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return await res.text();
+  }
+  function detectDelimiter(csvText){
+    const first = (csvText.match(/^(?:(?!\r?\n).)+/m) || [""])[0];
+    const counts = { ";": (first.match(/;/g)||[]).length, ",": (first.match(/,/g)||[]).length, "\t": (first.match(/\t/g)||[]).length };
+    return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0] || ",";
+  }
+  function parseCSV(text){
+    text = text.replace(/\uFEFF/g,"");
+    const delim = detectDelimiter(text);
+    const lines = text.split(/\r?\n/).filter(l=>l.length>0);
+    const parseRow = (row) => {
+      const out=[]; let cur=''; let inQ=false;
+      for(let i=0;i<row.length;i++){
+        const ch=row[i];
+        if(inQ){
+          if(ch==='"' && row[i+1]==='"'){ cur+='"'; i++; }
+          else if(ch==='"'){ inQ=false; }
+          else{ cur+=ch; }
+        }else{
+          if(ch==='"'){ inQ=true; }
+          else if(ch===delim){ out.push(cur); cur=''; }
+          else{ cur+=ch; }
+        }
+      }
+      out.push(cur);
+      return out;
+    };
+    const header = parseRow(lines[0]).map(h=>h.replace(/\uFEFF/g,'').trim());
+    const data=[];
+    for(let i=1;i<lines.length;i++){
+      if(!lines[i].trim()) continue;
+      const cells = parseRow(lines[i]);
+      if(cells.every(c=>c.trim()==='')) continue;
+      const obj={};
+      header.forEach((h,idx)=> obj[h]=cells[idx]!==undefined?cells[idx].trim():"");
+      data.push(obj);
+    }
+    return data;
+  }
+  function parseDateTime(datumStr, zeitStr){
+    const ds=(datumStr||"").trim(), ts=(zeitStr||"00:00").trim();
+    let y=0,m=0,d=0;
+    if(ds.includes("-")){ const [yy,mm,dd]=ds.split("-").map(Number); y=yy;m=mm;d=dd; }
+    else if(ds.includes(".")){ const [dd,mm,yy]=ds.split(".").map(x=>parseInt(x,10)); d=dd;m=mm;y=yy; }
+    else return new Date(0);
+    const [h,mi]=(ts.split(":").map(v=>parseInt(v||"0",10)));
+    return new Date(y,(m-1),d,h||0,mi||0,0,0);
+  }
+  function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+  async function loadIncidents(limit=6){
+    try{
+      const csv = await fetchCsvText(INCIDENTS_CSV);
+      const base = parseCSV(csv).map((r)=>({ ...r, _dt: parseDateTime(r["Datum (Alarmierung)"], r["Uhrzeit (Alarmierung)"]) }));
+      const rows = base.sort((a,b)=> b._dt - a._dt).slice(0, limit);
+      const wrap = document.getElementById('incidents');
+      wrap.innerHTML='';
+      rows.forEach(r=>{
+        const num   = r["Einsatzberichtnummer"] || "—";
+        const when  = `${r["Datum (Alarmierung)"]||"-"} ${r["Uhrzeit (Alarmierung)"]||""}`.trim();
+        const stich = r["Einsatzstichwort"]?.trim() || r["Objekt"]?.trim() || "Einsatz";
+        const el = document.createElement('div');
+        el.className='incident';
+        el.innerHTML = `
+          <div class="pill">#${escapeHtml(num)}</div>
+          <div class="pill">${escapeHtml(when)}</div>
+          <div class="emph">${escapeHtml(stich)}</div>`;
+        wrap.appendChild(el);
       });
+    }catch(err){
+      console.error('CSV error:', err);
+      document.getElementById('incidents').innerHTML =
+        `<div class="incident"><div>Fehler beim Laden der Einsätze.</div></div>`;
     }
+  }
+  loadIncidents(6);
 
-    async function login() {
-      if (users.length === 0) await loadUsers();
-      const u = document.getElementById("username").value.trim();
-      const p = document.getElementById("password").value.trim();
+  /* ===== Login & Rollen ===== */
+  const USERS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJhQbJMxG8s7oSw__c97Z55koBtE2Dlgc0OYR8idpZtdTq3o9g7LbmyEve3KPNkV5yaRZGIHVjJPkk/pub?gid=294937836&single=true&output=csv";
 
-      const user = users.find(x => x.Benutzername === u && x.Passwort === p);
-      if (!user) {
-        document.getElementById("login-error").style.display = "block";
-        return;
-      }
+  let users = []; // {Benutzername, Passwort, Funktion, Namen, Nachnamen, ...}
 
-      document.getElementById("login").style.display = "none";
-      document.getElementById("dashboard").style.display = "block";
-      document.getElementById("user-name").innerText = user.Vorname + " " + user.Nachname;
-      document.getElementById("user-role").innerText = user.Funktion;
-
-      // Karten freischalten
-      document.querySelectorAll(".mannschaft").forEach(el => el.style.display = "block");
-      if (user.Funktion.toLowerCase() === "charge" || user.Funktion.toLowerCase() === "kommando") {
-        document.querySelectorAll(".charge").forEach(el => el.style.display = "block");
-      }
-      if (user.Funktion.toLowerCase() === "kommando") {
-        document.querySelectorAll(".kommando").forEach(el => el.style.display = "block");
-      }
+  async function preloadUsers(){
+    try{
+      const csv = await fetchCsvText(USERS_CSV);
+      users = parseCSV(csv);
+    }catch(e){
+      console.error("Login-CSV Fehler:", e);
     }
+  }
 
-    // Uhrzeit live anzeigen
-    function updateClock() {
-      const now = new Date();
-      const time = now.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
-      const date = now.toLocaleDateString("de-DE");
-      document.getElementById("clock").innerText = date + " " + time;
+  // Rechte-Matrix aus deiner Liste
+  const RIGHTS = {
+    "Einsatzkarte":                 ["Mannschaft","Charge","Verwaltung","Kommando"],
+    "fahrzeugverwaltung":           ["Charge","Verwaltung","Kommando"],
+    "mitgliederverwaltung_charge":  ["Charge","Verwaltung","Kommando"],
+    "mitgliederverwaltung_kommando":["Verwaltung","Kommando"],
+    "Einsatzbericht.html":          ["Mannschaft","Charge","Verwaltung","Kommando"],
+    "Kontakt.html":                 ["Mannschaft","Charge","Verwaltung","Kommando"],
+    "aktivität.html":               ["Verwaltung","Kommando"],
+    "einsatzberichtsuche.html":     ["Charge","Verwaltung","Kommando"],
+    "kassenverwaltung.html":        ["Verwaltung","Kommando"],
+    "mitgliederanmeldung.html":     ["Verwaltung","Kommando"],
+    "rettungskarte.html":           ["Mannschaft","Charge","Verwaltung","Kommando"],
+    "token.html":                   ["Verwaltung","Kommando"]
+  };
+
+  // Kachel-Definitionen (Titel, Ziel, Icon)
+  const TILE_DEF = [
+    {key:"Einsatzbericht.html", title:"Einsatzbericht", href:"Einsatzbericht.html", icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/>'},
+    {key:"aktivität.html", title:"Übungs-/Tätigkeitsbericht", href:"aktivität.html", icon:'<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 4V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"/><path d="M9 14l2 2 4-4"/>'},
+    {key:"Einsatzkarte", title:"Einsatzkarte", href:"einsatzkarte.html", icon:'<path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/>'},
+    {key:"fahrzeugverwaltung", title:"Fahrzeuge", href:"fahrzeugverwaltung.html", icon:'<path d="M10 17h4V5H2v12h2"/><path d="M14 7h5l3 4v6h-2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>'},
+    {key:"mitgliederverwaltung_kommando", title:"Mitglieder (Kdo)", href:"mitgliederverwaltung_kommando.html", icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'},
+    {key:"mitgliederverwaltung_charge", title:"Mitglieder (Charge)", href:"mitgliederverwaltung_charge.html", icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'},
+    {key:"kassenverwaltung.html", title:"Kasse", href:"kassenverwaltung.html", icon:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M16 12h4"/><path d="M6 10h5"/>'},
+    {key:"einsatzberichtsuche.html", title:"Berichtsuche", href:"einsatzberichtsuche.html", icon:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'},
+    {key:"mitgliederanmeldung.html", title:"Mitgliederanmeldung", href:"mitgliederanmeldung.html", icon:'<path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5z"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>'},
+    {key:"Kontakt.html", title:"Kontakt", href:"Kontakt.html", icon:'<path d="M22 16.92V21a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3 6.18 2 2 0 0 1 5 4h4.09a2 2 0 0 1 2 1.72l.57 4.02a2 2 0 0 1-.54 1.73l-1.27 1.27a16 16 0 0 0 6.88 6.88l1.27-1.27a2 2 0 0 1 1.73-.54l4.02.57A2 2 0 0 1 22 16.92z"/>'},
+    {key:"rettungskarte.html", title:"Rettungskarte", href:"rettungskarte.html", icon:'<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 17l9 4 9-4"/><path d="M3 12l9 4 9-4"/>'},
+    {key:"token.html", title:"Token", href:"token.html", icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 12h10"/>'}
+  ];
+
+  function canSeeTile(role, key){
+    const allowed = RIGHTS[key] || [];
+    return allowed.includes(role);
+  }
+
+  function renderTiles(role){
+    const wrap = document.getElementById('tiles');
+    wrap.innerHTML = '';
+    let count=0;
+    TILE_DEF.forEach(t=>{
+      if(!canSeeTile(role, t.key)) return;
+      count++;
+      const div = document.createElement('div');
+      div.className='tile';
+      div.onclick=()=>navTo(t.href);
+      div.innerHTML = `
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${t.icon}</svg></div>
+        <div class="label">${t.title}</div>`;
+      wrap.appendChild(div);
+    });
+    document.getElementById('noAccessMsg').style.display = count? 'none':'block';
+  }
+
+  /* ===== Session / Login Flow ===== */
+  const loginBack = document.getElementById('loginBack');
+  const loginErr  = document.getElementById('loginErr');
+  document.getElementById('cancelLogin').addEventListener('click', ()=> window.close());
+  document.getElementById('doLogin').addEventListener('click', tryLogin);
+  document.getElementById('pass').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+
+  function openLogin(){ loginBack.style.display='grid'; }
+  function closeLogin(){ loginBack.style.display='none'; }
+
+  function setSession(userRow){
+    const fullName = [userRow["Namen"], userRow["Nachnamen"]].filter(Boolean).join(' ') || userRow["Benutzername"];
+    const role     = (userRow["Funktion"]||"").trim(); // erwartet: Mannschaft / Charge / Verwaltung / Kommando
+    const session  = { user: userRow["Benutzername"], name: fullName, role };
+    localStorage.setItem('fw_session', JSON.stringify(session));
+    return session;
+  }
+
+  function applySession(session){
+    if(!session) return;
+    document.getElementById('whoName').textContent = `${session.name} · ${session.role}`;
+    document.getElementById('userBtn').style.display = 'flex';
+    renderTiles(session.role);
+  }
+
+  async function tryLogin(){
+    const u = document.getElementById('user').value.trim();
+    const p = document.getElementById('pass').value;
+    if(!u || !p){ loginErr.textContent='Bitte Benutzername und Passwort eingeben.'; return; }
+    const row = users.find(r => (r["Benutzername"]||"").trim().toLowerCase() === u.toLowerCase());
+    if(!row){ loginErr.textContent='Unbekannter Benutzer.'; return; }
+    const pw = (row["Passwort"]||"").trim();
+    if(pw !== p){ loginErr.textContent='Passwort falsch.'; return; }
+    const sess = setSession(row);
+    closeLogin();
+    applySession(sess);
+  }
+
+  (async function init(){
+    await preloadUsers();
+    const saved = localStorage.getItem('fw_session');
+    if(saved){
+      try{
+        const sess = JSON.parse(saved);
+        const stillExists = users.find(r => (r["Benutzername"]||"").trim().toLowerCase() === (sess.user||"").toLowerCase());
+        if(stillExists){ applySession(sess); return; }
+      }catch{}
     }
-    setInterval(updateClock, 1000);
-    updateClock();
-  </script>
+    openLogin();
+  })();
+</script>
 </body>
 </html>
