@@ -1,0 +1,794 @@
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #212121;
+      color: #f0f0f0;
+      margin: 0;
+      padding-top: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* Progress-Bar */
+    .progress-wrapper {
+      width: 100%;
+      max-width: 1015px;
+      margin: 0 auto 40px auto;
+    }
+    .progress-container {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      background-color: #2a2a2a;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+    }
+    .step {
+      flex-grow: 1;
+      padding: 20px;
+      background-color: #3a3a3a;
+      color: #999;
+      text-align: center;
+      font-weight: bold;
+      border-right: 1px solid #555;
+      cursor: pointer;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .step.active, .step.completed {
+      background-color: #AB2328;
+      color: #fff;
+    }
+    .step:first-child {
+      border-top-left-radius: 8px;
+      border-bottom-left-radius: 8px;
+    }
+    .step:last-child {
+      border-top-right-radius: 8px;
+      border-bottom-right-radius: 8px;
+      border-right: none;
+    }
+    /* Container für die einzelnen Schritte */
+    .container {
+      width: 100%;
+      max-width: 960px;
+      background-color: #2a2a2a;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+      margin: 20px;
+      display: none;
+      position: relative;
+    }
+    .container.active {
+      display: block;
+    }
+    h2 {
+      background-color: #AB2328;
+      color: #fff;
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .form-group input,
+    .address-row input {
+      width: 100%;
+      height: 40px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+    }
+    /* Dropdown im Teammodal */
+    #teamModal select#modalRoleSelect {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+    .row .column {
+      flex: 1;
+    }
+    .searchable-select {
+      position: relative;
+    }
+    .searchable-select input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+    }
+    .options-container {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #444;
+      border-radius: 5px;
+      background-color: #3a3a3a;
+      display: none;
+      position: absolute;
+      width: 100%;
+      z-index: 10;
+    }
+    .option {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .option:hover {
+      background-color: #555;
+    }
+    .grid-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 600px) {
+      .grid-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    /* Radio-Buttons */
+    .radio-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .radio-buttons.single-select .radio-button {
+      flex: 1;
+    }
+    .radio-button {
+      background-color: #555;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+    .radio-button:hover {
+      background-color: #666;
+    }
+    .radio-button.active {
+      background-color: #AB2328;
+      transform: scale(1.02);
+    }
+    /* Anzeige ausgewählter Optionen als Chips */
+    .selected-wrapper {
+      position: relative;
+    }
+    .selected-options {
+      background-color: #444;
+      border-radius: 5px;
+      padding: 5px;
+      min-height: 30px;
+      line-height: 1.5;
+      padding-right: 50px;
+    }
+    .chip {
+      display: inline-block;
+      background-color: #AB2328;
+      color: #fff;
+      padding: 5px 10px;
+      margin: 2px;
+      border-radius: 16px;
+      font-size: 0.9em;
+    }
+    .chip .remove-chip {
+      margin-left: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .select-tile {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #555;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .select-tile:hover {
+      background-color: #666;
+    }
+    .textareas-container {
+      margin-top: 40px;
+    }
+    .textareas-container .form-group textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #444;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+      overflow: auto;
+      resize: none;
+    }
+    .button-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    #section1 form {
+      display: flex;
+      flex-direction: column;
+      min-height: 400px;
+    }
+    #section1 .button-container {
+      margin-top: auto;
+      justify-content: flex-end;
+    }
+    .weiter-button, .zurueck-button {
+      background-color: #AB2328;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    .weiter-button:active, .zurueck-button:active {
+      background-color: #921b22;
+    }
+
+
+/* Container für alle Fahrzeug-Karten */
+#vehicleList {
+  display: grid; 
+  grid-template-columns: 1fr;
+  gap: 10px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+
+
+
+
+/* Einzelne Fahrzeug-Karte */
+.vehicle-card {
+  /* width: 220px;  <-- Entfernen, damit die Karte im Grid flexibel ist */
+  background-color: #2a2a2a;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+
+    .vehicle-card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .vehicle-card.selected {
+      border-color: #b32428;
+      background-color: #3a3a3a;
+      transform: scale(1.03);
+      box-shadow: 0 0 15px rgba(179,36,40,0.8);
+    }
+    .select-vehicle-button {
+      margin-top: 10px;
+      padding: 8px 12px;
+      font-size: 0.9em;
+      background-color: #b32428;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .select-vehicle-button:hover {
+      background-color: #8a1e23;
+    }
+    #assignmentContainer {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .vehicle-assignment {
+      border: 1px solid #444;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      padding: 10px;
+    }
+    .vehicle-assignment h2 {
+      margin: 0 0 5px 0;
+    }
+    .vehicle-assignment h2 small {
+      font-size: 0.8em;
+      color: #bbb;
+      display: block;
+    }
+    .slot-display {
+      margin-top: 5px;
+      font-size: 0.9em;
+    }
+    .seat-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .seat {
+      padding: 10px;
+      border: 1px dashed #777;
+      border-radius: 4px;
+      background-color: #1a1a1a;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .seat button {
+      background-color: transparent;
+      border: none;
+      color: #007BFF;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    .assigned-member {
+      display: flex;
+      align-items: center;
+      padding: 5px;
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .member-name {
+      white-space: nowrap;
+    }
+    .member-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+    }
+    .member-role {
+      margin-right: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .remove-assignment {
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .role-einsatzleiter {
+      background-color: #f1c40f;
+      color: #000;
+    }
+    .role-maschinist {
+  background-color: #B0B0B0 !important; /* Silber/Grau */
+  color: #000 !important; /* Schwarzer Text */
+  border: 1px solid #999 !important; /* Rahmen für bessere Sichtbarkeit */
+}
+
+    .role-gruppenkommandant {
+      background-color: #3498db;
+      color: #fff;
+    }
+    .role-mannschaft {
+      background-color: #e74c3c;
+      color: #fff;
+    }
+    /* Modale Fenster */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal.active {
+      display: flex;
+    }
+    .modal-content {
+      background-color: #2a2a2a;
+      padding: 20px;
+      border: 1px solid #444;
+      width: 90%;
+      max-width: 500px;
+      border-radius: 8px;
+      position: relative;
+    }
+    .close, .close-modal {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .modal-content h3 {
+      text-align: center;
+      margin-top: 0;
+    }
+    .modal-content ul {
+      list-style: none;
+      padding-left: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+    .modal-content li {
+      margin-bottom: 10px;
+    }
+    .modal-content li label {
+      display: flex;
+      align-items: center;
+      padding: 6px;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    .modal-content li label:hover {
+      background-color: #3a3a3a;
+    }
+    .modal-content input[type="checkbox"] {
+      accent-color: #AB2328;
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .modal-buttons button {
+      background-color: #AB2328;
+      border: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    .modal-buttons button:hover {
+      background-color: #921b22;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background-color: #3a3a3a;
+      color: #f0f0f0;
+      box-sizing: border-box;
+    }
+    .modal-team-list {
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background-color: #3a3a3a;
+      margin-top: 10px;
+    }
+    .modal-team-item {
+      padding: 8px;
+      border-bottom: 1px solid #444;
+      cursor: pointer;
+    }
+    .modal-team-item:hover {
+      background-color: #444;
+    }
+    /* Übersicht – Modernes, schlichtes Design */
+    .overview-container {
+      max-width: 800px;
+      margin: 20px auto;
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .overview-header h1 {
+      color: #AB2328;
+      font-size: 1.8em;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .overview-section {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #333;
+      border-radius: 4px;
+    }
+    .overview-section h2 {
+      font-size: 1.2em;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .overview-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #444;
+    }
+    .overview-item:last-child {
+      border-bottom: none;
+    }
+    .overview-item .label {
+      font-weight: 600;
+      margin-right: 10px;
+      color: #ccc;
+    }
+    .overview-item span[contenteditable] {
+      outline: none;
+    }
+    /* Zusätzliche Styles für den Speichervorgang */
+    .saving-container {
+      text-align: center;
+      font-size: 1.7em;
+      font-weight: bold;
+      color: #AB2328;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+    }
+    .loader {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #AB2328;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .success-message {
+      text-align: center;
+      font-size: 1.7em;
+      font-weight: bold;
+      color: #32cd32;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 80vh;
+    }
+    .success-checkmark {
+      width: 80px;
+      height: 80px;
+      position: relative;
+      animation: fadeInCheck 0.5s ease-in-out forwards;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 100px;
+      margin-top: -50px;  
+    }
+
+ /* Container für jede Fahrzeug-Kategorie */
+/* Container für jede Fahrzeug-Kategorie */
+.vehicle-category-container {
+  width: 100%;              /* immer volle Breite */
+  max-width: 1200px;        /* … aber maximal 1200 px */
+  margin: 0 auto;           /* zentriert den Container */
+  box-sizing: border-box;
+  border: 1px solid #444;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #2a2a2a;
+}
+
+fieldset.group-box {
+  background-color: #2a2a2a;   /* oder #333, falls du es dunkler möchtest */
+  border: 1px solid #444;      /* etwas dunklerer Rand */
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+/* Die Legend-Überschrift mit kontrastierendem Hintergrund oder Schriftfarbe */
+fieldset.group-box legend {
+  padding: 0 10px;
+  font-weight: bold;
+  color: #fff;
+  /* Wenn du möchtest, dass der Legend-Bereich selbst auch eine andere Farbe hat:
+     background-color: #AB2328; 
+     border-radius: 4px;
+     padding: 5px 10px;
+  */
+}
+  
+.vehicle-category-title {
+  display: block;
+  width: 100%;
+  background-color: #AB2328;
+  color: #fff;
+  font-weight: bold;
+  padding: 8px 0;
+  border-radius: 4px;
+  margin-bottom: 20px; /* Mehr Abstand unter der Überschrift */
+  font-size: 1.2em;
+}
+
+  
+.vehicle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+
+.vehicle-card {
+  /* width: 220px;  // diese Zeile entfernen oder überschreiben */
+  flex: 0 0 calc(33.333% - 10px);   /* 3 Karten je Zeile, abzüglich gap */
+  background-color: #2a2a2a;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+     
+    @keyframes drawCheck {
+      0% { stroke-dasharray: 0, 52; stroke-dashoffset: 52; }
+      100% { stroke-dasharray: 52, 0; stroke-dashoffset: 0; }
+    }
+    @keyframes fadeInCheck {
+      0% { opacity: 0; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    /* Neue Styles für die Erfolgsscreen-Buttons */
+    .button-container-success {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 5px;
+    }
+    .success-button {
+      background-color: #AB2328;
+      color: #fff;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.2em;
+      transition: background-color 0.3s, transform 0.2s;
+      margin-bottom: 10px; /* Verringert den Abstand zu den Buttons */
+    }
+    .success-button:hover {
+      background-color: #921b22;
+      transform: scale(1.05);
+    }
+
+    .horizontal-group {
+  display: flex;    /* sorgt dafür, dass die Kindelemente nebeneinander stehen */
+  gap: 10px;        /* Abstand zwischen den Feldern */
+  margin-bottom: 20px; /* optionaler Abstand nach unten */
+}
+
+.form-group {
+  flex: 1;          /* verteilt den Platz gleichmäßig auf die drei Felder */
+  margin-bottom: 0; /* damit unter den Feldern kein zusätzlicher Abstand entsteht */
+}
+
+.verrechenbar-block {
+  margin-top: 20px; /* nur Verrechenbar nach unten schieben */
+}
+
+.radio-button.full-width {
+  width: 100%;
+  text-align: center;
+  height: 40px;              /* gleiche Höhe wie Inputs */
+  padding: 10px;             /* gleicht den Innenabstand an */
+  font-size: 16px;           /* gleiche Schriftgröße */
+  box-sizing: border-box;    /* verhindert Überlaufen */
+}
+
+.hidden { display: none; }
+
+.input-row {
+  display: flex;
+  align-items: center;
+}
+
+.input-row input {
+  flex: 0 0 90%;    /* Feld nimmt 70% Breite */
+  margin-right: 6px;
+}
+
+.now-btn {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  font-size: 0.9em;
+  background: #444;
+  border: 1px solid #666;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #fff;
+  height: 100%;     /* gleiche Höhe wie Input */
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Eingabefeld kürzer, damit der Button daneben passt */
+.input-row input {
+  flex: 0 0 78%;   /* kannst du auf 70–85% anpassen */
+}
+
+/* "Jetzt"-Buttons erben radio-button-Look, bekommen nur Layout-Anpassung */
+.set-now-btn {
+  height: 40px;                 /* gleiche Höhe wie Inputs */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;           /* gleiche Innenabstände */
+}
+
+/* Aktiver Zustand */
+.set-now-btn:active {
+  background-color: #AB2328;
+  transform: scale(0.98);
+}
+
+
+
+  </style>
