@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Einsatzbericht – Freiwillige Feuerwehr Wiener Neustadt</title>
+  
+  <!-- Font Awesome für Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+  
+  <!-- Externes Stylesheet -->
+  <link rel="stylesheet" href="styles.css" />
+  
+  <!-- PapaParse für CSV-Verarbeitung -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js" defer></script>
+  
+  <!-- Externes Script -->
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <!-- Progress-Bar -->
+  <div class="progress-wrapper">
+    <div class="progress-container">
+      <div class="step active" id="step1">Grundinformationen</div>
+      <div class="step" id="step2">Einsatzdetails</div>
+      <div class="step" id="step3">Fahrzeuge</div>
+      <div class="step" id="step4">Mannschaft</div>
+      <div class="step" id="step5">Übersicht</div>
+    </div>
+  </div>
+  
+  <!-- Step 1: Grundinformationen -->
+  <div class="container active" id="section1">
+    <form>
+        <!-- Gruppe 1: Grundangaben -->
+        <fieldset class="group-box"> 
+          <legend>Grundangaben</legend>
+          <div class="form-group">
+            <label>Eigener Einsatzbereich:</label>
+            <div class="radio-buttons single-select" id="einsatzbereich-buttons">
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzbereich')">Ja</button>
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzbereich')">Nein</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="berichtErstelltDurch">Bericht erstellt durch:</label>
+            <div class="searchable-select">
+              <input type="text" id="berichtErstelltDurch" placeholder="Namen eingeben...">
+              <div class="options-container" id="berichtErstellerOptionsContainer"></div>
+            </div>
+          </div>
+          <div class="form-group">
+<div class="form-group">
+
+<div class="form-group verrechenbar-block">
+  <label>Ist der Einsatz verrechenbar?</label>
+  <div class="radio-buttons single-select" id="verrechenbar-buttons">
+    <button type="button" class="radio-button"
+            onclick="toggleButton(this, 'verrechenbar')"
+            title="Kostenersatzpflicht: 
+- Brandsicherheitswache
+- Brandwache nach §30 Abs.3
+- Bekämpfung örtlicher Gefahren im Eigeninteresse
+- Verursacher der Gefahr (auch ohne Verschulden)
+- Sonderlöschmittel
+- Vorsatz oder grobe Fahrlässigkeit
+- sonstige Hilfeleistungen (z. B. Keller auspumpen, Tierrettung)">Ja</button>
+
+    <button type="button" class="radio-button"
+            onclick="toggleButton(this, 'verrechenbar')"
+            title="Kein Kostenersatz bei:
+- Bränden
+- Elementarereignissen (z. B. Hochwasser, Sturm)
+- Rettung von Menschen und Tieren">Nein</button>
+
+    <button type="button" class="radio-button"
+            onclick="toggleButton(this, 'verrechenbar')"
+            title="Unklar, wenn:
+- mehrere Personen beteiligt (solidarisch haftbar)
+- noch unklarer Verursacher
+- Ermittlungen laufen, ob grobe Fahrlässigkeit vorliegt">Unsicher</button>
+  </div>
+</div>
+</fieldset>
+
+
+
+
+<fieldset class="group-box">
+  <legend>Alarmierung & Einsatzende</legend>
+
+  <div class="horizontal-group">
+    <div class="form-group">
+      <label for="datum">Datum (Alarmierung):</label>
+      <div class="input-row">
+        <input type="date" id="datum" required>
+        <button type="button" class="radio-button set-now-btn" onclick="setDateNow('datum')">Jetzt</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="uhrzeitAlarmierung">Uhrzeit (Alarmierung):</label>
+      <div class="input-row">
+        <input type="time" id="uhrzeitAlarmierung">
+        <button type="button" class="radio-button set-now-btn" onclick="setTimeNow('uhrzeitAlarmierung')">Jetzt</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="horizontal-group">
+    <div class="form-group">
+      <label for="einsatzEnde">Datum (Einsatzende):</label>
+      <div class="input-row">
+        <input type="date" id="einsatzEnde">
+        <button type="button" class="radio-button set-now-btn" onclick="setDateNow('einsatzEnde')">Jetzt</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="uhrzeitRueckkehr">Uhrzeit (Einsatzende):</label>
+      <div class="input-row">
+        <input type="time" id="uhrzeitRueckkehr">
+        <button type="button" class="radio-button set-now-btn" onclick="setTimeNow('uhrzeitRueckkehr')">Jetzt</button>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
+
+
+
+
+        <!-- Gruppe 3: Einsatzort & Objekt -->
+        <fieldset class="group-box">
+          <legend>Einsatzort & Objekt</legend>
+          <div class="horizontal-group">
+            <div class="form-group">
+              <label for="objektSelect">Objekt:</label>
+              <div class="searchable-select">
+                <input type="text" id="objektSelect" placeholder="Objekt eingeben...">
+                <div class="options-container" id="objekteOptionsContainer"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="einsatzortBezirk">Einsatzort Bezirk:</label>
+              <div class="searchable-select">
+                <input type="text" id="einsatzortBezirk" placeholder="Bezirk">
+                <div class="options-container" id="bezirkOptionsContainer"></div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="column">
+              <div class="form-group">
+                <label for="einsatzortStrasse">Einsatzort Straße:</label>
+                <div class="searchable-select">
+                  <input type="text" id="einsatzortStrasse" placeholder="Straße eingeben...">
+                  <div class="options-container" id="strassenOptionsContainer"></div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+                <div class="column">
+                  <div class="form-group">
+                    <label for="hausnummer">Hausnummer:</label>
+                    <input type="text" id="hausnummer" placeholder="Hausnummer eingeben...">
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="form-group">
+                    <label for="einsatzortPLZ">Postleitzahl:</label>
+                    <input type="text" id="einsatzortPLZ" placeholder="Postleitzahl eingeben..." required>
+                  </div>
+                </div>
+              </div>
+        </fieldset>
+
+        
+<fieldset class="group-box" id="rg-block">
+  <legend><span>Rechnungsträger / Geschädigte Angaben</span></legend>
+
+  <div class="horizontal-group">
+    <div class="form-group">
+      <label for="rg_vorname">Vorname *</label>
+      <input id="rg_vorname" type="text" placeholder="Vorname">
+    </div>
+    <div class="form-group">
+      <label for="rg_nachname">Nachname / Firma *</label>
+      <input id="rg_nachname" type="text" placeholder="Nachname oder Firma">
+    </div>
+  </div>
+
+  <div class="horizontal-group">
+    <div class="form-group">
+      <label for="rg_strasse">Straße *</label>
+      <input id="rg_strasse" type="text" placeholder="Straße">
+    </div>
+    <div class="form-group">
+      <label for="rg_hausnr">Hausnr. *</label>
+      <input id="rg_hausnr" type="text" placeholder="z. B. 12a">
+    </div>
+  </div>
+
+  <div class="horizontal-group">
+    <div class="form-group">
+      <label for="rg_plz">PLZ *</label>
+      <input id="rg_plz" type="text" placeholder="PLZ">
+    </div>
+    <div class="form-group">
+      <label for="rg_bezirk">Bezirk *</label>
+      <input id="rg_bezirk" type="text" placeholder="Bezirk / Ort">
+    </div>
+  </div>
+
+  <div class="horizontal-group">
+    <div class="form-group">
+      <label for="rg_geb">Geburtsdatum</label>
+      <input id="rg_geb" type="date">
+    </div>
+    <div class="form-group">
+      <label for="rg_kennz">Fahrzeug-Kennzeichen</label>
+      <input id="rg_kennz" type="text" placeholder="z. B. WN-123AB">
+    </div>
+  </div>
+
+  <div class="horizontal-group">
+    <div class="form-group">
+      <label for="rg_kontakt">Kontakt (optional)</label>
+      <input id="rg_kontakt" type="text" placeholder="Telefon / E-Mail">
+    </div>
+  <div class="form-group">
+<div class="form-group">
+  <label>&nbsp;</label> <!-- Platzhalter, damit's wie die Inputs aussieht -->
+  <button type="button"
+          class="radio-button full-width"
+          onclick="rgFromObject()">Aus Objekt übernehmen</button>
+</div>
+
+  </div>
+        </fieldset>
+
+
+
+        <!-- Gruppe 4: Einsatzart & Stichwort -->
+        <fieldset class="group-box">
+          <legend>Einsatzart & Stichwort</legend>
+          <div class="form-group">
+            <label>Art des Einsatzes:</label>
+            <div class="radio-buttons single-select" id="einsatzart-buttons">
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzart')">Brandeinsatz</button>
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzart')">Technischer Einsatz</button>
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzart')">Schadstoff Einsatz</button>
+              <button type="button" class="radio-button" onclick="toggleButton(this, 'einsatzart')">Sonstiger Einsatz</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="einsatzStichwort">Einsatzstichwort:</label>
+            <div class="searchable-select">
+              <input type="text" id="searchInput" placeholder="Suchbegriff eingeben...">
+              <div class="options-container" id="optionsContainer"></div>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="button-container">
+          <button type="button" class="weiter-button" onclick="nextSection(1)">Weiter</button>
+        </div>
+      </form>
+    </div>
+    
+  
+  <!-- Step 2: Einsatzdetails -->
+  <div class="container" id="section2">
+    <!-- Gruppe 1: Auswahlfelder -->
+    <fieldset class="group-box">
+      <legend>Informationen</legend>
+      <div class="grid-container popout">
+        <div class="popout-group">
+          <label>Meldung</label>
+          <div class="selected-wrapper">
+            <div id="selected-meldung" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('meldung')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+        <div class="popout-group">
+          <label>Alarmierung</label>
+          <div class="selected-wrapper">
+            <div id="selected-alarmierung" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('alarmierung')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+        <div class="popout-group">
+          <label>Anwesend</label>
+          <div class="selected-wrapper">
+            <div id="selected-anwesend" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('anwesend')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+        <div class="popout-group">
+          <label>Wetter</label>
+          <div class="selected-wrapper">
+            <div id="selected-wetter" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('wetter')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+        <div class="popout-group" style="grid-column: span 2;">
+          <label>Gefahrenklasse</label>
+          <div class="selected-wrapper">
+            <div id="selected-gefahrenklasse" class="selected-options"></div>
+            <div class="select-tile" onclick="openModal('gefahrenklasse')">
+              <i class="fas fa-plus"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  
+    <!-- Gruppe 2: Einsatznotizen -->
+    <fieldset class="group-box">
+      <legend>Einsatznotizen</legend>
+      <div class="textareas-container">
+        <div class="form-group">
+          <label>Lage beim Eintreffen</label>
+          <textarea id="lageEintreffen" rows="5" placeholder="Beschreiben Sie die Lage beim Eintreffen..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Maßnahmen am Einsatzort</label>
+          <textarea id="massnahmenEinsatzort" rows="5" placeholder="Beschreiben Sie die Maßnahmen..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Bemerkungen</label>
+          <textarea id="bemerkungen" rows="5" placeholder="Zusätzliche Bemerkungen..."></textarea>
+        </div>
+      </div>
+    </fieldset>
+  
+    <!-- Gruppe 3: Verletzte -->
+    <fieldset class="group-box">
+      <legend>Verletzte</legend>
+      <!-- Verletzte Personen -->
+      <div class="form-group">
+        <label>Verletzte Personen:</label>
+        <div class="radio-buttons single-select" id="verletztePersonen-buttons">
+          <button type="button" class="radio-button" onclick="toggleVerletzte('personen', true, this)">Ja</button>
+          <button type="button" class="radio-button active" onclick="toggleVerletzte('personen', false, this)">Nein</button>
+        </div>
+      </div>
+<!-- Container, der nur angezeigt wird, wenn „Ja“ geklickt wurde -->
+<div class="additional-fields" id="additional-personen" style="display:none;">
+    <div class="horizontal-group">
+      <div class="form-group">
+        <label>Anzahl Verletzte Personen:</label>
+        <input type="number" id="verletztePersonen" min="0">
+      </div>
+      <div class="form-group">
+        <label>Anzahl Getötete Personen:</label>
+        <input type="number" id="getoetetePersonen" min="0">
+      </div>
+      <div class="form-group">
+        <label>Anzahl Gerettete Personen:</label>
+        <input type="number" id="gerettetePersonen" min="0">
+      </div>
+    </div>
+  </div>
+  
+      <!-- Verletzte Feuerwehrmitglieder -->
+      <div class="form-group">
+        <label>Verletzte Feuerwehrmitglieder:</label>
+        <div class="radio-buttons single-select" id="verletzteFeuerwehr-buttons">
+          <button type="button" class="radio-button" onclick="toggleVerletzte('feuerwehr', true, this)">Ja</button>
+          <button type="button" class="radio-button active" onclick="toggleVerletzte('feuerwehr', false, this)">Nein</button>
+        </div>
+      </div>
+      <div class="additional-fields" id="additional-feuerwehr" style="display:none;">
+        <div class="horizontal-group">
+          <div class="form-group">
+            <label>Anzahl Verletzte Feuerwehrmitglieder:</label>
+            <input type="number" id="verletzteFeuerwehr" min="0">
+          </div>
+          <div class="form-group">
+            <label>Anzahl Getötete Feuerwehrmitglieder:</label>
+            <input type="number" id="getoeteteFeuerwehr" min="0">
+          </div>
+          <div class="form-group">
+            <label>Anzahl Gerettete Feuerwehrmitglieder:</label>
+            <input type="number" id="geretteteFeuerwehr" min="0">
+          </div>
+        </div>
+      </div>
+      <!-- Verletzte Tiere -->
+      <div class="form-group">
+        <label>Verletzte Tiere:</label>
+        <div class="radio-buttons single-select" id="verletzteTiere-buttons">
+          <button type="button" class="radio-button" onclick="toggleVerletzte('tiere', true, this)">Ja</button>
+          <button type="button" class="radio-button active" onclick="toggleVerletzte('tiere', false, this)">Nein</button>
+        </div>
+      </div>
+      <div class="additional-fields" id="additional-tiere" style="display:none;">
+        <div class="horizontal-group">
+          <div class="form-group">
+            <label>Anzahl Verletzte Tiere:</label>
+            <input type="number" id="verletzteTiere" min="0">
+          </div>
+          <div class="form-group">
+            <label>Anzahl Getötete Tiere:</label>
+            <input type="number" id="getoeteteTiere" min="0">
+          </div>
+          <div class="form-group">
+            <label>Anzahl Gerettete Tiere:</label>
+            <input type="number" id="geretteteTiere" min="0">
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  
+    <div class="button-container">
+      <button type="button" class="zurueck-button" onclick="prevSection(2)">Zurück</button>
+      <button type="button" class="weiter-button" onclick="nextSection(2)">Weiter</button>
+    </div>
+  </div>
+  
+  <!-- Step 3: Fahrzeuge -->
+  <div class="container" id="section3">
+    <div id="vehicleList"></div>
+    <div class="button-container">
+      <button type="button" class="zurueck-button" onclick="prevSection(3)">Zurück</button>
+      <button type="button" class="weiter-button" onclick="prepareTeamAssignment()">Weiter</button>
+    </div>
+  </div>
+  
+  <!-- Step 4: Mannschaft -->
+  <div class="container" id="section4">
+    <div id="assignmentContainer"></div>
+    <div class="button-container">
+      <button type="button" class="zurueck-button" onclick="prevSection(4)">Zurück</button>
+      <button type="button" class="weiter-button" onclick="nextSection(4)">Weiter</button>
+    </div>
+  </div>
+  
+  <!-- Step 5: Übersicht -->
+  <div class="container" id="section5">
+    <div id="summaryContainer"></div>
+    <div class="button-container">
+      <button type="button" class="zurueck-button" onclick="prevSection(5)">Zurück</button>
+      <!-- Hier wird der Submit-Button angepasst -->
+      <button type="button" class="weiter-button" onclick="submitData()">Absenden</button>
+    </div>
+  </div>
+  
+  <!-- Modale Fenster -->
+  <!-- Modal für Meldung -->
+  <div id="modal-meldung" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('meldung')">&times;</span>
+      <h3>Meldung auswählen</h3>
+      <ul>
+        <li><label><input type="checkbox" value="Florian Wiener Neustadt" class="meldung-option"> Florian Wiener Neustadt</label></li>
+        <li><label><input type="checkbox" value="Brandmelder" class="meldung-option"> Brandmelder</label></li>
+        <li><label><input type="checkbox" value="Gemeinde" class="meldung-option"> Gemeinde</label></li>
+        <li><label><input type="checkbox" value="Polizei" class="meldung-option"> Polizei</label></li>
+        <li><label><input type="checkbox" value="Privatperson" class="meldung-option"> Privatperson</label></li>
+        <li><label><input type="checkbox" value="Sonstiges" class="meldung-option"> Sonstiges</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('meldung')">Speichern</button>
+        <button type="button" onclick="closeModal('meldung')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal für Alarmierung -->
+  <div id="modal-alarmierung" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('alarmierung')">&times;</span>
+      <h3>Alarmierung auswählen</h3>
+      <ul>
+        <li><label><input type="checkbox" value="Sirene Florian" class="alarmierung-option"> Sirene Florian</label></li>
+        <li><label><input type="checkbox" value="Rufmeldeempfänger" class="alarmierung-option"> Rufmeldeempfänger</label></li>
+        <li><label><input type="checkbox" value="Persönlich" class="alarmierung-option"> Persönlich</label></li>
+        <li><label><input type="checkbox" value="Telefon" class="alarmierung-option"> Telefon</label></li>
+        <li><label><input type="checkbox" value="SMS" class="alarmierung-option"> SMS</label></li>
+        <li><label><input type="checkbox" value="Sonstige" class="alarmierung-option"> Sonstige</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('alarmierung')">Speichern</button>
+        <button type="button" onclick="closeModal('alarmierung')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal für Anwesend -->
+  <div id="modal-anwesend" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('anwesend')">&times;</span>
+      <h3>Anwesend auswählen</h3>
+      <!-- Suchfeld -->
+      <input type="text" id="anwesendSearch" class="search-input" placeholder="Suche...">
+      <ul>
+        <li><label><input type="checkbox" value="Berufsfeuerwehr" class="anwesend-option"> Berufsfeuerwehr</label></li>
+        <li><label><input type="checkbox" value="Bezirkshauptmannschaft" class="anwesend-option"> Bezirkshauptmannschaft</label></li>
+        <li><label><input type="checkbox" value="BFKDT/AFKDT" class="anwesend-option"> BFKDT/AFKDT</label></li>
+        <li><label><input type="checkbox" value="Bundesheer" class="anwesend-option"> Bundesheer</label></li>
+        <li><label><input type="checkbox" value="EVU" class="anwesend-option"> EVU</label></li>
+        <li><label><input type="checkbox" value="Firmeninhaber" class="anwesend-option"> Firmeninhaber</label></li>
+        <li><label><input type="checkbox" value="Gemeinde" class="anwesend-option"> Gemeinde</label></li>
+        <li><label><input type="checkbox" value="Chemialarmdienst" class="anwesend-option"> Chemiealarmdienst</label></li>
+        <li><label><input type="checkbox" value="Polizei" class="anwesend-option"> Polizei</label></li>
+        <li><label><input type="checkbox" value="Rettungsdienst" class="anwesend-option"> Rettungsdienst</label></li>
+        <li><label><input type="checkbox" value="ASFiNAG" class="anwesend-option"> ASFiNAG</label></li>
+        <li><label><input type="checkbox" value="Magistrat Wien" class="anwesend-option"> Magistrat Wien</label></li>
+        <li><label><input type="checkbox" value="Bergrettung" class="anwesend-option"> Bergrettung</label></li>
+        <li><label><input type="checkbox" value="Bundesfeuerwehrpräsident" class="anwesend-option"> Bundesfeuerwehrpräsident</label></li>
+        <li><label><input type="checkbox" value="Sonstige" class="anwesend-option"> Sonstige</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('anwesend')">Speichern</button>
+        <button type="button" onclick="closeModal('anwesend')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal für Wetter -->
+  <div id="modal-wetter" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('wetter')">&times;</span>
+      <h3>Wetter auswählen</h3>
+      <!-- Suchfeld -->
+      <input type="text" id="wetterSearch" class="search-input" placeholder="Suche...">
+      <ul>
+        <li><label><input type="checkbox" value="Sonne" class="wetter-option"> Sonne</label></li>
+        <li><label><input type="checkbox" value="Glatteis" class="wetter-option"> Glatteis</label></li>
+        <li><label><input type="checkbox" value="Nebel" class="wetter-option"> Nebel</label></li>
+        <li><label><input type="checkbox" value="Regen" class="wetter-option"> Regen</label></li>
+        <li><label><input type="checkbox" value="Schnee" class="wetter-option"> Schnee</label></li>
+        <li><label><input type="checkbox" value="Wind/Sturm" class="wetter-option"> Wind/Sturm</label></li>
+        <li><label><input type="checkbox" value="Glätte" class="wetter-option"> Glätte</label></li>
+        <li><label><input type="checkbox" value="Sonstiges" class="wetter-option"> Sonstiges</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('wetter')">Speichern</button>
+        <button type="button" onclick="closeModal('wetter')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- Modal für Gefahrenklasse -->
+  <div id="modal-gefahrenklasse" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('gefahrenklasse')">&times;</span>
+      <h3>Gefahrenklasse auswählen</h3>
+      <ul>
+        <li><label><input type="checkbox" value="1 Sprengtoff" class="gefahrenklasse-option"> 1 Sprengtoff</label></li>
+        <li><label><input type="checkbox" value="2 Gase" class="gefahrenklasse-option"> 2 Gase</label></li>
+        <li><label><input type="checkbox" value="3 Brennbare Flüssigkeiten" class="gefahrenklasse-option"> 3 Brennbare Flüssigkeiten</label></li>
+        <li><label><input type="checkbox" value="4 brennbare Feste Stoffe" class="gefahrenklasse-option"> 4 brennbare Feste Stoffe</label></li>
+        <li><label><input type="checkbox" value="5 brandfördernde Stoffe" class="gefahrenklasse-option"> 5 brandfördernde Stoffe</label></li>
+        <li><label><input type="checkbox" value="6 Gifte" class="gefahrenklasse-option"> 6 Gifte</label></li>
+        <li><label><input type="checkbox" value="7 radioakives Material" class="gefahrenklasse-option"> 7 radioakives Material</label></li>
+        <li><label><input type="checkbox" value="8 ätzende Stoffe" class="gefahrenklasse-option"> 8 ätzende Stoffe</label></li>
+        <li><label><input type="checkbox" value="9 sonstige gefährliche Stoffe" class="gefahrenklasse-option"> 9 sonstige gefährliche Stoffe</label></li>
+      </ul>
+      <div class="modal-buttons">
+        <button type="button" onclick="saveSelection('gefahrenklasse')">Speichern</button>
+        <button type="button" onclick="closeModal('gefahrenklasse')">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal für Mannschaft (Team) -->
+  <div id="teamModal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" id="closeTeamModal">&times;</span>
+      <h3>Mannschaftsmitglied auswählen</h3>
+      <label for="modalRoleSelect" style="display:block; margin-bottom:5px;">Funktion:</label>
+      <select id="modalRoleSelect">
+        <option value="Einsatzleiter">Einsatzleiter</option>
+        <option value="Maschinist">Maschinist</option>
+        <option value="Gruppenkommandant">Gruppenkommandant</option>
+        <option value="Mannschaft" selected>Mannschaft</option>
+      </select>
+      <input type="text" id="teamSearch" class="search-input" placeholder="Suche...">
+      <div id="modalTeamList" class="modal-team-list"></div>
+    </div>
+  </div>
+
+</body>
+</html>
