@@ -55,6 +55,12 @@ function loadDataFromCSV() {
     .catch(err => console.error('Fehler beim Laden der CSV:', err));
 }
 
+function toggleActiveStatus() {
+  const btn = $('#statusToggle');
+  const nowActive = !btn.hasClass('active');
+  setActiveStatus(nowActive);
+}
+
 function parseCSV(csvText) {
   const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length);
   csvHeaders = lines[0].split(',');
@@ -326,44 +332,97 @@ function activateCourseEditingMode() {
   $('#editCourseButton').text('Speichern Kursdaten').attr('onclick','saveCourseData()');
 }
 
+function toggleActiveStatus() {
+  const btn = $('#statusToggle');
+  const nowActive = !btn.hasClass('active');
+  setActiveStatus(nowActive); // nutzt deine bestehende Funktion
+}
+
+// 2) Vollständig: Stammdaten-Bearbeitungsmodus inkl. Status-Schalter
 function activateStammdatenEditingMode() {
-    const fields = document.querySelectorAll(".content input, .content select");
-    const isEditing = fields[0] && !fields[0].disabled;
+  const fields = document.querySelectorAll(".content input, .content select");
+  const isEditing = fields[0] && !fields[0].disabled;
 
-    if (!isEditing) {
-        // Bearbeiten aktivieren
-        fields.forEach(f => f.disabled = false);
-        document.getElementById("editStammdatenButton").textContent = "Stammdaten speichern";
+  if (!isEditing) {
+    // --- Bearbeiten aktivieren ---
+    fields.forEach(f => f.disabled = false);
 
-        // Live-Updates aktivieren
-        $('#dienstgrad, #namen, #nachnamen, #mitgliedsnummer').on('input change', function () {
-            const tempRecord = Object.assign({}, selectedRecord);
-            tempRecord['Mitgliedsnummer'] = $('#mitgliedsnummer').val();
-            tempRecord['Aktueller Dienstgrad'] = $('#dienstgrad').val();
-            tempRecord['Namen'] = $('#namen').val();
-            tempRecord['Nachnamen'] = $('#nachnamen').val();
-
-            // Titel links oben aktualisieren
-            updateHeaderTitle(tempRecord);
-
-            // Dienstgrad-Bild live setzen
-            const dg = tempRecord['Aktueller Dienstgrad'];
-            if (dg && dienstgradBilder[dg]) {
-                $('#dienstgradImage').html(`<img src="${dienstgradBilder[dg]}" alt="${dg}">`);
-            } else {
-                $('#dienstgradImage').text('Dienstgrad');
-            }
-        });
-
+    // Ausbildner-Checkbox/Section sichtbar & bedienbar machen
+    $('#ausbildnerEditContainer').show();
+    $('#ausbildnerCheckbox').prop('disabled', false);
+    if ($('#ausbildnerCheckbox').is(':checked')) {
+      $('#ausbildnerFuerSection').show();
+      $('#ausbildner_fuer').prop('disabled', false);
     } else {
-        // Bearbeiten beenden & speichern
-        fields.forEach(f => f.disabled = true);
-        document.getElementById("editStammdatenButton").textContent = "Stammdaten bearbeiten";
+      $('#ausbildnerFuerSection').hide();
+      $('#ausbildner_fuer').prop('disabled', true);
+    }
+    // Live: Sichtbarkeit "Ausbildner für" steuern
+    $('#ausbildnerCheckbox').off('change.__ausb').on('change.__ausb', function () {
+      if (this.checked) {
+        $('#ausbildnerFuerSection').show();
+        $('#ausbildner_fuer').prop('disabled', false);
+      } else {
+        $('#ausbildnerFuerSection').hide();
+        $('#ausbildner_fuer').prop('disabled', true);
+        $('#ausbildner_fuer').val('');
+      }
+    });
 
-        // Live-Update-Events entfernen
-        $('#dienstgrad, #namen, #nachnamen, #mitgliedsnummer').off('input change');
+    // Status-Schalter aktivieren + Click-Handler binden
+    $('#statusToggle')
+      .prop('disabled', false)
+      .css('cursor', 'pointer')
+      .off('click.__status')   // doppelte Bindungen vermeiden
+      .on('click.__status', toggleActiveStatus);
 
-        saveStammdaten();
+    // Live-Updates für Titel & Dienstgrad-Bild
+    $('#dienstgrad, #namen, #nachnamen, #mitgliedsnummer')
+      .off('input.__live change.__live') // sicherheitshalber reset
+      .on('input.__live change.__live', function () {
+        const tempRecord = Object.assign({}, selectedRecord);
+        tempRecord['Mitgliedsnummer'] = $('#mitgliedsnummer').val();
+        tempRecord['Aktueller Dienstgrad'] = $('#dienstgrad').val();
+        tempRecord['Namen'] = $('#namen').val();
+        tempRecord['Nachnamen'] = $('#nachnamen').val();
+
+        // Titel links oben aktualisieren
+        updateHeaderTitle(tempRecord);
+
+        // Dienstgrad-Bild live setzen
+        const dg = tempRecord['Aktueller Dienstgrad'];
+        if (dg && dienstgradBilder[dg]) {
+          $('#dienstgradImage').html(`<img src="${dienstgradBilder[dg]}" alt="${dg}">`);
+        } else {
+          $('#dienstgradImage').text('Dienstgrad');
+        }
+      });
+
+    document.getElementById("editStammdatenButton").textContent = "Stammdaten speichern";
+  } else {
+    // --- Bearbeiten beenden & speichern ---
+    fields.forEach(f => f.disabled = true);
+
+    // Ausbildner-UI wieder sperren/ausblenden (wie initialer Zustand)
+    $('#ausbildnerCheckbox').prop('disabled', true);
+    $('#ausbildnerEditContainer').hide();
+    // "Ausbildner für" Feld sperren; Sichtbarkeit richtet sich nach fillForm beim nächsten Öffnen
+    $('#ausbildner_fuer').prop('disabled', true);
+
+    // Status-Schalter wieder sperren & Handler lösen
+    $('#statusToggle')
+      .prop('disabled', true)
+      .css('cursor', 'default')
+      .off('click.__status');
+
+    // Live-Update-Events entfernen
+    $('#dienstgrad, #namen, #nachnamen, #mitgliedsnummer').off('input.__live change.__live');
+    $('#ausbildnerCheckbox').off('change.__ausb');
+
+    document.getElementById("editStammdatenButton").textContent = "Stammdaten bearbeiten";
+
+    // Speichern
+    saveStammdaten();
     }
 }
 
