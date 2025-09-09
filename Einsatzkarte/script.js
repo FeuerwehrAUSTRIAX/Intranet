@@ -1,40 +1,44 @@
 /* ===========================================
- * Marker -> Info-Modal -> BSP-Modal
- * + Autocomplete für POI & PLZ (ab 2 Zeichen)
+ * Feuerwehr Map – kompletter Script-Stand (POI-Suche & BMA Fix)
  * =========================================== */
 
-
+/* ================== Marker-CSS (injected) ================== */
 (() => {
   const css = `
     :root{
-      --marker-h: 32px;   /* Haupt-Icon-Größe */
-      --bma-scale: .65;   /* BMA relativ zum Haupt-Icon */
+      --marker-h: 32px;
+      --bma-scale: .65;
+      --bma-offset: 35px;
+      --app-bg: #10A6C9;
     }
+    body, #map, .leaflet-container{ background: var(--app-bg) !important; }
 
-    /* Container des Markers: NICHT mehr width:0/height:0! */
+    /* Mittelpunkt = Koordinate */
     .marker-wrap{
-      display:flex;
-      flex-direction:column;   /* übereinander */
-      align-items:center;      /* zentriert */
-      transform:translate(-50%, -100%); /* Ankerpunkt: Spitze unten mittig */
-      pointer-events:auto;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
     }
 
-    /* Haupt-Icon */
+    /* Sichtbarkeit erst ab letzter Kachelstufe */
+    .marker-wrap .poi-img-icon{ display: none; }
+    .marker-wrap .bma-symbol{ display: none; }
+    body.icons-on .marker-wrap .poi-img-icon{ display: block; }
+    body.icons-on.bma-on .marker-wrap .bma-symbol{ display: block; }
+
     .marker-wrap .poi-img-icon{
-      width:var(--marker-h);
-      height:var(--marker-h);
-      object-fit:contain;
-      display:block;
+      width: var(--marker-h);
+      height: var(--marker-h);
+      object-fit: contain;
     }
-
-    /* BMA-Symbol unter dem Icon, sauber skalierbar */
     .marker-wrap .bma-symbol{
-      margin-top:4px;
-      width:calc(var(--marker-h) * var(--bma-scale));
-      height:calc(var(--marker-h) * var(--bma-scale)); /* quadratisch, nie riesig */
-      object-fit:contain;
-      display:block;
+      margin-top: var(--bma-offset);
+      width: calc(var(--marker-h) * var(--bma-scale));
+      height: calc(var(--marker-h) * var(--bma-scale));
+      object-fit: contain;
     }
   `;
   const tag = document.createElement('style');
@@ -42,15 +46,13 @@
   document.head.appendChild(tag);
 })();
 
-
-
-
-
 /* ================== Projektion / Grundwerte ================== */
-const tileSize = 256, minZoom = 0, maxZoom = 5;
-const size = tileSize * Math.pow(2, maxZoom);
+const tileSize = 256;
+const minZoom = 0;
+const nativeMaxZoom = 5;   // letzte echte Kachelstufe
+const visualMaxZoom = 7;   // +2 virtuelle Stufen
+const size = tileSize * Math.pow(2, nativeMaxZoom);
 
-// Referenzpunkte
 const mapRef1 = { lng: 34.90625,  lat: -7.62500 };
 const gtaRef1 = { x: -4000,       y: 8000 };
 const mapRef2 = { lng: 241.12500, lat: -255.1875 };
@@ -62,13 +64,21 @@ function toMap(x, y){ return { lng: mapRef1.lng + (x - gtaRef1.x) * scaleX, lat:
 function fromMap(lat, lng){ return { x: Math.round(gtaRef1.x + (lng - mapRef1.lng) / scaleX), y: Math.round(gtaRef1.y + (lat - mapRef1.lat) / scaleY) }; }
 
 /* ================== Karte ================== */
-const map = L.map('map', { crs: L.CRS.Simple, minZoom, maxZoom });
-const sw = map.unproject([0, size], maxZoom);
-const ne = map.unproject([size, 0], maxZoom);
+const map = L.map('map', {
+  crs: L.CRS.Simple,
+  minZoom,
+  maxZoom: visualMaxZoom,
+  zoomAnimation: true,        // Smooth Zoom
+  markerZoomAnimation: false, // Marker bleiben stabil
+  fadeAnimation: true,
+  inertia: true
+});
+const sw = map.unproject([0, size], nativeMaxZoom);
+const ne = map.unproject([size, 0], nativeMaxZoom);
 const bounds = L.latLngBounds(sw, ne);
 map.setMaxBounds(bounds).fitBounds(bounds);
 
-// --- Basiskarten ---
+/* --- Basiskarten --- */
 const BASESETS = [
   { key: 'atl', name: 'Atlas',     path: 'tiles_atl' },
   { key: 'sat', name: 'Satellit',  path: 'tiles_sat' }
@@ -89,7 +99,12 @@ async function buildBasemaps(){
   for (const set of BASESETS){
     const ext = await detectExtForTileset(set.path);
     basemapLayers[set.key] = L.tileLayer(`${set.path}/{z}/{x}/{y}.${ext}`, {
-      tileSize, minZoom, maxZoom, noWrap: true, bounds,
+      tileSize,
+      minZoom,
+      maxZoom: visualMaxZoom,
+      maxNativeZoom: nativeMaxZoom,
+      noWrap: true,
+      bounds,
       attribution: '© FeuerwehrAUSTRIAX'
     });
   }
@@ -111,25 +126,26 @@ function initBasemapToggle(){
     });
   });
 }
-initBasemapToggle(); buildBasemaps();
+buildBasemaps();
+initBasemapToggle();
 
-/* ================== Koordinaten-Tipp + Kopieren ================== */
-const tip = document.getElementById('coordTip');
-map.getContainer().addEventListener('mousemove', evt => {
-  const rect = map.getContainer().getBoundingClientRect();
-  const p = map.containerPointToLatLng([evt.clientX-rect.left, evt.clientY-rect.top]);
-  const gta = fromMap(p.lat, p.lng);
-  tip.style.left = `${evt.clientX}px`; tip.style.top = `${evt.clientY}px`;
-  tip.textContent = `GTA: ${gta.x}, ${gta.y}`; tip.style.display = 'block';
+/* ================== Koordinaten-Tipp & Copy ================== */
+const coordTip = document.getElementById('coordTip');
+map.on('mousemove', (e)=>{
+  const p = fromMap(e.latlng.lat, e.latlng.lng);
+  coordTip.textContent = `x:${p.x} y:${p.y}`;
+  coordTip.style.display = 'block';
+  coordTip.style.left = `${e.originalEvent.clientX + 12}px`;
+  coordTip.style.top = `${e.originalEvent.clientY + 12}px`;
 });
-map.getContainer().addEventListener('mouseleave', () => tip.style.display = 'none');
-
-map.on('click', e => {
-  const gta = fromMap(e.latlng.lat, e.latlng.lng);
-  const text = `${gta.x}, ${gta.y}`;
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(()=>toast(text)).catch(()=>fallbackCopy(text));
-  } else { fallbackCopy(text); }
+map.on('mouseout', ()=>{ coordTip.style.display='none'; });
+map.on('click', (e)=>{
+  const p = fromMap(e.latlng.lat, e.latlng.lng);
+  const txt = `${p.x}, ${p.y}`;
+  try{
+    if (navigator.clipboard?.writeText){ navigator.clipboard.writeText(txt).then(()=>toast(txt)).catch(()=>fallbackCopy(txt)); }
+    else{ fallbackCopy(txt); }
+  }catch(_){ fallbackCopy(txt); }
 });
 function fallbackCopy(text){
   const ta = document.createElement('textarea'); ta.value = text;
@@ -312,14 +328,16 @@ const categoryLayers = {};
 const layerStates = {};
 const highlightLayer = L.layerGroup().addTo(map);
 const plzLayer = L.layerGroup();
-const PLZ_MIN_ZOOM = 4;
+const PLZ_MIN_ZOOM = nativeMaxZoom;
 
+/* ===== Dateien & Quellen ===== */
 const plzFile = 'source/plz.txt';
-const poiFilePrimary  = 'source/pos.json';
-const poiFileFallback = 'source/pois.json';
+const SHEET_TSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTiTQbW09ek6xRFa7YFwFWbm-Sn6WuApvVtdyxv0-FO7xmbT1hMhGw7Qswg1BrSXdVhUdReX6BlpQj/pub?gid=1389818837&single=true&output=tsv";
+const ICON_CSV  = 'source/icons.csv';
 
-let ALL_MARKERS = []; // nur POIs
-let PLZ_DATA = [];    // {x,y,lat,lng,code}
+let ALL_MARKERS = [];   // POIs
+let PLZ_DATA = [];      // {x,y,lat,lng,code}
+let PLZ_MARKERS = [];   // Leaflet Marker für PLZ
 
 /* ================== Utils ================== */
 function isIconAvailable(url){
@@ -329,117 +347,211 @@ function isIconAvailable(url){
   });
 }
 function slugify(s){ return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+function toNumber(n){ const s=String(n||'').trim().replace(',', '.'); const v=parseFloat(s); return Number.isFinite(v)?v:null; }
+function parseLage(lageStr){
+  const m = String(lageStr||'').match(/(-?\d+(?:[.,]\d+)?)\s*[,;|]\s*(-?\d+(?:[.,]\d+)?)/);
+  if (!m) return [0,0];
+  return [toNumber(m[1]) ?? 0, toNumber(m[2]) ?? 0];
+}
+function parseTSV(text) {
+  const lines = text.replace(/\r/g,'').split('\n').filter(l => l.trim().length);
+  if (!lines.length) return [];
+  const headers = lines[0].split('\t').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const cells = line.split('\t');
+    const row = {};
+    headers.forEach((h, i) => row[h] = (cells[i] ?? "").trim());
+    return row;
+  });
+}
+function parseCSV(text){
+  const clean = text.replace(/\r/g,'').trim();
+  const delimiter = clean.includes(';') && !clean.includes(',') ? ';' : ',';
+  const lines = clean.split('\n').filter(Boolean);
+  const headers = lines[0].split(delimiter).map(h=>h.trim());
+  return lines.slice(1).map(line=>{
+    const cells = line.split(delimiter).map(c=>c.trim());
+    const o = {}; headers.forEach((h,i)=>o[h]=cells[i]??''); return o;
+  });
+}
+function normalizeRow(r){
+  const [x,y] = parseLage(r['Lage']);
+  return {
+    POI: r['POI'] || '',
+    Kategorie: r['Kategorie'] || 'Sonstiges',
+    'Adresse Straße': r['Adresse Straße'] || '',
+    Adresse_Strasse: r['Adresse Straße'] || r['Adresse_Strasse'] || '',
+    Hausnummer: r['Hausnummer'] || '',
+    'Adresse PLZ': r['Adresse PLZ'] || '',
+    'Adresse Bezirk': r['Adresse Bezirk'] || '',
+    PLZ: r['Adresse PLZ'] || '',
+    Bezirk: r['Adresse Bezirk'] || '',
+    Lage: [x, y],
+    ICON: r['ICON'] || '',
+    BMA: r['BMA'] || '',
+    'BMA-Code': r['BMA-Code'] || r['BMA_Code'] || '',
+    BMA_Code: r['BMA-Code'] || r['BMA_Code'] || '',
+    Objektbild: r['Objektbild'] || '',
+    Brandschutzplan: r['Brandschutzplan'] || '',
+    Besonderheit: r['Besonderheit'] || '',
+    Kontaktdaten: r['Kontaktdaten'] || ''
+  };
+}
 
-/* ================== PLZ laden & rendern ================== */
+/* Hilfsfunktionen für Suche */
+function norm(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+
+/* ============ PLZ-Pin ============ */
+const PLZ_PIN_SVG = `
+<svg width="20" height="32" viewBox="0 0 20 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path d="M10 31 C10 31 0 19 0 12 a10 10 0 0 1 20 0 c0 7 -10 19 -10 19z" fill="#e53935"/>
+  <circle cx="10" cy="12" r="4.5" fill="#fff"/>
+</svg>`;
+
+/* PLZ laden & Pins EINMAL bauen */
 fetch(plzFile).then(r=>r.text()).then(text=>{
   const entries = text.match(/\{[^}]*\}/g) || [];
   PLZ_DATA = entries.map(block=>{
-    const xM = block.match(/\["x"\]\s*=\s*([-0-9\.]+)/);
-    const yM = block.match(/\["y"\]\s*=\s*([-0-9\.]+)/);
-    const cM = block.match(/\["code"\]\s*=\s*"(\d+)"/);
-    if (!(xM&&yM&&cM)) return null;
-    const x = parseFloat(xM[1]), y = parseFloat(yM[1]), code = cM[1];
-    const { lat, lng } = toMap(x,y); return { x,y,lat,lng,code };
-  }).filter(Boolean);
+    const x = parseFloat(block.match(/\["x"\]\s*=\s*([-0-9\.]+)/)[1]);
+    const y = parseFloat(block.match(/\["y"\]\s*=\s*([-0-9\.]+)/)[1]);
+    const code = block.match(/\["code"\]\s*=\s*"(\d+)"/)[1];
+    const { lat, lng } = toMap(x,y);
+    return { x,y,lat,lng,code };
+  });
+
+  const makePlzIcon = () => L.divIcon({ className:'plz-pin', html:PLZ_PIN_SVG, iconSize:[20,32], iconAnchor:[10,32] });
+  PLZ_MARKERS = PLZ_DATA.map(p=>{
+    const m = L.marker([p.lat,p.lng], { icon: makePlzIcon() });
+    m.plz = String(p.code).toLowerCase();
+    m.addTo(plzLayer);
+    return m;
+  });
 
   updatePlzVisibility();
-  // Autocomplete: PLZ rein (POIs kommen, sobald geladen)
-  rebuildAcData(); 
-}).catch(err=>console.error('PLZ laden fehlgeschlagen:', err));
-
-function renderPlzLabels(){
-  plzLayer.clearLayers();
-  const b = map.getBounds();
-  const makePlzIcon = code => L.divIcon({
-    className:'plz-box-icon',
-    html:`<span>${code}</span>`,
-    iconSize:[40,20], iconAnchor:[20,10]
-  });
-  for (const p of PLZ_DATA){
-    if (b.contains([p.lat,p.lng])){
-      const m = L.marker([p.lat,p.lng],{icon:makePlzIcon(p.code)}).addTo(plzLayer);
-      m.plz = p.code.toLowerCase(); m._isPlz = true;
-    }
-  }
-}
+  rebuildAcData();
+});
 function updatePlzVisibility(){
   const show = togglePlzEl?.checked && map.getZoom() >= PLZ_MIN_ZOOM;
-  if (show){ if (!map.hasLayer(plzLayer)) plzLayer.addTo(map); renderPlzLabels(); }
-  else { plzLayer.clearLayers(); if (map.hasLayer(plzLayer)) map.removeLayer(plzLayer); }
+  if (show){ if (!map.hasLayer(plzLayer)) plzLayer.addTo(map); }
+  else { if (map.hasLayer(plzLayer)) map.removeLayer(plzLayer); }
 }
 togglePlzEl?.addEventListener('change', updatePlzVisibility);
 map.on('zoomend', updatePlzVisibility);
-map.on('moveend', ()=>{ if (togglePlzEl?.checked && map.getZoom()>=PLZ_MIN_ZOOM) renderPlzLabels(); });
 
-/* ================== POIs laden ================== */
-loadPois(poiFilePrimary).catch(()=>loadPois(poiFileFallback)).catch(console.error);
-
-async function loadPois(file){
-  const res = await fetch(file,{ cache:'no-store' });
-  if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
-  const data = await res.json();
-
-  const poiNames = new Set(); const plzFromPois = new Set();
-  ALL_MARKERS = []; // reset
-
-  // Kategorien leeren
-  Object.values(categoryLayers).forEach(grp => map.removeLayer(grp));
-  for (const key of Object.keys(categoryLayers)) delete categoryLayers[key];
-  for (const key of Object.keys(layerStates)) delete layerStates[key];
-
-  for (const poi of data){
-    if (poi.POI) poiNames.add(poi.POI);
-    if (poi.PLZ) plzFromPois.add(poi.PLZ);
-
-    const [x,y] = poi.Lage || [0,0];
-    const { lat, lng } = toMap(x,y);
-
-    const bmaVal   = (poi.BMA || poi['BMA'] || '').toString().trim().toLowerCase();
-    const hasBma   = bmaVal === 'ja';
-    const iconUrl  = poi.ICON || '';
-
-    const iconAvailable = await isIconAvailable(iconUrl);
-    const leftHtml = iconAvailable
-      ? `<img src="${iconUrl}" class="poi-img-icon" alt="${poi.POI || ''}" />`
-      : `<span class="plz-box-icon"><span>??</span></span>`;
-const bmaHtml = hasBma
-  ? `<img src="https://i.postimg.cc/RFZ23TVC/BMA.gif"
-           class="bma-symbol"
-           alt="BMA"
-           style="margin-top:35px;" />`
-  : ``;
-
-
-    const markerHTML = `<div class="marker-wrap">${leftHtml}${bmaHtml}</div>`;
-    const icon = L.divIcon({ html: markerHTML, className:'', iconSize: null, iconAnchor:[0,0], popupAnchor:[0,-20] });
-
-    const marker = L.marker([lat,lng], { icon });
-    marker.on('click', () => openInfoModalFromPOI(poi));
-
-    marker.poiName = (poi.POI||'').toLowerCase();
-    marker.plz     = (poi.PLZ||'').toLowerCase();
-    marker._categoryName = poi.Kategorie || 'Sonstiges';
-
-    ALL_MARKERS.push(marker);
-    if (!categoryLayers[marker._categoryName]){
-      categoryLayers[marker._categoryName] = L.layerGroup();
-      layerStates[marker._categoryName] = true;
+/* ================== ICON-Mapping (CSV) ================== */
+let ICON_BY_POI = new Map();
+let ICON_BY_KATEGORIE = new Map();
+async function loadIconCsv(){
+  try{
+    const res = await fetch(ICON_CSV, { cache:'no-store' });
+    if (!res.ok) throw new Error(`ICON CSV: HTTP ${res.status}`);
+    const rows = parseCSV(await res.text());
+    ICON_BY_POI.clear(); ICON_BY_KATEGORIE.clear();
+    for (const r of rows){
+      const poi = (r.POI||'').trim().toLowerCase();
+      const kat = (r.Kategorie||'').trim().toLowerCase();
+      const url = (r.ICON_URL || r.ICON || '').trim();
+      if (!url) continue;
+      if (poi) ICON_BY_POI.set(poi, url);
+      else if (kat) ICON_BY_KATEGORIE.set(kat, url);
     }
-    marker.addTo(categoryLayers[marker._categoryName]);
+  }catch(e){
+    console.warn('ICON-CSV konnte nicht geladen werden – nutze ICON aus TSV, wenn vorhanden.', e);
   }
-
-  // Kategorien sichtbar machen
-  Object.values(categoryLayers).forEach(grp=>{ if (!map.hasLayer(grp)) grp.addTo(map); });
-
-  // Sidebar-Filter
-  buildFilterPanelFromCategories();
-
-  // >>> Autocomplete aktualisieren (POIs + alle PLZ)
-  rebuildAcData(poiNames, plzFromPois);
-
-  // BMA-Visibility anwenden
-  applyBmaToggle();
 }
+function resolveIconUrl(poiObj){
+  const poiKey = String(poiObj.POI||'').toLowerCase();
+  const katKey = String(poiObj.Kategorie||'Sonstiges').toLowerCase();
+  return ICON_BY_POI.get(poiKey) || ICON_BY_KATEGORIE.get(katKey) || poiObj.ICON || '';
+}
+
+/* ================== POIs laden (TSV) ================== */
+const ICONS_START_ZOOM = nativeMaxZoom;
+function updateIconZoomVisibility(){
+  const on = map.getZoom() >= ICONS_START_ZOOM;
+  document.body.classList.toggle('icons-on', on);
+}
+map.on('zoomend', updateIconZoomVisibility);
+
+(async function(){
+  try{
+    await loadIconCsv();
+
+    const res = await fetch(SHEET_TSV, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`TSV laden fehlgeschlagen: HTTP ${res.status}`);
+    const rows = parseTSV(await res.text());
+    const data = rows.map(normalizeRow);
+
+    const poiNames = new Set(); const plzFromPois = new Set();
+    ALL_MARKERS = [];
+
+    // evtl. alte Kategorien entfernen
+    Object.values(categoryLayers).forEach(grp => map.removeLayer(grp));
+    for (const key of Object.keys(categoryLayers)) delete categoryLayers[key];
+    for (const key of Object.keys(layerStates)) delete layerStates[key];
+
+    for (const poi of data){
+      poi.ICON = resolveIconUrl(poi);
+
+      if (poi.POI) poiNames.add(poi.POI);
+      if (poi.PLZ) plzFromPois.add(String(poi.PLZ));
+
+      const [x,y] = poi.Lage || [0,0];
+      const { lat, lng } = toMap(x,y);
+
+      // ---------- BMA LOGIK (robust) ----------
+      const bmaRaw = (poi.BMA ?? '').toString().trim();
+      const hasBma = !!bmaRaw && !/^(nein|no|false|0|off)$/i.test(bmaRaw);
+      // ----------------------------------------
+
+      const iconUrl = poi.ICON || '';
+      const iconAvailable = await isIconAvailable(iconUrl);
+      const mainHtml = iconAvailable
+        ? `<img src="${iconUrl}" class="poi-img-icon" alt="${poi.POI || ''}" />`
+        : `<span class="plz-box-icon"><span>??</span></span>`;
+      const bmaHtml = hasBma
+        ? `<img src="https://i.postimg.cc/RFZ23TVC/BMA.gif" class="bma-symbol" alt="BMA" />`
+        : ``;
+
+      const markerHTML = `<div class="marker-wrap">${mainHtml}${bmaHtml}</div>`;
+      const icon = L.divIcon({ html: markerHTML, className:'', iconSize: null, iconAnchor:[0,0], popupAnchor:[0,-20] });
+
+      const marker = L.marker([lat,lng], { icon });
+      marker.on('click', () => openInfoModalFromPOI(poi));
+
+      marker.poiName = norm(poi.POI);
+      marker.plz     = norm(poi.PLZ || poi['Adresse PLZ'] || '');
+      marker._categoryName = poi.Kategorie || 'Sonstiges';
+
+      ALL_MARKERS.push(marker);
+      if (!categoryLayers[marker._categoryName]){
+        categoryLayers[marker._categoryName] = L.layerGroup();
+        layerStates[marker._categoryName] = true;
+      }
+      marker.addTo(categoryLayers[marker._categoryName]);
+    }
+
+    // Kategorien sichtbar machen
+    Object.values(categoryLayers).forEach(grp=>{ if (!map.hasLayer(grp)) grp.addTo(map); });
+
+    buildFilterPanelFromCategories();
+
+    // Autocomplete (POIs + PLZ)
+    rebuildAcData(poiNames, plzFromPois);
+
+    // BMA-Visibility initial: Toggle standardmäßig AN
+    if (bmaToggleEl){ bmaToggleEl.checked = true; }
+    applyBmaToggle();
+
+    // Icons-Visibility initial
+    updateIconZoomVisibility();
+
+  }catch(err){
+    console.error('POIs laden fehlgeschlagen:', err);
+  }
+})();
 
 /* ================== Sidebar: Kategorien ================== */
 function buildFilterPanelFromCategories(){
@@ -480,38 +592,56 @@ function syncToggleAllState(){
   toggleAllEl.checked = allOn;
 }
 
-/* ================== BMA-Icon ein/aus ================== */
+/* ================== BMA-Icon ein/aus (via Body-Klasse) ================== */
 function applyBmaToggle(){
   const on = !!bmaToggleEl?.checked;
-  document.querySelectorAll('.bma-symbol').forEach(el=>{ el.style.display = on ? 'inline-block' : 'none'; });
+  document.body.classList.toggle('bma-on', on);
+}
+
+/* ============ Temporäre PLZ-Pinnadel für Suchen ============ */
+function showTempPlzPin(latlng){
+  const tempIcon = L.divIcon({
+    className: 'plz-pin',
+    html: PLZ_PIN_SVG,
+    iconSize: [20, 32],
+    iconAnchor: [10, 32]
+  });
+  const temp = L.marker(latlng, { icon: tempIcon, zIndexOffset: 1000 }).addTo(highlightLayer);
+  setTimeout(()=> highlightLayer.removeLayer(temp), 2500);
 }
 
 /* ================== Suche ================== */
 function performSearch(raw){
-  const q = (raw||'').trim().toLowerCase(); if (!q) return;
+  const qRaw = (raw||'').trim(); if (!qRaw) return;
+  const q = norm(qRaw);
 
-  // 1) POI exakter Name
-  const exactPoi = ALL_MARKERS.find(m=>m.poiName===q);
-  if (exactPoi){ map.setView(exactPoi.getLatLng(),5); exactPoi._icon?.classList.add('blinking'); setTimeout(()=>exactPoi._icon?.classList.remove('blinking'), 3000); return; }
+  // 1) POI – Exakt
+  let target = ALL_MARKERS.find(m => m.poiName === q);
+  // 2) POI – Beginn
+  if (!target) target = ALL_MARKERS.find(m => m.poiName.startsWith(q));
+  // 3) POI – Enthält
+  if (!target) target = ALL_MARKERS.find(m => m.poiName.includes(q));
 
-  // 2) PLZ im aktuellen Ausschnitt
-  const plzMatches = plzLayer.getLayers().filter(m=>m.plz===q);
-  if (plzMatches.length){
-    const group = L.featureGroup(plzMatches);
-    map.fitBounds(group.getBounds(), { maxZoom:5, padding:[20,20] });
-    plzMatches.forEach(m=>m._icon?.classList.add('blinking'));
-    setTimeout(()=>plzMatches.forEach(m=>m._icon?.classList.remove('blinking')), 3000);
+  if (target){
+    map.setView(target.getLatLng(), Math.max(map.getZoom(), nativeMaxZoom), { animate: true });
     return;
   }
 
-  // 3) PLZ global
-  const matchPlz = PLZ_DATA.find(p=>p.code.toLowerCase()===q);
-  if (matchPlz){
-    const tempIcon = L.divIcon({ className:'plz-box-icon', html:`<span>${matchPlz.code}</span>`, iconSize:[40,20], iconAnchor:[20,10] });
-    const temp = L.marker([matchPlz.lat,matchPlz.lng], { icon: tempIcon, zIndexOffset: 1000 }).addTo(highlightLayer);
-    map.setView([matchPlz.lat,matchPlz.lng], 5);
-    setTimeout(()=>temp._icon?.classList.add('blinking'),0);
-    setTimeout(()=>highlightLayer.removeLayer(temp), 3000);
+  // 4) PLZ Marker
+  const plzM = PLZ_MARKERS.find(m => m.plz === q);
+  if (plzM){
+    const ll = plzM.getLatLng();
+    map.setView(ll, Math.max(map.getZoom(), nativeMaxZoom), { animate: true });
+    showTempPlzPin(ll);
+    return;
+  }
+
+  // 5) PLZ Daten-Fallback
+  const plzD = PLZ_DATA.find(p => norm(p.code) === q);
+  if (plzD){
+    const ll = [plzD.lat, plzD.lng];
+    map.setView(ll, Math.max(map.getZoom(), nativeMaxZoom), { animate: true });
+    showTempPlzPin(ll);
   }
 }
 
@@ -519,7 +649,9 @@ function performSearch(raw){
 function rebuildAcData(poiNamesSet=null, plzSetFromPoi=null){
   const poiNames = poiNamesSet ? Array.from(poiNamesSet) : [];
   const plzCodes = new Set(PLZ_DATA.map(p=>p.code));
-  if (plzSetFromPoi) for (const z of plzSetFromPoi) plzCodes.add(String(z));
+  if (plzSetFromPoi){
+    for (const z of plzSetFromPoi) plzCodes.add(String(z));
+  }
 
   AC_DATA = [
     ...poiNames.map(v=>({ value:String(v), kind:'poi' })),
@@ -531,5 +663,5 @@ function rebuildAcData(poiNamesSet=null, plzSetFromPoi=null){
 clearBtn.addEventListener('click', ()=>{
   searchBox.value = '';
   hideAc();
-  map.setView([(mapRef1.lat+mapRef2.lat)/2, (mapRef1.lng+mapRef2.lng)/2], minZoom);
+  map.setView([(mapRef1.lat+mapRef2.lat)/2, (mapRef1.lng+mapRef2.lng)/2], minZoom, { animate: true });
 });
