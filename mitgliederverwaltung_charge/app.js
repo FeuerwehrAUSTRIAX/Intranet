@@ -270,24 +270,19 @@ function displayCourses(record) {
     const container = $(`#${category}`);
     list.forEach(courseName => {
       const cfg = coursesConfig[courseName] || {};
-if (!isEditingCourses) {
-  const cfg = coursesConfig[courseName] || {};
-  let show = false;
+      if (!isEditingCourses) {
+        let show = false;
 
-  if (cfg.hasCompleted) {
-    // Nur zeigen, wenn wirklich "Absolviert: Ja"
-    show = ((record[`${courseName} - Absolviert`] || '').toLowerCase() === 'ja');
-  } else if (cfg.hasValidUntil) {
-    // Für AKL-Test / ÖFAST: sichtbar, wenn "GÜLTIG BIS" gesetzt ist
-    show = !!record[`${courseName} - GÜLTIG BIS`];
-  } else {
-    // Fallback: sichtbar, wenn Datum gesetzt ist
-    show = !!record[`${courseName} - Datum`];
-  }
+        if (cfg.hasCompleted) {
+          show = ((record[`${courseName} - Absolviert`] || '').toLowerCase() === 'ja');
+        } else if (cfg.hasValidUntil) {
+          show = !!record[`${courseName} - GÜLTIG BIS`];
+        } else {
+          show = !!record[`${courseName} - Datum`];
+        }
 
-  if (!show) return;
-}
-
+        if (!show) return;
+      }
       const card = makeCourseCard(courseName, record);
       container.append(card);
     });
@@ -396,20 +391,23 @@ const dienstgradBilder = {
   "VI": "https://i.postimg.cc/DzvR9KMx/Dgrd-vi-noe-svg.png",
   "VR": "https://i.postimg.cc/V6SZwsBW/Dgrd-vr-noe-svg.png"
 };
+
+/********************** CSV Upload ************************/
 function uploadCSVToGoogle() {
   const csvContent = generateCSV(allRecords);
-  const url = WEB_APP_URL + "?csv=" + encodeURIComponent(csvContent);
-
-  fetch(url)
-    .then(response => response.text())
-    .then(data => {
-      console.log("Antwort vom Google-Script:", data);
-    })
-    .catch(err => {
-      console.error("Fehler beim Hochladen:", err);
-    });
+  fetch(WEB_APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ csv: csvContent })
+  })
+  .then(response => response.text())
+  .then(data => {
+    console.log("Antwort vom Google-Script:", data);
+  })
+  .catch(err => {
+    console.error("Fehler beim Hochladen:", err);
+  });
 }
-
 
 function generateCSV(records) {
   // Dynamische Spalten aus Daten sicherstellen
