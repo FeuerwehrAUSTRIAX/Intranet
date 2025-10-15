@@ -597,3 +597,73 @@ function generateCSV(records) {
   });
   return csv;
 }
+/********************** Speicheranzeige **********************/
+
+function showSaveProgress(savePromise) {
+  const saveStatus = document.getElementById('saveStatus');
+  const saveProgress = document.getElementById('saveProgress');
+  const saveMessage = document.getElementById('saveMessage');
+
+  saveStatus.style.display = 'block';
+  saveProgress.style.width = '0%';
+  saveMessage.textContent = 'Speichere...';
+
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += 10;
+    if (progress > 90) progress = 90;
+    saveProgress.style.width = progress + '%';
+  }, 300);
+
+  savePromise
+    .then(() => {
+      clearInterval(interval);
+      saveProgress.style.width = '100%';
+      saveProgress.style.backgroundColor = '#28a745';
+      saveMessage.textContent = '✅ Erfolgreich gespeichert!';
+      setTimeout(() => {
+        saveStatus.style.display = 'none';
+        saveProgress.style.backgroundColor = '#007bff';
+      }, 2000);
+    })
+    .catch(() => {
+      clearInterval(interval);
+      saveProgress.style.width = '100%';
+      saveProgress.style.backgroundColor = '#dc3545';
+      saveMessage.textContent = '❌ Fehler beim Speichern!';
+      setTimeout(() => {
+        saveStatus.style.display = 'none';
+        saveProgress.style.backgroundColor = '#007bff';
+      }, 3000);
+    });
+}
+
+/******************** Upload mit Anzeige *********************/
+function uploadCSVToGoogle() {
+  const csvContent = generateCSV(allRecords);
+
+  // Ladeanzeige anzeigen
+  const promise = new Promise((resolve, reject) => {
+    fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ csv: csvContent })
+    })
+    .then(response => {
+      if (!response.ok) throw new Error("HTTP Fehler " + response.status);
+      return response.text();
+    })
+    .then(data => {
+      console.log('Antwort vom Google-Script:', data);
+      resolve();
+    })
+    .catch(err => {
+      console.error('Fehler beim Hochladen:', err);
+      reject();
+    });
+  });
+
+  // Fortschritt starten
+  showSaveProgress(promise);
+}
+
