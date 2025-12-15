@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FFWN – Mitgliederanmeldung</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="bg">
+    <!-- Optional: echtes Hintergrundbild -->
+    <!-- <img class="bg__img" src="bg.jpg" alt=""> -->
+    <div class="bg__overlay"></div>
+    <div class="bg__noise"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand__badge" aria-label="FFWN Logo">
+        <img src="ffwn.png" alt="FFWN Logo">
+      </div>
+      <div class="brand__txt">
+        <div class="brand__title">Freiwillige Feuerwehr Wiener Neustadt</div>
+        <div class="brand__sub">Mitgliederanmeldung</div>
+      </div>
+    </div>
+
+    <button id="themeToggle" class="theme" type="button" aria-label="Theme wechseln">
+      <span class="theme__dot"></span>
+      <span id="themeLabel" class="theme__label">Dark</span>
+    </button>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="card__head">
+        <h1>Mitgliederanmeldung</h1>
+        <p class="muted">
+          Bitte alle Felder sorgfältig ausfüllen. Pflichtfelder sind mit <span class="req">*</span> markiert.
+        </p>
+      </div>
+
+      <form id="memberForm" class="form" autocomplete="on">
+        <div class="wizard">
+          <!-- Progressbar erst ab Schritt 2 sichtbar (JS blendet ein/aus) -->
+          <div id="wizTop" class="wizard__top">
+            <div class="wizard__bar">
+              <div id="wizBar" class="wizard__barFill"></div>
+            </div>
+            <div id="wizLabel" class="wizard__label">Schritt 1/4</div>
+          </div>
+
+          <div id="stepHost"></div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn--ghost" id="backBtn" type="button">Zurück</button>
+          <button class="btn btn--ghost" id="resetBtn" type="reset">Zurücksetzen</button>
+
+          <button class="btn btn--primary" id="nextBtn" type="button">
+            Weiter <span class="btn__shine"></span>
+          </button>
+
+          <button class="btn btn--primary" id="submitBtn" type="submit" style="display:none">
+            Absenden <span class="btn__shine"></span>
+          </button>
+        </div>
+
+        <div id="msgOk" class="msg msg--ok" role="status" aria-live="polite"></div>
+        <div id="msgErr" class="msg msg--err" role="alert" aria-live="assertive"></div>
+      </form>
+    </section>
+
+    <footer class="foot">
+      <span class="muted">FFWN · internes System</span>
+    </footer>
+  </main>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
