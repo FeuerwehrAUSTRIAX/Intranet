@@ -19,7 +19,7 @@ const firebaseConfig = {
 const ORG_ID = "ffwn";
 const MEMBER_PREFIX = "21401";
 
-// Fixwerte (nicht anzeigen in Steps, aber in Summary als Info + speichern)
+// Fixwerte (nicht anzeigen in Steps, aber im Summary als Info + speichern)
 const DEFAULTS = {
   aktueller_dienstgrad: "PFM",
   funktion: "Mannschaft",
@@ -108,7 +108,7 @@ function todayAT(){
 }
 
 // Wizard-State (Step-Wechsel + Reload safe)
-const STORAGE_KEY = "ffwn_member_wizard_state_v5";
+const STORAGE_KEY = "ffwn_member_wizard_state_v6";
 let state = loadState();
 let currentStep = loadStep();
 
@@ -165,19 +165,7 @@ function renderSummary(host){
     ["Personalbild (URL)", get("personalbild_url")]
   ];
 
-  // Fixwerte (nur Anzeige)
-  const einsendeDatum = todayAT();
-  const rowsFix = [
-    ["Mitglied seit", einsendeDatum],
-    ["Aktueller Dienstgrad", DEFAULTS.aktueller_dienstgrad],
-    ["Letzte Beförderung", einsendeDatum],
-    ["Funktion", DEFAULTS.funktion],
-    ["Ausbildner?", DEFAULTS.ausbildner],
-    ["Ausbildner für", DEFAULTS.ausbildner_fur],
-    ["Dienstzuteilung", DEFAULTS.dienstzuteilung],
-    ["Aktives Mitglied?", DEFAULTS.aktives_mitglied]
-  ];
-
+  // Pflichtfelder prüfen
   const requiredKeys = [
     ["vorname", "Vorname"],
     ["nachname", "Nachname"],
@@ -190,21 +178,19 @@ function renderSummary(host){
   const wrap = document.createElement("div");
   wrap.className = "summaryV2";
 
-  // HERO: nur Name + Einheit
+  /* ===== HERO ===== */
   const hero = document.createElement("div");
   hero.className = "summaryHero";
 
-  const left = document.createElement("div");
-  left.className = "summaryHero__left";
-
   const name = `${get("vorname") || "—"} ${get("nachname") || ""}`.trim();
-  left.innerHTML = `
-    <div class="summaryHero__name">${escapeHtml(name || "—")}</div>
-    <div class="summaryHero__unit">${escapeHtml(DEFAULTS.dienstzuteilung)}</div>
+  hero.innerHTML = `
+    <div class="summaryHero__left">
+      <div class="summaryHero__name">${escapeHtml(name || "—")}</div>
+      <div class="summaryHero__unit">${escapeHtml(DEFAULTS.dienstzuteilung)}</div>
+    </div>
   `;
-  hero.appendChild(left);
 
-  // optional Preview
+  // Optionales Bild
   const imgUrl = get("personalbild_url");
   if (imgUrl){
     const media = document.createElement("div");
@@ -212,7 +198,7 @@ function renderSummary(host){
     const img = document.createElement("img");
     img.src = imgUrl;
     img.alt = "Personalbild Vorschau";
-    img.onerror = () => { media.style.display = "none"; };
+    img.onerror = () => media.remove();
     media.appendChild(img);
     hero.appendChild(media);
   }
@@ -226,57 +212,60 @@ function renderSummary(host){
     wrap.appendChild(warn);
   }
 
-  // Cards: Person / Kontakt / Adresse / Fixwerte
+  /* ===== 3 SPALTEN ===== */
   const cards = document.createElement("div");
   cards.className = "summaryCards";
   cards.appendChild(makeCard("Person", rowsPerson));
   cards.appendChild(makeCard("Kontakt", rowsKontakt));
   cards.appendChild(makeCard("Adresse", rowsAdresse));
-  cards.appendChild(makeCard("Fixwerte", rowsFix));
   wrap.appendChild(cards);
 
-  // DSGVO + Richtigkeit nur hier (letzte Seite)
+  /* ===== DSGVO NUR HIER ===== */
   const checks = document.createElement("div");
   checks.className = "summaryChecks";
   checks.innerHTML = `
     <label class="check">
-      <input id="dsgvo" type="checkbox" ${state.__dsgvo ? "checked" : ""} />
+      <input id="dsgvo" type="checkbox" ${state.__dsgvo ? "checked" : ""}>
       <span>Ich stimme der Datenverarbeitung (DSGVO) zu. <span class="req">*</span></span>
     </label>
 
     <label class="check">
-      <input id="richtigkeit" type="checkbox" ${state.__richtigkeit ? "checked" : ""} />
+      <input id="richtigkeit" type="checkbox" ${state.__richtigkeit ? "checked" : ""}>
       <span>Ich bestätige, dass die Angaben korrekt sind. <span class="req">*</span></span>
     </label>
 
-    <div class="summaryHint">Mit „Absenden“ wird gespeichert und danach die Mitgliedsnummer angezeigt.</div>
+    <div class="summaryHint">
+      Mit „Absenden“ wird gespeichert und danach die Mitgliedsnummer angezeigt.
+    </div>
   `;
   wrap.appendChild(checks);
-
   host.appendChild(wrap);
 
-  // Checkbox state speichern
-  const dsgvoEl = document.getElementById("dsgvo");
-  const richEl = document.getElementById("richtigkeit");
-  dsgvoEl?.addEventListener("change", () => { state.__dsgvo = !!dsgvoEl.checked; saveState(); });
-  richEl?.addEventListener("change", () => { state.__richtigkeit = !!richEl.checked; saveState(); });
+  // Checkbox State speichern
+  document.getElementById("dsgvo")?.addEventListener("change", e => {
+    state.__dsgvo = e.target.checked; saveState();
+  });
+  document.getElementById("richtigkeit")?.addEventListener("change", e => {
+    state.__richtigkeit = e.target.checked; saveState();
+  });
 
   function makeCard(title, rows){
     const c = document.createElement("div");
     c.className = "sCard";
 
-    const filled = rows.filter(([,v]) => (v ?? "").toString().trim()).length;
-
-    const head = document.createElement("div");
-    head.className = "sCard__title";
-    head.innerHTML = `<div>${escapeHtml(title)}</div><div class="sCard__count">${filled}/${rows.length}</div>`;
-    c.appendChild(head);
+    const filled = rows.filter(([,v]) => (v ?? "").trim()).length;
+    c.innerHTML = `
+      <div class="sCard__title">
+        <div>${escapeHtml(title)}</div>
+        <div class="sCard__count">${filled}/${rows.length}</div>
+      </div>
+    `;
 
     const kv = document.createElement("div");
     kv.className = "kv";
 
-    for (const [k, v] of rows){
-      const val = (v ?? "").toString().trim();
+    for (const [k,v] of rows){
+      const val = (v ?? "").trim();
       const row = document.createElement("div");
       row.className = "kvRow";
       row.innerHTML = `
@@ -289,6 +278,7 @@ function renderSummary(host){
     return c;
   }
 }
+
 
 function renderStep(){
   saveState();
@@ -509,7 +499,7 @@ el("memberForm")?.addEventListener("submit", async (e) => {
   if (!(state.dmail ?? "").toString().trim()) return setMsg("err", "D-Mail Adresse fehlt.");
   if (!(state.identifikationsnummer ?? "").toString().trim()) return setMsg("err", "Citizen ID fehlt.");
 
-  // DSGVO/Richtigkeit nur am Schluss vorhanden → in state gespeichert
+  // DSGVO/Richtigkeit nur am Schluss (in Summary) -> in state
   if (!state.__dsgvo) return setMsg("err", "Bitte DSGVO Zustimmung bestätigen.");
   if (!state.__richtigkeit) return setMsg("err", "Bitte Richtigkeit bestätigen.");
 
