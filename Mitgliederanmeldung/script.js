@@ -150,9 +150,6 @@ async function checkToken(token){
   if (data.active === false) return { ok:false, reason:"Token deaktiviert." };
   if (data.used === true) return { ok:false, reason:"Token wurde bereits verwendet." };
 
-  // optional: expiry (wenn du später willst)
-  // if (data.expiresAt && data.expiresAt.toDate && data.expiresAt.toDate() < new Date()) ...
-
   return { ok:true };
 }
 
@@ -179,7 +176,6 @@ async function handleTokenCheck(){
       return;
     }
 
-    // ok -> freischalten
     state.__token = token;
     state.__token_ok = true;
     saveState();
@@ -352,7 +348,6 @@ function renderStep(){
 }
 
 function validateRequired(){
-  // minimal: Pflichtfelder
   const need = [
     ["vorname", "Vorname"],
     ["nachname", "Nachname"],
@@ -455,24 +450,37 @@ async function submitAll(){
         usedBy: docId
       }, { merge:true });
 
-      return { memberNumber, docId };
+      return { memberNumber, docId, einsendeDatum };
     });
 
-    // Subcollection courses/_meta (außerhalb Transaction ok)
+    // Subcollection courses/_meta
     await setDoc(doc(db, "orgs", ORG_ID, "members", res.docId, "courses", "_meta"), {
       createdAt: serverTimestamp(),
       note: "Auto-created courses container"
     });
 
+    // ✅ NEW: Beförderungshistorie anlegen
+    await setDoc(doc(db, "orgs", ORG_ID, "members", res.docId, "befoerderungen", "_meta"), {
+      createdAt: serverTimestamp(),
+      note: "Auto-created promotion history container"
+    });
+
+    await setDoc(doc(db, "orgs", ORG_ID, "members", res.docId, "befoerderungen", "init"), {
+      type: "init",
+      from: null,
+      to: DEFAULTS.aktueller_dienstgrad,
+      date: res.einsendeDatum,
+      createdAt: serverTimestamp()
+    });
+
     setMsg("ok", `✅ Gespeichert!\nMitgliedsnummer: ${res.memberNumber}\nDokument: ${res.docId}`);
 
-    // Reset
+    // Reset (komplett)
     setTimeout(()=>{
       state = {};
       currentStep = 0;
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_KEY+"_step");
-      // zurück ins Token Gate
       el("memberForm").style.display = "none";
       el("tokenGate").style.display = "block";
       el("tokenInput").value = "";
@@ -489,7 +497,6 @@ async function submitAll(){
 
 /* ================= NAV ================= */
 el("nextBtn").addEventListener("click", ()=>{
-  // simple step validation: nur wenn Pflichtfeld in dem step fehlt -> meckern
   const step = STEPS[currentStep];
   if (step.key !== "summary"){
     for (const f of step.fields){
@@ -509,7 +516,7 @@ el("backBtn").addEventListener("click", ()=>{
 });
 
 el("resetBtn").addEventListener("click", ()=>{
-  // nur formular reset, token bleibt
+  // ✅ FIX: nur formular reset, token bleibt
   const keepToken = { __token: state.__token, __token_ok: state.__token_ok };
   state = { ...keepToken };
   currentStep = 0;
