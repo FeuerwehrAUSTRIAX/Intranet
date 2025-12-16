@@ -75,10 +75,15 @@ const STEPS = [
   { key: "summary", title: "Zusammenfassung", fields: [] }
 ];
 
-/* ================= STATE ================= */
-const STORAGE_KEY = "ffwn_member_wizard_token_v1";
-let state = loadState();
+/* ================= STATE (FORM ONLY) =================
+   WICHTIG: Token wird NICHT im state gespeichert und NICHT persistiert. */
+const STORAGE_KEY = "ffwn_member_wizard_v2";
+let state = loadState();        // nur Formdaten + Checkboxen
 let currentStep = loadStep();
+
+/* Token nur in RAM (Session) */
+let sessionToken = null;
+let sessionTokenOk = false;
 
 /* ================= HELPERS ================= */
 const el = (id) => document.getElementById(id);
@@ -159,9 +164,19 @@ function showTokenMsg(type, text){
   box.textContent = text || "";
 }
 
+function lockForm(){
+  el("memberForm").style.display = "none";
+  el("tokenGate").style.display = "block";
+}
+
+function unlockForm(){
+  el("tokenGate").style.display = "none";
+  el("memberForm").style.display = "block";
+  renderStep();
+}
+
 async function handleTokenCheck(){
-  const raw = el("tokenInput").value;
-  const token = normToken(raw);
+  const token = normToken(el("tokenInput").value);
   el("tokenInput").value = token;
 
   if (!token) return showTokenMsg("err", "Bitte Token eingeben.");
@@ -172,29 +187,27 @@ async function handleTokenCheck(){
   try{
     const res = await checkToken(token);
     if (!res.ok){
+      sessionToken = null;
+      sessionTokenOk = false;
       showTokenMsg("err", res.reason);
       return;
     }
 
-    state.__token = token;
-    state.__token_ok = true;
-    saveState();
+    // ✅ Token NUR in RAM merken (nicht localStorage)
+    sessionToken = token;
+    sessionTokenOk = true;
 
     showTokenMsg("ok", "✅ Token gültig. Formular freigeschaltet.");
     unlockForm();
 
   }catch(e){
     console.error(e);
-    showTokenMsg("err", "Fehler beim Prüfen.");
+    sessionToken = null;
+    sessionTokenOk = false;
+    showTokenMsg("err", `Fehler beim Prüfen: ${e?.message || e}`);
   }finally{
     el("tokenBtn").disabled = false;
   }
-}
-
-function unlockForm(){
-  el("tokenGate").style.display = "none";
-  el("memberForm").style.display = "block";
-  renderStep();
 }
 
 /* ================= SUMMARY ================= */
@@ -364,17 +377,17 @@ function validateRequired(){
   return true;
 }
 
-/* ================= SUBMIT (TOKEN VERBRAUCHEN) ================= */
+/* ================= SUBMIT ================= */
 async function submitAll(){
-  if (!state.__token_ok || !state.__token){
-    setMsg("err", "Kein gültiger Token.");
+  if (!sessionTokenOk || !sessionToken){
+    setMsg("err", "Kein gültiger Token (bitte neu prüfen).");
     return;
   }
   if (!state.__dsgvo) return setMsg("err", "Bitte DSGVO bestätigen.");
   if (!state.__richtigkeit) return setMsg("err", "Bitte Richtigkeit bestätigen.");
   if (!validateRequired()) return;
 
-  const token = state.__token;
+  const token = sessionToken;
 
   el("submitBtn").disabled = true;
   setMsg("", "");
@@ -427,7 +440,7 @@ async function submitAll(){
         stadt: state.stadt ?? null,
         personalbild_url: state.personalbild_url ?? null,
 
-        // Fixwerte (nur speichern)
+        // Fixwerte
         mitglied_seit: einsendeDatum,
         aktuelle_dienstzuteilung: DEFAULTS.dienstzuteilung,
         aktueller_dienstgrad: DEFAULTS.aktueller_dienstgrad,
@@ -443,9 +456,10 @@ async function submitAll(){
         updatedAt: serverTimestamp()
       });
 
-      // 4) Token als benutzt markieren (mit Referenz)
+      // 4) ✅ Token: used=true UND active=false
       tx.set(tokenRef, {
         used: true,
+        active: false,
         usedAt: serverTimestamp(),
         usedBy: docId
       }, { merge:true });
@@ -459,7 +473,7 @@ async function submitAll(){
       note: "Auto-created courses container"
     });
 
-    // ✅ NEW: Beförderungshistorie anlegen
+    // ✅ Beförderungshistorie anlegen
     await setDoc(doc(db, "orgs", ORG_ID, "members", res.docId, "befoerderungen", "_meta"), {
       createdAt: serverTimestamp(),
       note: "Auto-created promotion history container"
@@ -475,17 +489,21 @@ async function submitAll(){
 
     setMsg("ok", `✅ Gespeichert!\nMitgliedsnummer: ${res.memberNumber}\nDokument: ${res.docId}`);
 
-    // Reset (komplett)
+    // ✅ Nach Submit alles sperren + Token im RAM löschen (1x gültig)
     setTimeout(()=>{
       state = {};
       currentStep = 0;
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(STORAGE_KEY+"_step");
-      el("memberForm").style.display = "none";
-      el("tokenGate").style.display = "block";
+      saveState(); saveStep();
+
+      sessionToken = null;
+      sessionTokenOk = false;
+
       el("tokenInput").value = "";
       showTokenMsg("", "");
-    }, 1200);
+
+      lockForm();
+      setMsg("", "");
+    }, 900);
 
   }catch(e){
     console.error(e);
@@ -516,12 +534,18 @@ el("backBtn").addEventListener("click", ()=>{
 });
 
 el("resetBtn").addEventListener("click", ()=>{
-  // ✅ FIX: nur formular reset, token bleibt
-  const keepToken = { __token: state.__token, __token_ok: state.__token_ok };
-  state = { ...keepToken };
+  // ✅ Reset killt ALLES inkl. Token (weil nur 1x gültig)
+  state = {};
   currentStep = 0;
   saveState(); saveStep();
-  renderStep();
+
+  sessionToken = null;
+  sessionTokenOk = false;
+
+  el("tokenInput").value = "";
+  showTokenMsg("", "");
+  lockForm();
+  setMsg("", "");
 });
 
 el("memberForm").addEventListener("submit", (e)=>{
@@ -532,16 +556,12 @@ el("memberForm").addEventListener("submit", (e)=>{
 /* ================= BOOT ================= */
 initTheme();
 
-// Token gate wiring
+// Wiring Token-Gate
 el("tokenBtn").addEventListener("click", handleTokenCheck);
 el("tokenInput").addEventListener("keydown", (e)=>{
   if (e.key === "Enter") handleTokenCheck();
 });
 
-// Auto unlock if already validated in localStorage
-if (state.__token_ok && state.__token){
-  unlockForm();
-} else {
-  el("memberForm").style.display = "none";
-  el("tokenGate").style.display = "block";
-}
+// ✅ WICHTIG: nie auto-unlock (kein Cache / kein Persistenz-Token)
+lockForm();
+renderStep();
