@@ -6,6 +6,10 @@ import {
   runTransaction,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import {
+  getAuth,
+  createUserWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAEKPiUzXc_tFvmiop4hDEdhv8Rkg2kWjU",
@@ -19,7 +23,7 @@ const firebaseConfig = {
 const ORG_ID = "ffwn";
 const MEMBER_PREFIX = "21401";
 
-// Fixwerte (nicht anzeigen in Steps, aber in Summary als Info + speichern)
+// Fixwerte (automatisch gesetzt, nicht in UI)
 const DEFAULTS = {
   aktueller_dienstgrad: "PFM",
   funktion: "Mannschaft",
@@ -34,17 +38,13 @@ const STEPS = [
     key: "personal",
     title: "Personendaten",
     fields: [
-      { id: "anrede", label: "Anrede", type: "select", required: false, options: ["", "Herr", "Frau", "Divers"] },
+      { id: "anrede", label: "Anrede", type: "select", required: true, options: ["", "Herr", "Frau", "Divers"] },
       { id: "titel", label: "Titel", type: "text", required: false, placeholder: "z.B. Ing., Dr." },
-
       { id: "vorname", label: "Namen (Vorname)", type: "text", required: true, placeholder: "Max" },
       { id: "nachname", label: "Nachnamen", type: "text", required: true, placeholder: "Mustermann" },
-
       { id: "geburtsdatum", label: "Geburtsdatum", type: "date", required: true },
-      { id: "beruf", label: "Beruf", type: "text", required: false },
-      { id: "geburtsort", label: "Geburtsort", type: "text", required: false },
-      { id: "familienstand", label: "Familienstand", type: "select", required: false, options: ["", "ledig", "verheiratet", "geschieden", "verwitwet", "eingetr. Partnerschaft"] },
-      { id: "staatsburgerschaft", label: "Staatsbürgerschaft", type: "text", required: false, placeholder: "AT" }
+      { id: "familienstand", label: "Familienstand", type: "select", required: true, options: ["", "ledig", "verheiratet", "geschieden", "verwitwet", "eingetr. Partnerschaft"] },
+      { id: "staatsburgerschaft", label: "Staatsbürgerschaft", type: "text", required: true, placeholder: "AT" }
     ]
   },
   {
@@ -54,7 +54,8 @@ const STEPS = [
       { id: "identifikationsnummer", label: "Identifikationsnummer (Citizen ID)", type: "text", required: true, placeholder: "CitizenID" },
       { id: "telefonnummer", label: "Telefonnummer", type: "tel", required: false, placeholder: "+43 …" },
       { id: "forumsname", label: "Forumsname", type: "text", required: false },
-      { id: "discord_id", label: "Discord ID", type: "text", required: false, placeholder: "z.B. @marco oder marco#1234" },
+      { id: "discord_tag", label: "Discord Tag", type: "text", required: true, placeholder: "z.B. @marco oder marco#1234" },
+      { id: "discord_user_id", label: "Discord User ID", type: "text", required: true, placeholder: "18-stellige Zahl (von Bot abfragen)", span2: true },
       { id: "dmail", label: "D-Mail Adresse", type: "email", required: true, placeholder: "name@email.at", span2: true }
     ]
   },
@@ -62,10 +63,18 @@ const STEPS = [
     key: "adresse",
     title: "Adresse & Bild",
     fields: [
-      { id: "adresse", label: "Adresse", type: "text", required: false, placeholder: "Straße Hausnummer", span2: true },
-      { id: "postleitzahl", label: "Postleitzahl", type: "text", required: false, placeholder: "2700" },
-      { id: "stadt", label: "Stadt", type: "text", required: false, placeholder: "Wiener Neustadt" },
-      { id: "personalbild_url", label: "Personalbild (URL)", type: "text", required: false, placeholder: "https://…", span2: true }
+      { id: "adresse", label: "Adresse", type: "text", required: true, placeholder: "Straße Hausnummer", span2: true },
+      { id: "postleitzahl", label: "Postleitzahl", type: "text", required: true, placeholder: "2700" },
+      { id: "stadt", label: "Stadt", type: "text", required: true, placeholder: "Wiener Neustadt" },
+      { id: "personalbild_url", label: "Personalbild (Direktlink)", type: "text", required: true, placeholder: "https://…", span2: true }
+    ]
+  },
+  {
+    key: "password",
+    title: "Passwort festlegen",
+    fields: [
+      { id: "password", label: "Passwort", type: "password", required: true, placeholder: "Mindestens 6 Zeichen", span2: true },
+      { id: "password_confirm", label: "Passwort bestätigen", type: "password", required: true, placeholder: "Passwort wiederholen", span2: true }
     ]
   },
   { key: "summary", title: "Zusammenfassung", fields: [] }
@@ -73,6 +82,7 @@ const STEPS = [
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 const el = (id) => document.getElementById(id);
 
@@ -107,8 +117,15 @@ function todayAT(){
   return `${dd}.${mm}.${yyyy}`;
 }
 
-// Wizard-State (Step-Wechsel + Reload safe)
-const STORAGE_KEY = "ffwn_member_wizard_state_v5";
+// Email aus Namen generieren
+function generateEmail(vorname, nachname) {
+  const v = vorname.toLowerCase().trim().replace(/\s+/g, "");
+  const n = nachname.toLowerCase().trim().replace(/\s+/g, "");
+  return `${v}.${n}@feuerwehr.gv.at`;
+}
+
+// Wizard-State
+const STORAGE_KEY = "ffwn_member_wizard_state_v7";
 let state = loadState();
 let currentStep = loadStep();
 
@@ -143,9 +160,9 @@ function renderSummary(host){
   const rowsPerson = [
     ["Anrede", get("anrede")],
     ["Titel", get("titel")],
+    ["Vorname", get("vorname")],
+    ["Nachname", get("nachname")],
     ["Geburtsdatum", get("geburtsdatum")],
-    ["Beruf", get("beruf")],
-    ["Geburtsort", get("geburtsort")],
     ["Familienstand", get("familienstand")],
     ["Staatsbürgerschaft", get("staatsburgerschaft")]
   ];
@@ -155,7 +172,8 @@ function renderSummary(host){
     ["Telefonnummer", get("telefonnummer")],
     ["D-Mail Adresse", get("dmail")],
     ["Forumsname", get("forumsname")],
-    ["Discord ID", get("discord_id")]
+    ["Discord Tag", get("discord_tag")],
+    ["Discord User ID", get("discord_user_id")]
   ];
 
   const rowsAdresse = [
@@ -165,7 +183,6 @@ function renderSummary(host){
     ["Personalbild (URL)", get("personalbild_url")]
   ];
 
-  // Fixwerte (nur Anzeige)
   const einsendeDatum = todayAT();
   const rowsFix = [
     ["Mitglied seit", einsendeDatum],
@@ -178,19 +195,38 @@ function renderSummary(host){
     ["Aktives Mitglied?", DEFAULTS.aktives_mitglied]
   ];
 
+  // Generierte Email anzeigen
+  const vorname = get("vorname");
+  const nachname = get("nachname");
+  const generatedEmail = vorname && nachname ? generateEmail(vorname, nachname) : "—";
+  const rowsAuth = [
+    ["Login-Email", generatedEmail],
+    ["Passwort", "●●●●●●●●"]
+  ];
+
   const requiredKeys = [
+    ["anrede", "Anrede"],
     ["vorname", "Vorname"],
     ["nachname", "Nachname"],
     ["geburtsdatum", "Geburtsdatum"],
+    ["familienstand", "Familienstand"],
+    ["staatsburgerschaft", "Staatsbürgerschaft"],
     ["identifikationsnummer", "Citizen ID"],
-    ["dmail", "D-Mail Adresse"]
+    ["discord_tag", "Discord Tag"],
+    ["discord_user_id", "Discord User ID"],
+    ["dmail", "D-Mail Adresse"],
+    ["adresse", "Adresse"],
+    ["postleitzahl", "Postleitzahl"],
+    ["stadt", "Stadt"],
+    ["personalbild_url", "Personalbild"],
+    ["password", "Passwort"]
   ];
   const missing = requiredKeys.filter(([k]) => !get(k)).map(([,label]) => label);
 
   const wrap = document.createElement("div");
   wrap.className = "summaryV2";
 
-  // HERO: nur Name + Einheit
+  // HERO
   const hero = document.createElement("div");
   hero.className = "summaryHero";
 
@@ -204,7 +240,6 @@ function renderSummary(host){
   `;
   hero.appendChild(left);
 
-  // optional Preview
   const imgUrl = get("personalbild_url");
   if (imgUrl){
     const media = document.createElement("div");
@@ -226,16 +261,17 @@ function renderSummary(host){
     wrap.appendChild(warn);
   }
 
-  // Cards: Person / Kontakt / Adresse / Fixwerte
+  // Cards
   const cards = document.createElement("div");
   cards.className = "summaryCards";
   cards.appendChild(makeCard("Person", rowsPerson));
   cards.appendChild(makeCard("Kontakt", rowsKontakt));
   cards.appendChild(makeCard("Adresse", rowsAdresse));
+  cards.appendChild(makeCard("System-Login", rowsAuth));
   cards.appendChild(makeCard("Fixwerte", rowsFix));
   wrap.appendChild(cards);
 
-  // DSGVO + Richtigkeit nur hier (letzte Seite)
+  // DSGVO + Richtigkeit
   const checks = document.createElement("div");
   checks.className = "summaryChecks";
   checks.innerHTML = `
@@ -249,13 +285,12 @@ function renderSummary(host){
       <span>Ich bestätige, dass die Angaben korrekt sind. <span class="req">*</span></span>
     </label>
 
-    <div class="summaryHint">Mit „Absenden“ wird gespeichert und danach die Mitgliedsnummer angezeigt.</div>
+    <div class="summaryHint">Mit „Absenden" wird ein Firebase-Account erstellt, die Daten gespeichert und die Mitgliedsnummer + Login-Email angezeigt.</div>
   `;
   wrap.appendChild(checks);
 
   host.appendChild(wrap);
 
-  // Checkbox state speichern
   const dsgvoEl = document.getElementById("dsgvo");
   const richEl = document.getElementById("richtigkeit");
   dsgvoEl?.addEventListener("change", () => { state.__dsgvo = !!dsgvoEl.checked; saveState(); });
@@ -265,7 +300,7 @@ function renderSummary(host){
     const c = document.createElement("div");
     c.className = "sCard";
 
-    const filled = rows.filter(([,v]) => (v ?? "").toString().trim()).length;
+    const filled = rows.filter(([,v]) => (v ?? "").toString().trim() && v !== "—" && v !== "●●●●●●●●").length;
 
     const head = document.createElement("div");
     head.className = "sCard__title";
@@ -281,7 +316,7 @@ function renderSummary(host){
       row.className = "kvRow";
       row.innerHTML = `
         <div class="kvK">${escapeHtml(k)}</div>
-        <div class="kvV ${val ? "" : "kvV--empty"}">${escapeHtml(val || "—")}</div>
+        <div class="kvV ${val && val !== "—" ? "" : "kvV--empty"}">${escapeHtml(val || "—")}</div>
       `;
       kv.appendChild(row);
     }
@@ -299,7 +334,6 @@ function renderStep(){
   if (!host) return;
   host.innerHTML = "";
 
-  // Progress erst ab Schritt 2
   const wizTop = el("wizTop");
   if (wizTop) wizTop.style.display = currentStep === 0 ? "none" : "flex";
 
@@ -383,6 +417,36 @@ function validateStep(){
   const step = STEPS[currentStep];
   if (step.key === "summary") return true;
 
+  // Passwort-Schritt: Prüfe ob Passwörter übereinstimmen
+  if (step.key === "password") {
+    const pw = (state.password ?? "").toString().trim();
+    const pwConfirm = (state.password_confirm ?? "").toString().trim();
+    
+    if (!pw) {
+      setMsg("err", "Bitte Passwort eingeben.");
+      document.querySelector(`[name="password"]`)?.focus?.();
+      return false;
+    }
+    
+    if (pw.length < 6) {
+      setMsg("err", "Passwort muss mindestens 6 Zeichen lang sein.");
+      document.querySelector(`[name="password"]`)?.focus?.();
+      return false;
+    }
+    
+    if (!pwConfirm) {
+      setMsg("err", "Bitte Passwort bestätigen.");
+      document.querySelector(`[name="password_confirm"]`)?.focus?.();
+      return false;
+    }
+    
+    if (pw !== pwConfirm) {
+      setMsg("err", "Passwörter stimmen nicht überein!");
+      document.querySelector(`[name="password_confirm"]`)?.focus?.();
+      return false;
+    }
+  }
+
   for (const f of step.fields){
     if (!f.required) continue;
     const v = (state[f.id] ?? "").toString().trim();
@@ -392,50 +456,45 @@ function validateStep(){
       return false;
     }
   }
-
-  if (step.key === "kontakt"){
-    const citizen = (state.identifikationsnummer ?? "").toString().trim();
-    if (!citizen){
-      setMsg("err", "Identifikationsnummer (Citizen ID) ist Pflicht.");
-      document.querySelector(`[name="identifikationsnummer"]`)?.focus?.();
-      return false;
-    }
-  }
   return true;
 }
 
-async function createMemberDoc(memberNumber){
+async function createMemberDoc(memberNumber, uid){
   const vorname = (state.vorname ?? "").toString().trim();
   const nachname = (state.nachname ?? "").toString().trim();
   const docId = sanitizeDocId(`${memberNumber}_${vorname}_${nachname}`);
   const memberRef = doc(db, "orgs", ORG_ID, "members", docId);
 
   const einsendeDatum = todayAT();
+  const loginEmail = generateEmail(vorname, nachname);
 
   await setDoc(memberRef, {
     orgId: ORG_ID,
     mitgliedsnummer: memberNumber,
+    uid: uid, // Firebase Auth UID
 
     anrede: state.anrede ?? null,
     titel: state.titel ?? null,
     vorname,
     nachname,
     geburtsdatum: state.geburtsdatum ?? null,
-    beruf: state.beruf ?? null,
-    geburtsort: state.geburtsort ?? null,
     familienstand: state.familienstand ?? null,
     staatsburgerschaft: state.staatsburgerschaft ?? null,
     identifikationsnummer: state.identifikationsnummer ?? null,
     telefonnummer: state.telefonnummer ?? null,
     forumsname: state.forumsname ?? null,
-    discord_id: state.discord_id ?? null,
+    discord_tag: state.discord_tag ?? null,
+    discord_user_id: state.discord_user_id ?? null,
     adresse: state.adresse ?? null,
     postleitzahl: state.postleitzahl ?? null,
     stadt: state.stadt ?? null,
     dmail: state.dmail ?? null,
     personalbild_url: state.personalbild_url ?? null,
 
-    // Fixwerte (nur speichern)
+    // System-Login
+    login_email: loginEmail,
+
+    // Fixwerte
     mitglied_seit: einsendeDatum,
     aktueller_dienstgrad: DEFAULTS.aktueller_dienstgrad,
     letzte_beforderung: einsendeDatum,
@@ -456,7 +515,7 @@ async function createMemberDoc(memberNumber){
     note: "Auto-created courses container"
   });
 
-  return docId;
+  return { docId, loginEmail };
 }
 
 function initTheme(){
@@ -501,27 +560,69 @@ el("memberForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   setMsg(null, "");
 
-  // Final checks
-  const vorname = (state.vorname ?? "").toString().trim();
-  const nachname = (state.nachname ?? "").toString().trim();
-  if (!vorname || !nachname) return setMsg("err", "Vorname/Nachname fehlt.");
-  if (!(state.geburtsdatum ?? "").toString().trim()) return setMsg("err", "Geburtsdatum fehlt.");
-  if (!(state.dmail ?? "").toString().trim()) return setMsg("err", "D-Mail Adresse fehlt.");
-  if (!(state.identifikationsnummer ?? "").toString().trim()) return setMsg("err", "Citizen ID fehlt.");
+  // Validierung aller Pflichtfelder
+  const requiredFields = [
+    ["anrede", "Anrede"],
+    ["vorname", "Vorname"],
+    ["nachname", "Nachname"],
+    ["geburtsdatum", "Geburtsdatum"],
+    ["familienstand", "Familienstand"],
+    ["staatsburgerschaft", "Staatsbürgerschaft"],
+    ["identifikationsnummer", "Citizen ID"],
+    ["discord_tag", "Discord Tag"],
+    ["discord_user_id", "Discord User ID"],
+    ["dmail", "D-Mail Adresse"],
+    ["adresse", "Adresse"],
+    ["postleitzahl", "Postleitzahl"],
+    ["stadt", "Stadt"],
+    ["personalbild_url", "Personalbild"],
+    ["password", "Passwort"]
+  ];
 
-  // DSGVO/Richtigkeit nur am Schluss vorhanden → in state gespeichert
+  for (const [key, label] of requiredFields) {
+    if (!(state[key] ?? "").toString().trim()) {
+      return setMsg("err", `${label} fehlt.`);
+    }
+  }
+
+  // Passwort nochmals prüfen
+  const pw = state.password.trim();
+  const pwConfirm = state.password_confirm.trim();
+  if (pw !== pwConfirm) {
+    return setMsg("err", "Passwörter stimmen nicht überein!");
+  }
+  if (pw.length < 6) {
+    return setMsg("err", "Passwort muss mindestens 6 Zeichen lang sein.");
+  }
+
   if (!state.__dsgvo) return setMsg("err", "Bitte DSGVO Zustimmung bestätigen.");
   if (!state.__richtigkeit) return setMsg("err", "Bitte Richtigkeit bestätigen.");
 
   const btn = el("submitBtn");
   const old = btn?.innerHTML;
-  if (btn){ btn.disabled = true; btn.textContent = "Wird gesendet…"; }
+  if (btn){ btn.disabled = true; btn.textContent = "Wird erstellt…"; }
 
   try{
-    const memberNumber = await allocateMemberNumber();
-    const docId = await createMemberDoc(memberNumber);
+    const vorname = state.vorname.trim();
+    const nachname = state.nachname.trim();
+    const loginEmail = generateEmail(vorname, nachname);
 
-    setMsg("ok", `✅ Gespeichert!\nMitgliedsnummer: ${memberNumber}\nDokument: ${docId}`);
+    // 1. Firebase Auth Account erstellen
+    const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, pw);
+    const uid = userCredential.user.uid;
+
+    // 2. Mitgliedsnummer vergeben
+    const memberNumber = await allocateMemberNumber();
+
+    // 3. Firestore Dokument erstellen
+    await createMemberDoc(memberNumber, uid);
+
+    setMsg("ok", `✅ Erfolgreich erstellt!
+    
+Mitgliedsnummer: ${memberNumber}
+Login-Email: ${loginEmail}
+
+Du kannst dich nun mit dieser Email und deinem Passwort anmelden.`);
 
     setTimeout(() => {
       state = {};
@@ -529,11 +630,17 @@ el("memberForm")?.addEventListener("submit", async (e) => {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_KEY + "_step");
       el("memberForm").reset();
-    }, 1500);
+    }, 6000);
 
   }catch(err){
     console.error(err);
-    setMsg("err", "❌ Fehler: " + (err?.message || err));
+    let errMsg = err?.message || err;
+    if (err?.code === "auth/email-already-in-use") {
+      errMsg = "Diese Email-Adresse existiert bereits im System!";
+    } else if (err?.code === "auth/weak-password") {
+      errMsg = "Das Passwort ist zu schwach!";
+    }
+    setMsg("err", "❌ Fehler: " + errMsg);
   }finally{
     if (btn){ btn.disabled = false; btn.innerHTML = old || `Absenden <span class="btn__shine"></span>`; }
   }
