@@ -9,20 +9,23 @@
 
 <body>
   <div class="bg">
+    <!-- Optional: echtes Hintergrundbild -->
+    <!-- <img class="bg__img" src="bg.jpg" alt=""> -->
     <div class="bg__overlay"></div>
     <div class="bg__noise"></div>
   </div>
 
   <header class="topbar">
     <div class="brand">
-      <div class="brand__badge" aria-label="FFWN Logo">
-        <!-- Direktlink möglich -->
-        <img
-          src="https://www.ffwrn.at/wp-content/uploads/2018/10/Logo-FFWN_klein-490x321.png"
-          alt="FFWN Logo"
-          referrerpolicy="no-referrer"
-        >
-      </div>
+
+<div class="brand__badge">
+  <img
+    src="https://www.ffwrn.at/wp-content/uploads/2018/10/Logo-FFWN_klein.png"
+    alt="FFWN Logo"
+    referrerpolicy="no-referrer">
+  
+</div>
+
       <div class="brand__txt">
         <div class="brand__title">Freiwillige Feuerwehr Wiener Neustadt</div>
         <div class="brand__sub">Mitgliederanmeldung</div>
@@ -44,26 +47,9 @@
         </p>
       </div>
 
-      <!-- TOKEN GATE -->
-      <div id="tokenGate" class="tokenGate">
-        <div class="tokenGate__inner">
-          <div class="tokenGate__title">Zugangstoken</div>
-          <div class="tokenGate__sub muted">Bitte Token eingeben, damit die Anmeldung freigeschaltet wird.</div>
-
-          <div class="tokenGate__row">
-            <input id="tokenInput" type="text" placeholder="z.B. FFWN-AB12-CD34" autocomplete="off" />
-            <button id="tokenBtn" class="btn btn--primary" type="button">
-              Prüfen <span class="btn__shine"></span>
-            </button>
-          </div>
-
-          <div id="tokenMsg" class="tokenGate__msg"></div>
-        </div>
-      </div>
-
-      <!-- FORM (erst nach Token sichtbar) -->
-      <form id="memberForm" class="form" autocomplete="on" style="display:none">
+      <form id="memberForm" class="form" autocomplete="on">
         <div class="wizard">
+          <!-- Progressbar erst ab Schritt 2 sichtbar (JS blendet ein/aus) -->
           <div id="wizTop" class="wizard__top">
             <div class="wizard__bar">
               <div id="wizBar" class="wizard__barFill"></div>
@@ -100,4 +86,3 @@
   <script type="module" src="script.js"></script>
 </body>
 </html>
-
