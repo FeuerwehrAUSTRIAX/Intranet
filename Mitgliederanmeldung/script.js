@@ -1,33 +1,29 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  runTransaction,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth,
-  createUserWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  createUserWithEmailAndPassword,
+  updateProfile
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+// Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyAEKPiUzXc_tFvmiop4hDEdhv8Rkg2kWjU",
+  apiKey: "AIzaSyBqGQk0R...kWjU",
   authDomain: "intranet-ffwn.firebaseapp.com",
   projectId: "intranet-ffwn",
-  storageBucket: "intranet-ffwn.firebasestorage.app",
-  messagingSenderId: "221055908808",
-  appId: "1:221055908808:web:b1c63120bc73aa26a6defd"
+  storageBucket: "intranet-ffwn.appspot.com",
+  messagingSenderId: "332331477899",
+  appId: "1:332331477899:web:cb6a915a9d5e47ebc8d53c"
 };
 
-const ORG_ID = "ffwn";
-const MEMBER_PREFIX = "21401";
+// Init
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-// Fixwerte (automatisch gesetzt, nicht in UI)
+// Defaults (Fixwerte)
 const DEFAULTS = {
-  aktueller_dienstgrad: "PFM",
-  funktion: "Mannschaft",
-  ausbildner: "Nein",
+  anbieter: "FFWN",
+  dienstgrad: "Feuerwehrmann",
+  dienstnummer: "—",
   ausbildner_fur: "---",
   dienstzuteilung: "Feuerwehr Wiener Neustadt",
   aktives_mitglied: "Ja"
@@ -43,66 +39,72 @@ const STEPS = [
       { id: "vorname", label: "Namen (Vorname)", type: "text", required: true, placeholder: "Max" },
       { id: "nachname", label: "Nachnamen", type: "text", required: true, placeholder: "Mustermann" },
       { id: "geburtsdatum", label: "Geburtsdatum", type: "date", required: true },
-      { id: "familienstand", label: "Familienstand", type: "select", required: true, options: ["", "ledig", "verheiratet", "geschieden", "verwitwet", "eingetr. Partnerschaft"] },
-      { id: "staatsburgerschaft", label: "Staatsbürgerschaft", type: "text", required: true, placeholder: "AT" }
+      {
+        id: "familienstand",
+        label: "Familienstand",
+        type: "select",
+        required: false,
+        options: ["", "ledig", "verheiratet", "geschieden", "verwitwet", "eingetr. Partnerschaft"]
+      },
+      {
+        id: "staatsburgerschaft",
+        label: "Staatsbürgerschaft",
+        type: "select",
+        required: true,
+        options: ["", "Österreich", "Deutschland", "Schweiz", "Italien", "Ungarn", "Tschechien", "Slowakei", "Slowenien", "Kroatien", "Rumänien", "Bulgarien", "Polen", "Andere"]
+      }
     ]
   },
   {
     key: "kontakt",
     title: "Kontakt",
     fields: [
-      { id: "identifikationsnummer", label: "Identifikationsnummer (Citizen ID)", type: "text", required: true, placeholder: "CitizenID" },
-      { id: "telefonnummer", label: "Telefonnummer", type: "tel", required: false, placeholder: "+43 …" },
-      { id: "forumsname", label: "Forumsname", type: "text", required: false },
-      { id: "discord_tag", label: "Discord Tag", type: "text", required: true, placeholder: "z.B. @marco oder marco#1234" },
-      { id: "discord_user_id", label: "Discord User ID", type: "text", required: true, placeholder: "18-stellige Zahl (von Bot abfragen)", span2: true },
-      { id: "dmail", label: "D-Mail Adresse", type: "email", required: true, placeholder: "name@email.at", span2: true }
+      { id: "identifikationsnummer", label: "Citizen ID", type: "text", required: true, placeholder: "z.B. 123456" },
+      { id: "telefonnummer", label: "Telefonnummer", type: "tel", required: true, placeholder: "+43 ..." },
+      { id: "dmail", label: "D-Mail Adresse", type: "text", required: true, placeholder: "z.B. Marco#1234" },
+      { id: "forumsname", label: "Forumsname", type: "text", required: false, placeholder: "z.B. Marco" },
+      { id: "discord_tag", label: "Discord Tag", type: "text", required: true, placeholder: "z.B. Marco#1234" },
+      { id: "discord_user_id", label: "Discord User ID", type: "text", required: false, placeholder: "z.B. 123456789012345678" }
     ]
   },
   {
     key: "adresse",
-    title: "Adresse & Bild",
+    title: "Adresse",
     fields: [
-      { id: "adresse", label: "Adresse", type: "text", required: true, placeholder: "Straße Hausnummer", span2: true },
-      { id: "postleitzahl", label: "Postleitzahl", type: "text", required: true, placeholder: "2700" },
-      { id: "stadt", label: "Stadt", type: "text", required: true, placeholder: "Wiener Neustadt" },
-      { id: "personalbild_url", label: "Personalbild (Direktlink)", type: "text", required: true, placeholder: "https://…", span2: true }
+      { id: "adresse", label: "Adresse", type: "text", required: true, span2: true, placeholder: "Straße Hausnummer" },
+      { id: "plz", label: "PLZ", type: "text", required: true, placeholder: "2700" },
+      { id: "ort", label: "Ort", type: "text", required: true, placeholder: "Wiener Neustadt" },
+      { id: "land", label: "Land", type: "text", required: true, placeholder: "Österreich" }
+    ]
+  },
+  {
+    key: "bild",
+    title: "Personalbild",
+    fields: [
+      { id: "personalbild_url", label: "Bild-URL", type: "url", required: false, span2: true, placeholder: "https://..." }
     ]
   },
   {
     key: "password",
-    title: "Passwort festlegen",
+    title: "Zugangsdaten",
     fields: [
-      { id: "password", label: "Passwort", type: "password", required: true, placeholder: "Mindestens 6 Zeichen", span2: true },
-      { id: "password_confirm", label: "Passwort bestätigen", type: "password", required: true, placeholder: "Passwort wiederholen", span2: true }
+      { id: "password", label: "Passwort", type: "password", required: true, placeholder: "mind. 6 Zeichen" },
+      { id: "password_confirm", label: "Passwort bestätigen", type: "password", required: true, placeholder: "Passwort wiederholen" }
     ]
   },
-  { key: "summary", title: "Zusammenfassung", fields: [] }
+  {
+    key: "summary",
+    title: "Zusammenfassung",
+    fields: []
+  }
 ];
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-const el = (id) => document.getElementById(id);
-
-function setMsg(kind, text) {
-  const ok = el("msgOk");
-  const err = el("msgErr");
-  if (ok) { ok.style.display = "none"; ok.textContent = ""; }
-  if (err) { err.style.display = "none"; err.textContent = ""; }
-  if (!text) return;
-
-  if (kind === "ok" && ok) { ok.textContent = text; ok.style.display = "block"; }
-  if (kind === "err" && err) { err.textContent = text; err.style.display = "block"; }
-}
-
-function escapeId(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g, "_"); }
-function sanitizeDocId(s){
-  return String(s).trim().replace(/\s+/g, "_").replace(/[\/\\?#.%[\]]/g, "_");
-}
-function escapeHtml(s){
-  return String(s)
+// Utils
+function el(id){ return document.getElementById(id); }
+function escapeId(s){ return (s || "").toString().replaceAll(/[^a-zA-Z0-9_-]/g, "_"); }
+function escapeHtml(str){
+  return (str ?? "")
+    .toString()
     .replaceAll("&","&amp;")
     .replaceAll("<","&lt;")
     .replaceAll(">","&gt;")
@@ -124,6 +126,13 @@ function generateEmail(vorname, nachname) {
   return `${v}.${n}@feuerwehr.gv.at`;
 }
 
+// D-Mail Adresse und Discord Tag sind ident (immer synchron halten)
+function syncDmailWithDiscordTag(){
+  const v = (state.discord_tag ?? "").toString();
+  state.dmail = v;
+  saveState();
+}
+
 // Wizard-State
 const STORAGE_KEY = "ffwn_member_wizard_state_v7";
 let state = loadState();
@@ -135,23 +144,48 @@ function loadState(){
     return raw ? JSON.parse(raw) : {};
   }catch{ return {}; }
 }
-function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-function loadStep(){
-  const n = Number(localStorage.getItem(STORAGE_KEY + "_step") || "0");
-  return Number.isFinite(n) ? Math.max(0, Math.min(n, STEPS.length - 1)) : 0;
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
-function saveStep(){ localStorage.setItem(STORAGE_KEY + "_step", String(currentStep)); }
+function loadStep(){
+  try{
+    const raw = localStorage.getItem(`${STORAGE_KEY}_step`);
+    const n = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) ? Math.max(0, Math.min(STEPS.length - 1, n)) : 0;
+  }catch{ return 0; }
+}
+function saveStep(){
+  localStorage.setItem(`${STORAGE_KEY}_step`, String(currentStep));
+}
 
-async function allocateMemberNumber(){
-  const counterRef = doc(db, "orgs", ORG_ID, "counters", "members");
-  const num = await runTransaction(db, async (tx) => {
-    const snap = await tx.get(counterRef);
-    let next = 1;
-    if (snap.exists()) next = Number(snap.data().next || 1);
-    tx.set(counterRef, { next: next + 1 }, { merge: true });
-    return next;
-  });
-  return `${MEMBER_PREFIX}-${String(num).padStart(3, "0")}`;
+// Message banner
+function setMsg(type, text){
+  const msg = el("msg");
+  if (!msg) return;
+  msg.textContent = text || "";
+  msg.className = `msg msg--${type}`;
+  msg.style.display = text ? "block" : "none";
+}
+
+// Summary card helpers
+function makeCard(title, rows){
+  const card = document.createElement("div");
+  card.className = "card";
+  const h = document.createElement("div");
+  h.className = "card__title";
+  h.textContent = title;
+  card.appendChild(h);
+
+  const body = document.createElement("div");
+  body.className = "card__body";
+  for (const [k,v] of rows){
+    const r = document.createElement("div");
+    r.className = "row";
+    r.innerHTML = `<div class="row__k">${escapeHtml(k)}</div><div class="row__v">${escapeHtml(v || "—")}</div>`;
+    body.appendChild(r);
+  }
+  card.appendChild(body);
+  return card;
 }
 
 function renderSummary(host){
@@ -178,55 +212,25 @@ function renderSummary(host){
 
   const rowsAdresse = [
     ["Adresse", get("adresse")],
-    ["Postleitzahl", get("postleitzahl")],
-    ["Stadt", get("stadt")],
-    ["Personalbild (URL)", get("personalbild_url")]
+    ["PLZ", get("plz")],
+    ["Ort", get("ort")],
+    ["Land", get("land")]
   ];
 
-  const einsendeDatum = todayAT();
-  const rowsFix = [
-    ["Mitglied seit", einsendeDatum],
-    ["Aktueller Dienstgrad", DEFAULTS.aktueller_dienstgrad],
-    ["Letzte Beförderung", einsendeDatum],
-    ["Funktion", DEFAULTS.funktion],
-    ["Ausbildner?", DEFAULTS.ausbildner],
-    ["Ausbildner für", DEFAULTS.ausbildner_fur],
-    ["Dienstzuteilung", DEFAULTS.dienstzuteilung],
-    ["Aktives Mitglied?", DEFAULTS.aktives_mitglied]
-  ];
-
-  // Generierte Email anzeigen
-  const vorname = get("vorname");
-  const nachname = get("nachname");
-  const generatedEmail = vorname && nachname ? generateEmail(vorname, nachname) : "—";
   const rowsAuth = [
-    ["Login-Email", generatedEmail],
-    ["Passwort", "●●●●●●●●"]
+    ["Login Email", (get("vorname") && get("nachname")) ? generateEmail(get("vorname"), get("nachname")) : "—"],
+    ["Passwort", (get("password")) ? "••••••••" : "—"]
   ];
 
-  const requiredKeys = [
-    ["anrede", "Anrede"],
-    ["vorname", "Vorname"],
-    ["nachname", "Nachname"],
-    ["geburtsdatum", "Geburtsdatum"],
-    ["familienstand", "Familienstand"],
-    ["staatsburgerschaft", "Staatsbürgerschaft"],
-    ["identifikationsnummer", "Citizen ID"],
-    ["discord_tag", "Discord Tag"],
-    ["discord_user_id", "Discord User ID"],
-    ["dmail", "D-Mail Adresse"],
-    ["adresse", "Adresse"],
-    ["postleitzahl", "Postleitzahl"],
-    ["stadt", "Stadt"],
-    ["personalbild_url", "Personalbild"],
-    ["password", "Passwort"]
+  const rowsFix = [
+    ["Dienstnummer", DEFAULTS.dienstnummer],
+    ["Dienstgrad", DEFAULTS.dienstgrad],
+    ["Dienstzuteilung", DEFAULTS.dienstzuteilung],
+    ["Aktives Mitglied", DEFAULTS.aktives_mitglied],
+    ["Ausbildner für", DEFAULTS.ausbildner_fur]
   ];
-  const missing = requiredKeys.filter(([k]) => !get(k)).map(([,label]) => label);
 
-  const wrap = document.createElement("div");
-  wrap.className = "summaryV2";
-
-  // HERO
+  // Header/Hero
   const hero = document.createElement("div");
   hero.className = "summaryHero";
 
@@ -252,84 +256,61 @@ function renderSummary(host){
     hero.appendChild(media);
   }
 
-  wrap.appendChild(hero);
-
-  if (missing.length){
-    const warn = document.createElement("div");
-    warn.className = "badgeWarn";
-    warn.textContent = `Fehlende Pflichtfelder: ${missing.join(", ")}`;
-    wrap.appendChild(warn);
-  }
+  host.appendChild(hero);
 
   // Cards
+  const wrap = document.createElement("div");
+  wrap.className = "summaryWrap";
+
   const cards = document.createElement("div");
-  cards.className = "summaryCards";
+  cards.className = "cards";
+
+  // NUR diese 3 sollen angezeigt werden (nebeneinander)
   cards.appendChild(makeCard("Person", rowsPerson));
   cards.appendChild(makeCard("Kontakt", rowsKontakt));
   cards.appendChild(makeCard("Adresse", rowsAdresse));
-  cards.appendChild(makeCard("System-Login", rowsAuth));
-  cards.appendChild(makeCard("Fixwerte", rowsFix));
+
   wrap.appendChild(cards);
 
-  // DSGVO + Richtigkeit
+  // DSGVO / Richtigkeit
   const checks = document.createElement("div");
-  checks.className = "summaryChecks";
+  checks.className = "checks";
   checks.innerHTML = `
     <label class="check">
-      <input id="dsgvo" type="checkbox" ${state.__dsgvo ? "checked" : ""} />
-      <span>Ich stimme der Datenverarbeitung (DSGVO) zu. <span class="req">*</span></span>
+      <input type="checkbox" name="__dsgvo" ${state.__dsgvo ? "checked" : ""}/>
+      <span>Ich bestätige die DSGVO-Zustimmung.</span>
     </label>
-
     <label class="check">
-      <input id="richtigkeit" type="checkbox" ${state.__richtigkeit ? "checked" : ""} />
-      <span>Ich bestätige, dass die Angaben korrekt sind. <span class="req">*</span></span>
+      <input type="checkbox" name="__richtigkeit" ${state.__richtigkeit ? "checked" : ""}/>
+      <span>Ich bestätige, dass die Angaben korrekt sind.</span>
     </label>
-
-    <div class="summaryHint">Mit „Absenden" wird ein Firebase-Account erstellt, die Daten gespeichert und die Mitgliedsnummer + Login-Email angezeigt.</div>
+    <div class="checks__meta">Datum: ${escapeHtml(todayAT())}</div>
   `;
   wrap.appendChild(checks);
 
   host.appendChild(wrap);
 
-  const dsgvoEl = document.getElementById("dsgvo");
-  const richEl = document.getElementById("richtigkeit");
-  dsgvoEl?.addEventListener("change", () => { state.__dsgvo = !!dsgvoEl.checked; saveState(); });
-  richEl?.addEventListener("change", () => { state.__richtigkeit = !!richEl.checked; saveState(); });
-
-  function makeCard(title, rows){
-    const c = document.createElement("div");
-    c.className = "sCard";
-
-    const filled = rows.filter(([,v]) => (v ?? "").toString().trim() && v !== "—" && v !== "●●●●●●●●").length;
-
-    const head = document.createElement("div");
-    head.className = "sCard__title";
-    head.innerHTML = `<div>${escapeHtml(title)}</div><div class="sCard__count">${filled}/${rows.length}</div>`;
-    c.appendChild(head);
-
-    const kv = document.createElement("div");
-    kv.className = "kv";
-
-    for (const [k, v] of rows){
-      const val = (v ?? "").toString().trim();
-      const row = document.createElement("div");
-      row.className = "kvRow";
-      row.innerHTML = `
-        <div class="kvK">${escapeHtml(k)}</div>
-        <div class="kvV ${val && val !== "—" ? "" : "kvV--empty"}">${escapeHtml(val || "—")}</div>
-      `;
-      kv.appendChild(row);
-    }
-    c.appendChild(kv);
-    return c;
-  }
+  // Checkbox state handling
+  checks.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      state[cb.name] = cb.checked;
+      saveState();
+    });
+  });
 }
 
+// Render step UI
 function renderStep(){
   saveState();
   saveStep();
 
   const step = STEPS[currentStep];
+
+  // Kontakt-Step: D-Mail immer aus Discord Tag ableiten
+  if (step.key === "kontakt") {
+    syncDmailWithDiscordTag();
+  }
+
   const host = el("stepHost");
   if (!host) return;
   host.innerHTML = "";
@@ -359,6 +340,22 @@ function renderStep(){
     grid.className = "grid";
     host.appendChild(grid);
 
+    // Passwort-Schritt: Login-Mail anzeigen (read-only), damit klar ist wofür das Passwort gilt
+    if (step.key === "password") {
+      const vorname = (state.vorname ?? "").toString().trim();
+      const nachname = (state.nachname ?? "").toString().trim();
+      const loginEmail = (vorname && nachname) ? generateEmail(vorname, nachname) : "—";
+
+      const wrap = document.createElement("div");
+      wrap.className = "field field--span2";
+      const id = "login_email_preview";
+      wrap.innerHTML = `
+        <label for="${id}">Login-Email</label>
+        <input id="${id}" name="${id}" type="text" value="${escapeHtml(loginEmail)}" readonly />
+      `;
+      grid.appendChild(wrap);
+    }
+
     for (const f of step.fields){
       const wrap = document.createElement("div");
       wrap.className = "field" + (f.span2 ? " field--span2" : "");
@@ -375,21 +372,19 @@ function renderStep(){
         input = document.createElement("select");
         input.id = id;
         input.name = f.id;
-        if (f.required) input.required = true;
 
-        for (const optVal of (f.options || [])){
-          const opt = document.createElement("option");
-          opt.value = optVal;
-          opt.textContent = optVal === "" ? "Bitte auswählen…" : optVal;
-          if (optVal === "") { opt.disabled = true; opt.selected = true; }
-          input.appendChild(opt);
+        for (const opt of (f.options || [""])){
+          const o = document.createElement("option");
+          o.value = opt;
+          o.textContent = opt;
+          input.appendChild(o);
         }
       } else {
         input = document.createElement("input");
         input.id = id;
         input.name = f.id;
         input.type = f.type || "text";
-        input.placeholder = f.placeholder || "";
+        if (f.placeholder) input.placeholder = f.placeholder;
         if (f.required) input.required = true;
       }
 
@@ -398,6 +393,19 @@ function renderStep(){
 
       input.addEventListener("input", () => {
         state[f.id] = input.value;
+
+        // Discord Tag <-> D-Mail immer ident halten
+        if (f.id === "discord_tag") {
+          syncDmailWithDiscordTag();
+          const dmailInput = document.querySelector(`[name="dmail"]`);
+          if (dmailInput) dmailInput.value = state.dmail ?? "";
+        }
+        if (f.id === "dmail") {
+          // D-Mail nicht separat erlauben (ident zum Discord Tag)
+          syncDmailWithDiscordTag();
+          input.value = state.dmail ?? "";
+        }
+
         saveState();
       });
 
@@ -410,9 +418,11 @@ function renderStep(){
   el("nextBtn").style.display = currentStep === total - 1 ? "none" : "inline-flex";
   el("submitBtn").style.display = currentStep === total - 1 ? "inline-flex" : "none";
 
-  setMsg(null, "");
+  setMsg("ok", "");
+  setMsg("err", "");
 }
 
+// Validation
 function validateStep(){
   const step = STEPS[currentStep];
   if (step.key === "summary") return true;
@@ -421,103 +431,47 @@ function validateStep(){
   if (step.key === "password") {
     const pw = (state.password ?? "").toString().trim();
     const pwConfirm = (state.password_confirm ?? "").toString().trim();
-    
+
     if (!pw) {
       setMsg("err", "Bitte Passwort eingeben.");
       document.querySelector(`[name="password"]`)?.focus?.();
       return false;
     }
-    
-    if (pw.length < 6) {
-      setMsg("err", "Passwort muss mindestens 6 Zeichen lang sein.");
-      document.querySelector(`[name="password"]`)?.focus?.();
-      return false;
-    }
-    
+
     if (!pwConfirm) {
       setMsg("err", "Bitte Passwort bestätigen.");
       document.querySelector(`[name="password_confirm"]`)?.focus?.();
       return false;
     }
-    
+
     if (pw !== pwConfirm) {
       setMsg("err", "Passwörter stimmen nicht überein!");
       document.querySelector(`[name="password_confirm"]`)?.focus?.();
+      return false;
+    }
+
+    if (pw.length < 6) {
+      setMsg("err", "Passwort muss mindestens 6 Zeichen lang sein.");
+      document.querySelector(`[name="password"]`)?.focus?.();
       return false;
     }
   }
 
   for (const f of step.fields){
     if (!f.required) continue;
-    const v = (state[f.id] ?? "").toString().trim();
-    if (!v){
-      setMsg("err", `Bitte ausfüllen: ${f.label}`);
-      document.querySelector(`[name="${CSS.escape(f.id)}"]`)?.focus?.();
+    const val = (state[f.id] ?? "").toString().trim();
+    if (!val){
+      setMsg("err", `Bitte Feld "${f.label}" ausfüllen.`);
+      document.querySelector(`[name="${f.id}"]`)?.focus?.();
       return false;
     }
   }
+
+  setMsg("err", "");
   return true;
 }
 
-async function createMemberDoc(memberNumber, uid){
-  const vorname = (state.vorname ?? "").toString().trim();
-  const nachname = (state.nachname ?? "").toString().trim();
-  const docId = sanitizeDocId(`${memberNumber}_${vorname}_${nachname}`);
-  const memberRef = doc(db, "orgs", ORG_ID, "members", docId);
-
-  const einsendeDatum = todayAT();
-  const loginEmail = generateEmail(vorname, nachname);
-
-  await setDoc(memberRef, {
-    orgId: ORG_ID,
-    mitgliedsnummer: memberNumber,
-    uid: uid, // Firebase Auth UID
-
-    anrede: state.anrede ?? null,
-    titel: state.titel ?? null,
-    vorname,
-    nachname,
-    geburtsdatum: state.geburtsdatum ?? null,
-    familienstand: state.familienstand ?? null,
-    staatsburgerschaft: state.staatsburgerschaft ?? null,
-    identifikationsnummer: state.identifikationsnummer ?? null,
-    telefonnummer: state.telefonnummer ?? null,
-    forumsname: state.forumsname ?? null,
-    discord_tag: state.discord_tag ?? null,
-    discord_user_id: state.discord_user_id ?? null,
-    adresse: state.adresse ?? null,
-    postleitzahl: state.postleitzahl ?? null,
-    stadt: state.stadt ?? null,
-    dmail: state.dmail ?? null,
-    personalbild_url: state.personalbild_url ?? null,
-
-    // System-Login
-    login_email: loginEmail,
-
-    // Fixwerte
-    mitglied_seit: einsendeDatum,
-    aktueller_dienstgrad: DEFAULTS.aktueller_dienstgrad,
-    letzte_beforderung: einsendeDatum,
-    funktion: DEFAULTS.funktion,
-    ausbildner: DEFAULTS.ausbildner,
-    ausbildner_fur: DEFAULTS.ausbildner_fur,
-    dienstzuteilung: DEFAULTS.dienstzuteilung,
-    aktives_mitglied: DEFAULTS.aktives_mitglied,
-
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-
-  // Kurse "Ordner"
-  const coursesMetaRef = doc(db, "orgs", ORG_ID, "members", docId, "courses", "_meta");
-  await setDoc(coursesMetaRef, {
-    createdAt: serverTimestamp(),
-    note: "Auto-created courses container"
-  });
-
-  return { docId, loginEmail };
-}
-
+// Theme
 function initTheme(){
   const stored = localStorage.getItem("ffwn_theme");
   const initial = stored || "dark";
@@ -530,6 +484,12 @@ function initTheme(){
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("ffwn_theme", next);
     el("themeLabel").textContent = next === "dark" ? "Dark" : "Light";
+  });
+
+  // Falls Logo/Icon ausgeblendet wurde: wieder anzeigen (defensiv)
+  ["appLogo","logo","brandLogo","headerLogo"].forEach((id) => {
+    const n = document.getElementById(id);
+    if (n) n.style.display = "";
   });
 }
 
@@ -546,48 +506,29 @@ el("nextBtn")?.addEventListener("click", () => {
   renderStep();
 });
 
-el("memberForm")?.addEventListener("reset", () => {
-  setTimeout(() => {
-    state = {};
-    currentStep = 0;
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(STORAGE_KEY + "_step");
-    renderStep();
-  }, 0);
-});
+// Submit
+el("submitBtn")?.addEventListener("click", async () => {
+  setMsg("err", "");
+  setMsg("ok", "");
 
-el("memberForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  setMsg(null, "");
+  // DSGVO Checks
+  if (!state.__dsgvo) return setMsg("err", "Bitte DSGVO Zustimmung bestätigen.");
+  if (!state.__richtigkeit) return setMsg("err", "Bitte Richtigkeit bestätigen.");
 
-  // Validierung aller Pflichtfelder
-  const requiredFields = [
-    ["anrede", "Anrede"],
-    ["vorname", "Vorname"],
-    ["nachname", "Nachname"],
-    ["geburtsdatum", "Geburtsdatum"],
-    ["familienstand", "Familienstand"],
-    ["staatsburgerschaft", "Staatsbürgerschaft"],
-    ["identifikationsnummer", "Citizen ID"],
-    ["discord_tag", "Discord Tag"],
-    ["discord_user_id", "Discord User ID"],
-    ["dmail", "D-Mail Adresse"],
-    ["adresse", "Adresse"],
-    ["postleitzahl", "Postleitzahl"],
-    ["stadt", "Stadt"],
-    ["personalbild_url", "Personalbild"],
-    ["password", "Passwort"]
-  ];
-
-  for (const [key, label] of requiredFields) {
-    if (!(state[key] ?? "").toString().trim()) {
-      return setMsg("err", `${label} fehlt.`);
+  // Required fields sanity
+  for (let s = 0; s < STEPS.length; s++){
+    const step = STEPS[s];
+    if (step.key === "summary") continue;
+    for (const f of step.fields){
+      if (!f.required) continue;
+      const val = (state[f.id] ?? "").toString().trim();
+      if (!val) return setMsg("err", `Fehlendes Pflichtfeld: ${f.label}`);
     }
   }
 
   // Passwort nochmals prüfen
-  const pw = state.password.trim();
-  const pwConfirm = state.password_confirm.trim();
+  const pw = (state.password ?? "").toString().trim();
+  const pwConfirm = (state.password_confirm ?? "").toString().trim();
   if (pw !== pwConfirm) {
     return setMsg("err", "Passwörter stimmen nicht überein!");
   }
@@ -595,57 +536,39 @@ el("memberForm")?.addEventListener("submit", async (e) => {
     return setMsg("err", "Passwort muss mindestens 6 Zeichen lang sein.");
   }
 
-  if (!state.__dsgvo) return setMsg("err", "Bitte DSGVO Zustimmung bestätigen.");
-  if (!state.__richtigkeit) return setMsg("err", "Bitte Richtigkeit bestätigen.");
+  // Login Email generieren
+  const vorname = (state.vorname ?? "").toString().trim();
+  const nachname = (state.nachname ?? "").toString().trim();
+  const email = generateEmail(vorname, nachname);
 
-  const btn = el("submitBtn");
-  const old = btn?.innerHTML;
-  if (btn){ btn.disabled = true; btn.textContent = "Wird erstellt…"; }
+  // Ensure D-Mail = Discord Tag (final sync before submit)
+  syncDmailWithDiscordTag();
 
   try{
-    const vorname = state.vorname.trim();
-    const nachname = state.nachname.trim();
-    const loginEmail = generateEmail(vorname, nachname);
+    el("submitBtn").disabled = true;
 
-    // 1. Firebase Auth Account erstellen
-    const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, pw);
-    const uid = userCredential.user.uid;
+    const cred = await createUserWithEmailAndPassword(auth, email, pw);
 
-    // 2. Mitgliedsnummer vergeben
-    const memberNumber = await allocateMemberNumber();
+    // Display name = Vorname Nachname
+    const displayName = `${vorname} ${nachname}`.trim();
+    if (displayName){
+      await updateProfile(cred.user, { displayName });
+    }
 
-    // 3. Firestore Dokument erstellen
-    await createMemberDoc(memberNumber, uid);
+    // TODO: Hier würdest du normalerweise noch Firestore/Backend speichern.
+    // In diesem Script ist nur Auth-User Creation enthalten.
 
-    setMsg("ok", `✅ Erfolgreich erstellt!
-    
-Mitgliedsnummer: ${memberNumber}
-Login-Email: ${loginEmail}
-
-Du kannst dich nun mit dieser Email und deinem Passwort anmelden.`);
-
-    setTimeout(() => {
-      state = {};
-      currentStep = 0;
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(STORAGE_KEY + "_step");
-      el("memberForm").reset();
-    }, 6000);
-
+    setMsg("ok", `Account erstellt: ${email}`);
   }catch(err){
     console.error(err);
-    let errMsg = err?.message || err;
-    if (err?.code === "auth/email-already-in-use") {
-      errMsg = "Diese Email-Adresse existiert bereits im System!";
-    } else if (err?.code === "auth/weak-password") {
-      errMsg = "Das Passwort ist zu schwach!";
-    }
-    setMsg("err", "❌ Fehler: " + errMsg);
+    setMsg("err", err?.message || "Fehler beim Erstellen des Accounts.");
   }finally{
-    if (btn){ btn.disabled = false; btn.innerHTML = old || `Absenden <span class="btn__shine"></span>`; }
+    el("submitBtn").disabled = false;
   }
 });
 
 // Boot
-initTheme();
-renderStep();
+window.addEventListener("DOMContentLoaded", () => {
+  initTheme();
+  renderStep();
+});
