@@ -139,14 +139,28 @@ const STEPS = [
         placeholder: "z.B. 123456789012345678", span2: true
       },
 
-      { id: "ffwn_email", label: "FFWN Mailadresse", type: "email", required: true, placeholder: "", span2: true },
-
-      // User muss nur Passwort erstellen (wird NICHT gespeichert)
-      { id: "auth_password", label: "Passwort (für Login)", type: "password", required: true,
-        placeholder: "Passwort festlegen (min. 6 Zeichen)", span2: true
+      // Optische Trennung + Hinweis
+      {
+        id: "__login_note",
+        type: "note",
+        span2: true,
+        html: `
+          <div class="muted" style="margin-top:6px">
+            <strong>Intranet Login</strong><br>
+            Diese Zugangsdaten werden für die spätere Anmeldung im Intranet benötigt.
+            Bitte <strong>Mailadresse</strong> und <strong>Passwort</strong> sicher speichern/merken.
+          </div>
+        `
       },
 
-      { id: "dmail", label: "D-Mail Adresse (optional)", type: "email", required: false, placeholder: "name@email.at", span2: true }
+      { id: "ffwn_email", label: "Mailadresse", type: "email", required: true, placeholder: "", span2: true },
+
+      { id: "auth_password", label: "Passwort", type: "password", required: true,
+        placeholder: "Passwort festlegen (min. 6 Zeichen)", span2: true
+      },
+      { id: "auth_password_repeat", label: "Passwort wiederholen", type: "password", required: true,
+        placeholder: "Passwort wiederholen", span2: true
+      }
     ]
   },
   {
@@ -172,9 +186,10 @@ const auth = getAuth(app);
 /* =========================
  *  State (persist)
  * ========================= */
-const STORAGE_KEY = "ffwn_member_wizard_state_v9";
+const STORAGE_KEY = "ffwn_member_wizard_state_v10";
 let state = loadState();
 let currentStep = loadStep();
+let isDone = false; // nach erfolgreichem Absenden UI sperren
 
 function loadState(){
   try{
@@ -211,7 +226,7 @@ async function allocateMemberNumber(){
   return `${MEMBER_PREFIX}-${String(num).padStart(3, "0")}`;
 }
 
-/* Firestore: Member Stammdaten (OHNE Passwort, UID kommt später) */
+/* Firestore: Member Stammdaten (OHNE Passwort) */
 async function createMemberDoc(memberNumber){
   const vorname = (state.vorname ?? "").toString().trim();
   const nachname = (state.nachname ?? "").toString().trim();
@@ -243,7 +258,6 @@ async function createMemberDoc(memberNumber){
     discord_userid: state.discord_userid ?? null,
 
     ffwn_email: state.ffwn_email ?? null,
-    dmail: state.dmail ?? null,
 
     adresse: state.adresse ?? null,
     postleitzahl: state.postleitzahl ?? null,
@@ -260,7 +274,6 @@ async function createMemberDoc(memberNumber){
     dienstzuteilung: DEFAULTS.dienstzuteilung,
     aktives_mitglied: DEFAULTS.aktives_mitglied,
 
-    // UID wird nach Auth-Erstellung eingetragen
     uid: null,
 
     createdAt: serverTimestamp(),
@@ -297,9 +310,9 @@ function renderSummary(host){
     ["Forumsname", get("forumsname")],
     ["Discord Name", get("discord_name")],
     ["Discord_UserID", get("discord_userid")],
-    ["FFWN Mailadresse", get("ffwn_email")],
+    ["Mailadresse", get("ffwn_email")],
     ["Passwort", get("auth_password") ? "••••••••" : ""],
-    ["D-Mail Adresse", get("dmail")]
+    ["Passwort wiederholen", get("auth_password_repeat") ? "••••••••" : ""]
   ];
 
   const rowsAdresse = [
@@ -315,8 +328,9 @@ function renderSummary(host){
     ["geburtsdatum", "Geburtsdatum"],
     ["identifikationsnummer", "Citizen ID"],
     ["discord_userid", "Discord_UserID"],
-    ["ffwn_email", "FFWN Mailadresse"],
-    ["auth_password", "Passwort"]
+    ["ffwn_email", "Mailadresse"],
+    ["auth_password", "Passwort"],
+    ["auth_password_repeat", "Passwort wiederholen"]
   ];
   const missing = requiredKeys.filter(([k]) => !get(k)).map(([,label]) => label);
 
@@ -365,17 +379,17 @@ function renderSummary(host){
   checks.className = "summaryChecks";
   checks.innerHTML = `
     <label class="check">
-      <input id="dsgvo" type="checkbox" ${state.__dsgvo ? "checked" : ""}>
+      <input id="dsgvo" type="checkbox" ${state.__dsgvo ? "checked" : ""} ${isDone ? "disabled" : ""}>
       <span>Ich stimme der Datenverarbeitung (DSGVO) zu. <span class="req">*</span></span>
     </label>
 
     <label class="check">
-      <input id="richtigkeit" type="checkbox" ${state.__richtigkeit ? "checked" : ""}>
+      <input id="richtigkeit" type="checkbox" ${state.__richtigkeit ? "checked" : ""} ${isDone ? "disabled" : ""}>
       <span>Ich bestätige, dass die Angaben korrekt sind. <span class="req">*</span></span>
     </label>
 
     <div class="summaryHint">
-      Mit „Absenden“ werden Stammdaten gespeichert, der Login erstellt und die UID in den Stammdaten eingetragen.
+      Mailadresse & Passwort werden für die spätere Anmeldung im Intranet benötigt.
     </div>
   `;
   wrap.appendChild(checks);
@@ -451,6 +465,15 @@ function renderStep(){
     host.appendChild(grid);
 
     for (const f of step.fields){
+      // NOTE/INFO block
+      if (f.type === "note"){
+        const wrap = document.createElement("div");
+        wrap.className = "field field--span2";
+        wrap.innerHTML = f.html || "";
+        grid.appendChild(wrap);
+        continue;
+      }
+
       const wrap = document.createElement("div");
       wrap.className = "field" + (f.span2 ? " field--span2" : "");
 
@@ -484,9 +507,13 @@ function renderStep(){
         if (f.required) input.required = true;
       }
 
-      // ffwn_email readonly
+      // Mail readonly
       if (f.id === "ffwn_email"){
         input.readOnly = true;
+      }
+
+      if (isDone){
+        input.disabled = true;
       }
 
       const v = state[f.id];
@@ -495,7 +522,6 @@ function renderStep(){
       input.addEventListener("input", () => {
         state[f.id] = input.value;
         saveState();
-
         if (f.id === "vorname" || f.id === "nachname"){
           syncAutoEmail();
         }
@@ -506,9 +532,22 @@ function renderStep(){
     }
   }
 
+  // Buttons sperren wenn fertig
   el("backBtn").style.display = currentStep === 0 ? "none" : "inline-flex";
   el("nextBtn").style.display = currentStep === total - 1 ? "none" : "inline-flex";
   el("submitBtn").style.display = currentStep === total - 1 ? "inline-flex" : "none";
+
+  if (isDone){
+    el("backBtn").disabled = true;
+    el("nextBtn").disabled = true;
+    el("submitBtn").disabled = true;
+    el("resetBtn").disabled = true;
+  } else {
+    el("backBtn").disabled = false;
+    el("nextBtn").disabled = false;
+    el("submitBtn").disabled = false;
+    el("resetBtn").disabled = false;
+  }
 
   setMsg(null, "");
 }
@@ -519,6 +558,7 @@ function validateStep(){
   if (step.key === "summary") return true;
 
   for (const f of step.fields){
+    if (f.type === "note") continue;
     if (!f.required) continue;
     const v = (state[f.id] ?? "").toString().trim();
     if (!v){
@@ -541,7 +581,18 @@ function validateStep(){
     syncAutoEmail();
     const mail = (state.ffwn_email ?? "").toString().trim();
     if (!mail){
-      setMsg("err", "FFWN Mailadresse konnte nicht erzeugt werden (Vorname/Nachname prüfen).");
+      setMsg("err", "Mailadresse konnte nicht erzeugt werden (Vorname/Nachname prüfen).");
+      return false;
+    }
+
+    const p1 = (state.auth_password ?? "").toString();
+    const p2 = (state.auth_password_repeat ?? "").toString();
+    if (p1.trim().length < 6){
+      setMsg("err", "Passwort muss mindestens 6 Zeichen haben.");
+      return false;
+    }
+    if (p1 !== p2){
+      setMsg("err", "Passwörter stimmen nicht überein.");
       return false;
     }
   }
@@ -569,12 +620,14 @@ function initTheme(){
  *  Navigation / Events
  * ========================= */
 el("backBtn")?.addEventListener("click", () => {
+  if (isDone) return;
   if (currentStep <= 0) return;
   currentStep -= 1;
   renderStep();
 });
 
 el("nextBtn")?.addEventListener("click", () => {
+  if (isDone) return;
   if (!validateStep()) return;
   if (currentStep >= STEPS.length - 1) return;
   currentStep += 1;
@@ -582,6 +635,7 @@ el("nextBtn")?.addEventListener("click", () => {
 });
 
 el("memberForm")?.addEventListener("reset", () => {
+  if (isDone) return;
   setTimeout(() => {
     state = {};
     currentStep = 0;
@@ -593,6 +647,8 @@ el("memberForm")?.addEventListener("reset", () => {
 
 el("memberForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (isDone) return;
+
   setMsg(null, "");
 
   // Final Checks
@@ -609,11 +665,13 @@ el("memberForm")?.addEventListener("submit", async (e) => {
 
   syncAutoEmail();
   const email = (state.ffwn_email ?? "").toString().trim();
-  if (!email) return setMsg("err", "FFWN Mailadresse fehlt.");
+  if (!email) return setMsg("err", "Mailadresse fehlt.");
 
-  const password = (state.auth_password ?? "").toString();
-  if (!password.trim()) return setMsg("err", "Passwort fehlt.");
-  if (password.trim().length < 6) return setMsg("err", "Passwort muss mindestens 6 Zeichen haben.");
+  const p1 = (state.auth_password ?? "").toString();
+  const p2 = (state.auth_password_repeat ?? "").toString();
+  if (!p1.trim() || !p2.trim()) return setMsg("err", "Passwort fehlt.");
+  if (p1.trim().length < 6) return setMsg("err", "Passwort muss mindestens 6 Zeichen haben.");
+  if (p1 !== p2) return setMsg("err", "Passwörter stimmen nicht überein.");
 
   if (!state.__dsgvo) return setMsg("err", "Bitte DSGVO Zustimmung bestätigen.");
   if (!state.__richtigkeit) return setMsg("err", "Bitte Richtigkeit bestätigen.");
@@ -629,36 +687,34 @@ el("memberForm")?.addEventListener("submit", async (e) => {
 
     // 2) Firebase Auth User anlegen (liefert UID)
     if (btn){ btn.textContent = "Login wird erstellt…"; }
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const cred = await createUserWithEmailAndPassword(auth, email, p1);
     const uid = cred.user.uid;
 
     // 3) UID in Member-Dokument schreiben
-    if (btn){ btn.textContent = "UID wird gespeichert…"; }
+    if (btn){ btn.textContent = "Finalisiere…"; }
     await updateDoc(doc(db, "orgs", ORG_ID, "members", docId), {
       uid,
       updatedAt: serverTimestamp()
     });
 
-    setMsg("ok", `✅ Fertig!\nMitgliedsnummer: ${memberNumber}\nUID: ${uid}`);
-
-    // Passwort aus State entfernen
+    // Sensitive Felder entfernen
     delete state.auth_password;
+    delete state.auth_password_repeat;
     saveState();
 
-    // Reset
-    setTimeout(() => {
-      state = {};
-      currentStep = 0;
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(STORAGE_KEY + "_step");
-      el("memberForm").reset();
-    }, 1500);
+    // ✅ Fertig: Seite bleibt stehen, keine Nummer anzeigen
+    isDone = true;
+    setMsg("ok", "✅ Mitglied angelegt");
+    renderStep();
 
   }catch(err){
     console.error(err);
     setMsg("err", "❌ Fehler: " + (err?.message || err));
   }finally{
-    if (btn){ btn.disabled = false; btn.innerHTML = old || `Absenden <span class="btn__shine"></span>`; }
+    if (btn && !isDone){
+      btn.disabled = false;
+      btn.innerHTML = old || `Absenden <span class="btn__shine"></span>`;
+    }
   }
 });
 
