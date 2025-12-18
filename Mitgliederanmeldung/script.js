@@ -5,7 +5,9 @@ import {
   setDoc,
   updateDoc,
   runTransaction,
-  serverTimestamp
+  serverTimestamp,
+  collection,
+  addDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 import {
@@ -139,7 +141,6 @@ const STEPS = [
         placeholder: "z.B. 123456789012345678", span2: true
       },
 
-      // Optische Trennung + Hinweis
       {
         id: "__login_note",
         type: "note",
@@ -186,10 +187,10 @@ const auth = getAuth(app);
 /* =========================
  *  State (persist)
  * ========================= */
-const STORAGE_KEY = "ffwn_member_wizard_state_v10";
+const STORAGE_KEY = "ffwn_member_wizard_state_v11";
 let state = loadState();
 let currentStep = loadStep();
-let isDone = false; // nach erfolgreichem Absenden UI sperren
+let isDone = false;
 
 function loadState(){
   try{
@@ -226,7 +227,10 @@ async function allocateMemberNumber(){
   return `${MEMBER_PREFIX}-${String(num).padStart(3, "0")}`;
 }
 
-/* Firestore: Member Stammdaten (OHNE Passwort) */
+/* Firestore: Member Stammdaten (OHNE Passwort)
+   + legt Subcollections an: courses, promotions
+   + legt initiale Beförderung als erstes promotions-Doc an
+*/
 async function createMemberDoc(memberNumber){
   const vorname = (state.vorname ?? "").toString().trim();
   const nachname = (state.nachname ?? "").toString().trim();
@@ -264,7 +268,7 @@ async function createMemberDoc(memberNumber){
     stadt: state.stadt ?? null,
     personalbild_url: state.personalbild_url ?? null,
 
-    // Fixwerte (nur speichern)
+    // Fixwerte
     mitglied_seit: einsendeDatum,
     aktueller_dienstgrad: DEFAULTS.aktueller_dienstgrad,
     letzte_beforderung: einsendeDatum,
@@ -280,11 +284,28 @@ async function createMemberDoc(memberNumber){
     updatedAt: serverTimestamp()
   });
 
-  // Kurse Container
+  // courses container
   const coursesMetaRef = doc(db, "orgs", ORG_ID, "members", docId, "courses", "_meta");
   await setDoc(coursesMetaRef, {
     createdAt: serverTimestamp(),
     note: "Auto-created courses container"
+  });
+
+  // promotions container
+  const promotionsMetaRef = doc(db, "orgs", ORG_ID, "members", docId, "promotions", "_meta");
+  await setDoc(promotionsMetaRef, {
+    createdAt: serverTimestamp(),
+    note: "Auto-created promotions container"
+  });
+
+  // initiale "Beförderung" (Eintritt / initialer Dienstgrad)
+  await addDoc(collection(db, "orgs", ORG_ID, "members", docId, "promotions"), {
+    type: "initial",
+    from_rank: null,
+    to_rank: DEFAULTS.aktueller_dienstgrad,
+    date: einsendeDatum, // dd.mm.yyyy string
+    reason: "Eintritt / Initialer Dienstgrad",
+    createdAt: serverTimestamp()
   });
 
   return docId;
@@ -438,7 +459,6 @@ function renderStep(){
   if (!host) return;
   host.innerHTML = "";
 
-  // Progress erst ab Schritt 2
   const wizTop = el("wizTop");
   if (wizTop) wizTop.style.display = currentStep === 0 ? "none" : "flex";
 
@@ -465,7 +485,6 @@ function renderStep(){
     host.appendChild(grid);
 
     for (const f of step.fields){
-      // NOTE/INFO block
       if (f.type === "note"){
         const wrap = document.createElement("div");
         wrap.className = "field field--span2";
@@ -507,11 +526,9 @@ function renderStep(){
         if (f.required) input.required = true;
       }
 
-      // Mail readonly
       if (f.id === "ffwn_email"){
         input.readOnly = true;
       }
-
       if (isDone){
         input.disabled = true;
       }
@@ -532,7 +549,6 @@ function renderStep(){
     }
   }
 
-  // Buttons sperren wenn fertig
   el("backBtn").style.display = currentStep === 0 ? "none" : "inline-flex";
   el("nextBtn").style.display = currentStep === total - 1 ? "none" : "inline-flex";
   el("submitBtn").style.display = currentStep === total - 1 ? "inline-flex" : "none";
@@ -616,9 +632,7 @@ function initTheme(){
   });
 }
 
-/* =========================
- *  Navigation / Events
- * ========================= */
+/* Navigation / Events */
 el("backBtn")?.addEventListener("click", () => {
   if (isDone) return;
   if (currentStep <= 0) return;
@@ -651,7 +665,6 @@ el("memberForm")?.addEventListener("submit", async (e) => {
 
   setMsg(null, "");
 
-  // Final Checks
   const vorname = (state.vorname ?? "").toString().trim();
   const nachname = (state.nachname ?? "").toString().trim();
   if (!vorname || !nachname) return setMsg("err", "Vorname/Nachname fehlt.");
@@ -681,28 +694,23 @@ el("memberForm")?.addEventListener("submit", async (e) => {
   if (btn){ btn.disabled = true; btn.textContent = "Wird gespeichert…"; }
 
   try{
-    // 1) Member speichern (OHNE UID)
     const memberNumber = await allocateMemberNumber();
     const docId = await createMemberDoc(memberNumber);
 
-    // 2) Firebase Auth User anlegen (liefert UID)
     if (btn){ btn.textContent = "Login wird erstellt…"; }
     const cred = await createUserWithEmailAndPassword(auth, email, p1);
     const uid = cred.user.uid;
 
-    // 3) UID in Member-Dokument schreiben
     if (btn){ btn.textContent = "Finalisiere…"; }
     await updateDoc(doc(db, "orgs", ORG_ID, "members", docId), {
       uid,
       updatedAt: serverTimestamp()
     });
 
-    // Sensitive Felder entfernen
     delete state.auth_password;
     delete state.auth_password_repeat;
     saveState();
 
-    // ✅ Fertig: Seite bleibt stehen, keine Nummer anzeigen
     isDone = true;
     setMsg("ok", "✅ Mitglied angelegt");
     renderStep();
