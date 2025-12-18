@@ -3,10 +3,19 @@ import {
   getFirestore,
   doc,
   setDoc,
+  updateDoc,
   runTransaction,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+import {
+  getAuth,
+  createUserWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+/* =========================
+ *  KONFIG
+ * ========================= */
 const firebaseConfig = {
   apiKey: "AIzaSyAEKPiUzXc_tFvmiop4hDEdhv8Rkg2kWjU",
   authDomain: "intranet-ffwn.firebaseapp.com",
@@ -19,7 +28,7 @@ const firebaseConfig = {
 const ORG_ID = "ffwn";
 const MEMBER_PREFIX = "21401";
 
-// Fixwerte (nicht anzeigen in Steps, aber im Summary als Info + speichern)
+// Fixwerte (nicht anzeigen, aber speichern)
 const DEFAULTS = {
   aktueller_dienstgrad: "PFM",
   funktion: "Mannschaft",
@@ -29,51 +38,9 @@ const DEFAULTS = {
   aktives_mitglied: "Ja"
 };
 
-const STEPS = [
-  {
-    key: "personal",
-    title: "Personendaten",
-    fields: [
-      { id: "anrede", label: "Anrede", type: "select", required: false, options: ["", "Herr", "Frau", "Divers"] },
-      { id: "titel", label: "Titel", type: "text", required: false, placeholder: "z.B. Ing., Dr." },
-
-      { id: "vorname", label: "Namen (Vorname)", type: "text", required: true, placeholder: "Max" },
-      { id: "nachname", label: "Nachnamen", type: "text", required: true, placeholder: "Mustermann" },
-
-      { id: "geburtsdatum", label: "Geburtsdatum", type: "date", required: true },
-      { id: "beruf", label: "Beruf", type: "text", required: false },
-      { id: "geburtsort", label: "Geburtsort", type: "text", required: false },
-      { id: "familienstand", label: "Familienstand", type: "select", required: false, options: ["", "ledig", "verheiratet", "geschieden", "verwitwet", "eingetr. Partnerschaft"] },
-      { id: "staatsburgerschaft", label: "Staatsbürgerschaft", type: "text", required: false, placeholder: "AT" }
-    ]
-  },
-  {
-    key: "kontakt",
-    title: "Kontakt",
-    fields: [
-      { id: "identifikationsnummer", label: "Identifikationsnummer (Citizen ID)", type: "text", required: true, placeholder: "CitizenID" },
-      { id: "telefonnummer", label: "Telefonnummer", type: "tel", required: false, placeholder: "+43 …" },
-      { id: "forumsname", label: "Forumsname", type: "text", required: false },
-      { id: "discord_id", label: "Discord ID", type: "text", required: false, placeholder: "z.B. @marco oder marco#1234" },
-      { id: "dmail", label: "D-Mail Adresse", type: "email", required: true, placeholder: "name@email.at", span2: true }
-    ]
-  },
-  {
-    key: "adresse",
-    title: "Adresse & Bild",
-    fields: [
-      { id: "adresse", label: "Adresse", type: "text", required: false, placeholder: "Straße Hausnummer", span2: true },
-      { id: "postleitzahl", label: "Postleitzahl", type: "text", required: false, placeholder: "2700" },
-      { id: "stadt", label: "Stadt", type: "text", required: false, placeholder: "Wiener Neustadt" },
-      { id: "personalbild_url", label: "Personalbild (URL)", type: "text", required: false, placeholder: "https://…", span2: true }
-    ]
-  },
-  { key: "summary", title: "Zusammenfassung", fields: [] }
-];
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
+/* =========================
+ *  Helpers
+ * ========================= */
 const el = (id) => document.getElementById(id);
 
 function setMsg(kind, text) {
@@ -107,8 +74,105 @@ function todayAT(){
   return `${dd}.${mm}.${yyyy}`;
 }
 
-// Wizard-State (Step-Wechsel + Reload safe)
-const STORAGE_KEY = "ffwn_member_wizard_state_v6";
+function normalizeMailPart(s){
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll("ä","ae").replaceAll("ö","oe").replaceAll("ü","ue").replaceAll("ß","ss")
+    .replace(/[^a-z0-9. -]/g, "")
+    .replace(/\s+/g, ".")
+    .replace(/-+/g, ".")
+    .replace(/\.+/g, ".")
+    .replace(/^\.|\.$/g, "");
+}
+function computeFfwnEmail(vorname, nachname){
+  const v = normalizeMailPart(vorname);
+  const n = normalizeMailPart(nachname);
+  if (!v || !n) return "";
+  return `${v}.${n}@feuerwehr.gv.at`;
+}
+function isValidDobDdMmYyyy(v){
+  const s = String(v || "").trim();
+  if (!/^\d{2}\.\d{2}\.\d{4}$/.test(s)) return false;
+  const [dd, mm, yyyy] = s.split(".").map(Number);
+  if (!dd || !mm || !yyyy) return false;
+  if (mm < 1 || mm > 12) return false;
+  const maxDay = new Date(yyyy, mm, 0).getDate();
+  return dd >= 1 && dd <= maxDay;
+}
+
+/* =========================
+ *  Steps (Wizard)
+ * ========================= */
+const STEPS = [
+  {
+    key: "personal",
+    title: "Personendaten",
+    fields: [
+      { id: "anrede", label: "Anrede", type: "select", required: false, options: ["", "Herr", "Frau", "Divers"] },
+      { id: "titel", label: "Titel", type: "select", required: false,
+        options: ["", "Ing.", "Dr.", "Mag.", "DI", "Prof.", "MBA", "BSc", "MSc"]
+      },
+      { id: "vorname", label: "Namen (Vorname)", type: "text", required: true, placeholder: "Max" },
+      { id: "nachname", label: "Nachnamen", type: "text", required: true, placeholder: "Mustermann" },
+      { id: "geburtsdatum", label: "Geburtsdatum", type: "text", required: true, placeholder: "dd.mm.yyyy" },
+      { id: "beruf", label: "Beruf", type: "text", required: false },
+      { id: "geburtsort", label: "Geburtsort", type: "text", required: false },
+      { id: "familienstand", label: "Familienstand", type: "select", required: false,
+        options: ["", "ledig", "verheiratet", "geschieden", "verwitwet", "eingetr. Partnerschaft"]
+      },
+      { id: "staatsburgerschaft", label: "Staatsbürgerschaft", type: "select", required: false,
+        options: ["", "AT", "DE", "CH", "HU", "SK", "CZ", "SI", "HR", "IT", "RO", "BG", "PL", "Andere"]
+      }
+    ]
+  },
+  {
+    key: "kontakt",
+    title: "Kontakt",
+    fields: [
+      { id: "identifikationsnummer", label: "Identifikationsnummer (Citizen ID)", type: "text", required: true, placeholder: "CitizenID" },
+      { id: "telefonnummer", label: "Telefonnummer", type: "tel", required: false, placeholder: "+43 …" },
+      { id: "forumsname", label: "Forumsname", type: "text", required: false },
+
+      { id: "discord_name", label: "Discord Name", type: "text", required: false, placeholder: "z.B. @marco oder marco#1234" },
+      { id: "discord_userid", label: "Discord_UserID", type: "text", required: true,
+        placeholder: "z.B. 123456789012345678", span2: true
+      },
+
+      { id: "ffwn_email", label: "FFWN Mailadresse", type: "email", required: true, placeholder: "", span2: true },
+
+      // User muss nur Passwort erstellen (wird NICHT gespeichert)
+      { id: "auth_password", label: "Passwort (für Login)", type: "password", required: true,
+        placeholder: "Passwort festlegen (min. 6 Zeichen)", span2: true
+      },
+
+      { id: "dmail", label: "D-Mail Adresse (optional)", type: "email", required: false, placeholder: "name@email.at", span2: true }
+    ]
+  },
+  {
+    key: "adresse",
+    title: "Adresse & Bild",
+    fields: [
+      { id: "adresse", label: "Adresse", type: "text", required: false, placeholder: "Straße Hausnummer", span2: true },
+      { id: "postleitzahl", label: "Postleitzahl", type: "text", required: false, placeholder: "2700" },
+      { id: "stadt", label: "Stadt", type: "text", required: false, placeholder: "Wiener Neustadt" },
+      { id: "personalbild_url", label: "Personalbild (URL)", type: "text", required: false, placeholder: "https://…", span2: true }
+    ]
+  },
+  { key: "summary", title: "Zusammenfassung", fields: [] }
+];
+
+/* =========================
+ *  Firebase init
+ * ========================= */
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+/* =========================
+ *  State (persist)
+ * ========================= */
+const STORAGE_KEY = "ffwn_member_wizard_state_v9";
 let state = loadState();
 let currentStep = loadStep();
 
@@ -125,6 +189,16 @@ function loadStep(){
 }
 function saveStep(){ localStorage.setItem(STORAGE_KEY + "_step", String(currentStep)); }
 
+/* Mail automatisch setzen */
+function syncAutoEmail(){
+  const mail = computeFfwnEmail(state.vorname, state.nachname);
+  if (mail) state.ffwn_email = mail;
+  saveState();
+  const input = document.querySelector(`[name="ffwn_email"]`);
+  if (input && mail) input.value = mail;
+}
+
+/* Mitgliedsnummer fortlaufend */
 async function allocateMemberNumber(){
   const counterRef = doc(db, "orgs", ORG_ID, "counters", "members");
   const num = await runTransaction(db, async (tx) => {
@@ -137,6 +211,73 @@ async function allocateMemberNumber(){
   return `${MEMBER_PREFIX}-${String(num).padStart(3, "0")}`;
 }
 
+/* Firestore: Member Stammdaten (OHNE Passwort, UID kommt später) */
+async function createMemberDoc(memberNumber){
+  const vorname = (state.vorname ?? "").toString().trim();
+  const nachname = (state.nachname ?? "").toString().trim();
+  const docId = sanitizeDocId(`${memberNumber}_${vorname}_${nachname}`);
+  const memberRef = doc(db, "orgs", ORG_ID, "members", docId);
+
+  const einsendeDatum = todayAT();
+
+  await setDoc(memberRef, {
+    orgId: ORG_ID,
+    mitgliedsnummer: memberNumber,
+
+    anrede: state.anrede ?? null,
+    titel: state.titel ?? null,
+    vorname,
+    nachname,
+
+    geburtsdatum: state.geburtsdatum ?? null,
+    beruf: state.beruf ?? null,
+    geburtsort: state.geburtsort ?? null,
+    familienstand: state.familienstand ?? null,
+    staatsburgerschaft: state.staatsburgerschaft ?? null,
+
+    identifikationsnummer: state.identifikationsnummer ?? null,
+    telefonnummer: state.telefonnummer ?? null,
+    forumsname: state.forumsname ?? null,
+
+    discord_name: state.discord_name ?? null,
+    discord_userid: state.discord_userid ?? null,
+
+    ffwn_email: state.ffwn_email ?? null,
+    dmail: state.dmail ?? null,
+
+    adresse: state.adresse ?? null,
+    postleitzahl: state.postleitzahl ?? null,
+    stadt: state.stadt ?? null,
+    personalbild_url: state.personalbild_url ?? null,
+
+    // Fixwerte (nur speichern)
+    mitglied_seit: einsendeDatum,
+    aktueller_dienstgrad: DEFAULTS.aktueller_dienstgrad,
+    letzte_beforderung: einsendeDatum,
+    funktion: DEFAULTS.funktion,
+    ausbildner: DEFAULTS.ausbildner,
+    ausbildner_fur: DEFAULTS.ausbildner_fur,
+    dienstzuteilung: DEFAULTS.dienstzuteilung,
+    aktives_mitglied: DEFAULTS.aktives_mitglied,
+
+    // UID wird nach Auth-Erstellung eingetragen
+    uid: null,
+
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+
+  // Kurse Container
+  const coursesMetaRef = doc(db, "orgs", ORG_ID, "members", docId, "courses", "_meta");
+  await setDoc(coursesMetaRef, {
+    createdAt: serverTimestamp(),
+    note: "Auto-created courses container"
+  });
+
+  return docId;
+}
+
+/* Summary */
 function renderSummary(host){
   const get = (k) => (state[k] ?? "").toString().trim();
 
@@ -153,9 +294,12 @@ function renderSummary(host){
   const rowsKontakt = [
     ["Citizen ID", get("identifikationsnummer")],
     ["Telefonnummer", get("telefonnummer")],
-    ["D-Mail Adresse", get("dmail")],
     ["Forumsname", get("forumsname")],
-    ["Discord ID", get("discord_id")]
+    ["Discord Name", get("discord_name")],
+    ["Discord_UserID", get("discord_userid")],
+    ["FFWN Mailadresse", get("ffwn_email")],
+    ["Passwort", get("auth_password") ? "••••••••" : ""],
+    ["D-Mail Adresse", get("dmail")]
   ];
 
   const rowsAdresse = [
@@ -165,23 +309,22 @@ function renderSummary(host){
     ["Personalbild (URL)", get("personalbild_url")]
   ];
 
-  // Pflichtfelder prüfen
   const requiredKeys = [
     ["vorname", "Vorname"],
     ["nachname", "Nachname"],
     ["geburtsdatum", "Geburtsdatum"],
     ["identifikationsnummer", "Citizen ID"],
-    ["dmail", "D-Mail Adresse"]
+    ["discord_userid", "Discord_UserID"],
+    ["ffwn_email", "FFWN Mailadresse"],
+    ["auth_password", "Passwort"]
   ];
   const missing = requiredKeys.filter(([k]) => !get(k)).map(([,label]) => label);
 
   const wrap = document.createElement("div");
   wrap.className = "summaryV2";
 
-  /* ===== HERO ===== */
   const hero = document.createElement("div");
   hero.className = "summaryHero";
-
   const name = `${get("vorname") || "—"} ${get("nachname") || ""}`.trim();
   hero.innerHTML = `
     <div class="summaryHero__left">
@@ -190,7 +333,6 @@ function renderSummary(host){
     </div>
   `;
 
-  // Optionales Bild
   const imgUrl = get("personalbild_url");
   if (imgUrl){
     const media = document.createElement("div");
@@ -212,7 +354,6 @@ function renderSummary(host){
     wrap.appendChild(warn);
   }
 
-  /* ===== 3 SPALTEN ===== */
   const cards = document.createElement("div");
   cards.className = "summaryCards";
   cards.appendChild(makeCard("Person", rowsPerson));
@@ -220,7 +361,6 @@ function renderSummary(host){
   cards.appendChild(makeCard("Adresse", rowsAdresse));
   wrap.appendChild(cards);
 
-  /* ===== DSGVO NUR HIER ===== */
   const checks = document.createElement("div");
   checks.className = "summaryChecks";
   checks.innerHTML = `
@@ -235,24 +375,18 @@ function renderSummary(host){
     </label>
 
     <div class="summaryHint">
-      Mit „Absenden“ wird gespeichert und danach die Mitgliedsnummer angezeigt.
+      Mit „Absenden“ werden Stammdaten gespeichert, der Login erstellt und die UID in den Stammdaten eingetragen.
     </div>
   `;
   wrap.appendChild(checks);
   host.appendChild(wrap);
 
-  // Checkbox State speichern
-  document.getElementById("dsgvo")?.addEventListener("change", e => {
-    state.__dsgvo = e.target.checked; saveState();
-  });
-  document.getElementById("richtigkeit")?.addEventListener("change", e => {
-    state.__richtigkeit = e.target.checked; saveState();
-  });
+  document.getElementById("dsgvo")?.addEventListener("change", e => { state.__dsgvo = e.target.checked; saveState(); });
+  document.getElementById("richtigkeit")?.addEventListener("change", e => { state.__richtigkeit = e.target.checked; saveState(); });
 
   function makeCard(title, rows){
     const c = document.createElement("div");
     c.className = "sCard";
-
     const filled = rows.filter(([,v]) => (v ?? "").trim()).length;
     c.innerHTML = `
       <div class="sCard__title">
@@ -279,10 +413,11 @@ function renderSummary(host){
   }
 }
 
-
+/* Render Step */
 function renderStep(){
   saveState();
   saveStep();
+  syncAutoEmail();
 
   const step = STEPS[currentStep];
   const host = el("stepHost");
@@ -349,12 +484,21 @@ function renderStep(){
         if (f.required) input.required = true;
       }
 
+      // ffwn_email readonly
+      if (f.id === "ffwn_email"){
+        input.readOnly = true;
+      }
+
       const v = state[f.id];
       if (v !== undefined && v !== null) input.value = String(v);
 
       input.addEventListener("input", () => {
         state[f.id] = input.value;
         saveState();
+
+        if (f.id === "vorname" || f.id === "nachname"){
+          syncAutoEmail();
+        }
       });
 
       wrap.appendChild(input);
@@ -369,6 +513,7 @@ function renderStep(){
   setMsg(null, "");
 }
 
+/* Validate Step */
 function validateStep(){
   const step = STEPS[currentStep];
   if (step.key === "summary") return true;
@@ -383,79 +528,35 @@ function validateStep(){
     }
   }
 
-  if (step.key === "kontakt"){
-    const citizen = (state.identifikationsnummer ?? "").toString().trim();
-    if (!citizen){
-      setMsg("err", "Identifikationsnummer (Citizen ID) ist Pflicht.");
-      document.querySelector(`[name="identifikationsnummer"]`)?.focus?.();
+  if (step.key === "personal"){
+    const dob = (state.geburtsdatum ?? "").toString().trim();
+    if (dob && !isValidDobDdMmYyyy(dob)){
+      setMsg("err", "Geburtsdatum bitte im Format dd.mm.yyyy eingeben.");
+      document.querySelector(`[name="geburtsdatum"]`)?.focus?.();
       return false;
     }
   }
+
+  if (step.key === "kontakt"){
+    syncAutoEmail();
+    const mail = (state.ffwn_email ?? "").toString().trim();
+    if (!mail){
+      setMsg("err", "FFWN Mailadresse konnte nicht erzeugt werden (Vorname/Nachname prüfen).");
+      return false;
+    }
+  }
+
   return true;
 }
 
-async function createMemberDoc(memberNumber){
-  const vorname = (state.vorname ?? "").toString().trim();
-  const nachname = (state.nachname ?? "").toString().trim();
-  const docId = sanitizeDocId(`${memberNumber}_${vorname}_${nachname}`);
-  const memberRef = doc(db, "orgs", ORG_ID, "members", docId);
-
-  const einsendeDatum = todayAT();
-
-  await setDoc(memberRef, {
-    orgId: ORG_ID,
-    mitgliedsnummer: memberNumber,
-
-    anrede: state.anrede ?? null,
-    titel: state.titel ?? null,
-    vorname,
-    nachname,
-    geburtsdatum: state.geburtsdatum ?? null,
-    beruf: state.beruf ?? null,
-    geburtsort: state.geburtsort ?? null,
-    familienstand: state.familienstand ?? null,
-    staatsburgerschaft: state.staatsburgerschaft ?? null,
-    identifikationsnummer: state.identifikationsnummer ?? null,
-    telefonnummer: state.telefonnummer ?? null,
-    forumsname: state.forumsname ?? null,
-    discord_id: state.discord_id ?? null,
-    adresse: state.adresse ?? null,
-    postleitzahl: state.postleitzahl ?? null,
-    stadt: state.stadt ?? null,
-    dmail: state.dmail ?? null,
-    personalbild_url: state.personalbild_url ?? null,
-
-    // Fixwerte (nur speichern)
-    mitglied_seit: einsendeDatum,
-    aktueller_dienstgrad: DEFAULTS.aktueller_dienstgrad,
-    letzte_beforderung: einsendeDatum,
-    funktion: DEFAULTS.funktion,
-    ausbildner: DEFAULTS.ausbildner,
-    ausbildner_fur: DEFAULTS.ausbildner_fur,
-    dienstzuteilung: DEFAULTS.dienstzuteilung,
-    aktives_mitglied: DEFAULTS.aktives_mitglied,
-
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-
-  // Kurse "Ordner"
-  const coursesMetaRef = doc(db, "orgs", ORG_ID, "members", docId, "courses", "_meta");
-  await setDoc(coursesMetaRef, {
-    createdAt: serverTimestamp(),
-    note: "Auto-created courses container"
-  });
-
-  return docId;
-}
-
+/* Theme */
 function initTheme(){
   const stored = localStorage.getItem("ffwn_theme");
   const initial = stored || "dark";
   document.documentElement.setAttribute("data-theme", initial);
   el("themeLabel").textContent = initial === "dark" ? "Dark" : "Light";
 
-  el("themeToggle").addEventListener("click", () => {
+  el("themeToggle")?.addEventListener("click", () => {
     const cur = document.documentElement.getAttribute("data-theme") || "dark";
     const next = cur === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
@@ -464,12 +565,15 @@ function initTheme(){
   });
 }
 
-// Navigation
+/* =========================
+ *  Navigation / Events
+ * ========================= */
 el("backBtn")?.addEventListener("click", () => {
   if (currentStep <= 0) return;
   currentStep -= 1;
   renderStep();
 });
+
 el("nextBtn")?.addEventListener("click", () => {
   if (!validateStep()) return;
   if (currentStep >= STEPS.length - 1) return;
@@ -491,28 +595,57 @@ el("memberForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   setMsg(null, "");
 
-  // Final checks
+  // Final Checks
   const vorname = (state.vorname ?? "").toString().trim();
   const nachname = (state.nachname ?? "").toString().trim();
   if (!vorname || !nachname) return setMsg("err", "Vorname/Nachname fehlt.");
-  if (!(state.geburtsdatum ?? "").toString().trim()) return setMsg("err", "Geburtsdatum fehlt.");
-  if (!(state.dmail ?? "").toString().trim()) return setMsg("err", "D-Mail Adresse fehlt.");
-  if (!(state.identifikationsnummer ?? "").toString().trim()) return setMsg("err", "Citizen ID fehlt.");
 
-  // DSGVO/Richtigkeit nur am Schluss (in Summary) -> in state
+  const dob = (state.geburtsdatum ?? "").toString().trim();
+  if (!dob) return setMsg("err", "Geburtsdatum fehlt.");
+  if (!isValidDobDdMmYyyy(dob)) return setMsg("err", "Geburtsdatum bitte im Format dd.mm.yyyy eingeben.");
+
+  if (!(state.identifikationsnummer ?? "").toString().trim()) return setMsg("err", "Citizen ID fehlt.");
+  if (!(state.discord_userid ?? "").toString().trim()) return setMsg("err", "Discord_UserID fehlt.");
+
+  syncAutoEmail();
+  const email = (state.ffwn_email ?? "").toString().trim();
+  if (!email) return setMsg("err", "FFWN Mailadresse fehlt.");
+
+  const password = (state.auth_password ?? "").toString();
+  if (!password.trim()) return setMsg("err", "Passwort fehlt.");
+  if (password.trim().length < 6) return setMsg("err", "Passwort muss mindestens 6 Zeichen haben.");
+
   if (!state.__dsgvo) return setMsg("err", "Bitte DSGVO Zustimmung bestätigen.");
   if (!state.__richtigkeit) return setMsg("err", "Bitte Richtigkeit bestätigen.");
 
   const btn = el("submitBtn");
   const old = btn?.innerHTML;
-  if (btn){ btn.disabled = true; btn.textContent = "Wird gesendet…"; }
+  if (btn){ btn.disabled = true; btn.textContent = "Wird gespeichert…"; }
 
   try{
+    // 1) Member speichern (OHNE UID)
     const memberNumber = await allocateMemberNumber();
     const docId = await createMemberDoc(memberNumber);
 
-    setMsg("ok", `✅ Gespeichert!\nMitgliedsnummer: ${memberNumber}\nDokument: ${docId}`);
+    // 2) Firebase Auth User anlegen (liefert UID)
+    if (btn){ btn.textContent = "Login wird erstellt…"; }
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = cred.user.uid;
 
+    // 3) UID in Member-Dokument schreiben
+    if (btn){ btn.textContent = "UID wird gespeichert…"; }
+    await updateDoc(doc(db, "orgs", ORG_ID, "members", docId), {
+      uid,
+      updatedAt: serverTimestamp()
+    });
+
+    setMsg("ok", `✅ Fertig!\nMitgliedsnummer: ${memberNumber}\nUID: ${uid}`);
+
+    // Passwort aus State entfernen
+    delete state.auth_password;
+    saveState();
+
+    // Reset
     setTimeout(() => {
       state = {};
       currentStep = 0;
@@ -529,6 +662,6 @@ el("memberForm")?.addEventListener("submit", async (e) => {
   }
 });
 
-// Boot
+/* Boot */
 initTheme();
 renderStep();
