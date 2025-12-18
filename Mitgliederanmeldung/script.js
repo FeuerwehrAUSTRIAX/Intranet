@@ -187,7 +187,7 @@ const auth = getAuth(app);
 /* =========================
  *  State (persist)
  * ========================= */
-const STORAGE_KEY = "ffwn_member_wizard_state_v11";
+const STORAGE_KEY = "ffwn_member_wizard_state_v12";
 let state = loadState();
 let currentStep = loadStep();
 let isDone = false;
@@ -228,8 +228,8 @@ async function allocateMemberNumber(){
 }
 
 /* Firestore: Member Stammdaten (OHNE Passwort)
-   + legt Subcollections an: courses, promotions
-   + legt initiale Beförderung als erstes promotions-Doc an
+   + Subcollections: courses, promotions
+   + initiale "Beförderung" als erstes promotions-Doc
 */
 async function createMemberDoc(memberNumber){
   const vorname = (state.vorname ?? "").toString().trim();
@@ -268,7 +268,6 @@ async function createMemberDoc(memberNumber){
     stadt: state.stadt ?? null,
     personalbild_url: state.personalbild_url ?? null,
 
-    // Fixwerte
     mitglied_seit: einsendeDatum,
     aktueller_dienstgrad: DEFAULTS.aktueller_dienstgrad,
     letzte_beforderung: einsendeDatum,
@@ -284,26 +283,23 @@ async function createMemberDoc(memberNumber){
     updatedAt: serverTimestamp()
   });
 
-  // courses container
   const coursesMetaRef = doc(db, "orgs", ORG_ID, "members", docId, "courses", "_meta");
   await setDoc(coursesMetaRef, {
     createdAt: serverTimestamp(),
     note: "Auto-created courses container"
   });
 
-  // promotions container
   const promotionsMetaRef = doc(db, "orgs", ORG_ID, "members", docId, "promotions", "_meta");
   await setDoc(promotionsMetaRef, {
     createdAt: serverTimestamp(),
     note: "Auto-created promotions container"
   });
 
-  // initiale "Beförderung" (Eintritt / initialer Dienstgrad)
   await addDoc(collection(db, "orgs", ORG_ID, "members", docId, "promotions"), {
     type: "initial",
     from_rank: null,
     to_rank: DEFAULTS.aktueller_dienstgrad,
-    date: einsendeDatum, // dd.mm.yyyy string
+    date: einsendeDatum,
     reason: "Eintritt / Initialer Dienstgrad",
     createdAt: serverTimestamp()
   });
@@ -325,6 +321,9 @@ function renderSummary(host){
     ["Staatsbürgerschaft", get("staatsburgerschaft")]
   ];
 
+  // FIX: nach Erfolg sind Passwörter gelöscht -> trotzdem nicht als "fehlend" werten
+  const passwordShown = get("auth_password") || get("auth_password_repeat") || state.__password_set;
+
   const rowsKontakt = [
     ["Citizen ID", get("identifikationsnummer")],
     ["Telefonnummer", get("telefonnummer")],
@@ -332,8 +331,8 @@ function renderSummary(host){
     ["Discord Name", get("discord_name")],
     ["Discord_UserID", get("discord_userid")],
     ["Mailadresse", get("ffwn_email")],
-    ["Passwort", get("auth_password") ? "••••••••" : ""],
-    ["Passwort wiederholen", get("auth_password_repeat") ? "••••••••" : ""]
+    ["Passwort", passwordShown ? "••••••••" : ""],
+    ["Passwort wiederholen", passwordShown ? "••••••••" : ""]
   ];
 
   const rowsAdresse = [
@@ -343,6 +342,7 @@ function renderSummary(host){
     ["Personalbild (URL)", get("personalbild_url")]
   ];
 
+  // FIX: Passwort-Felder nur bis zum Abschluss als Pflicht prüfen
   const requiredKeys = [
     ["vorname", "Vorname"],
     ["nachname", "Nachname"],
@@ -350,8 +350,10 @@ function renderSummary(host){
     ["identifikationsnummer", "Citizen ID"],
     ["discord_userid", "Discord_UserID"],
     ["ffwn_email", "Mailadresse"],
-    ["auth_password", "Passwort"],
-    ["auth_password_repeat", "Passwort wiederholen"]
+    ...(isDone ? [] : [
+      ["auth_password", "Passwort"],
+      ["auth_password_repeat", "Passwort wiederholen"]
+    ])
   ];
   const missing = requiredKeys.filter(([k]) => !get(k)).map(([,label]) => label);
 
@@ -565,7 +567,8 @@ function renderStep(){
     el("resetBtn").disabled = false;
   }
 
-  setMsg(null, "");
+  // FIX: nach Erfolg Meldung NICHT wegwischen
+  if (!isDone) setMsg(null, "");
 }
 
 /* Validate Step */
@@ -707,13 +710,18 @@ el("memberForm")?.addEventListener("submit", async (e) => {
       updatedAt: serverTimestamp()
     });
 
+    // FIX: merken, dass Passwort vorhanden war (damit Summary nicht meckert)
+    state.__password_set = true;
+
+    // Sensitive Felder entfernen
     delete state.auth_password;
     delete state.auth_password_repeat;
     saveState();
 
+    // FIX: erst rendern, dann Message setzen (und renderStep löscht sie nicht mehr)
     isDone = true;
-    setMsg("ok", "✅ Mitglied angelegt");
     renderStep();
+    setMsg("ok", "✅ Mitglied angelegt");
 
   }catch(err){
     console.error(err);
