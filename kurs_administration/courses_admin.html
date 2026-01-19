@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FFWN – Kursverwaltung · Administration</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <!-- ===== Background ===== -->
+  <div class="bg" aria-hidden="true">
+    <!-- Optional: Hintergrundbild
+    <img class="bg__img" src="YOUR_BG_IMAGE.jpg" alt="">
+    -->
+    <div class="bg__overlay"></div>
+    <div class="bg__noise"></div>
+  </div>
+
+  <!-- ===== Topbar ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand__badge">
+        <img
+          src="https://www.ffwrn.at/wp-content/uploads/2018/10/Logo-FFWN_klein.png"
+          alt="FFWN Logo"
+          referrerpolicy="no-referrer">
+      </div>
+      <div class="brand__txt">
+        <div class="brand__title">
+          Kursverwaltung · Administration
+        </div>
+        <div class="brand__sub">
+          Kurse erstellen, bearbeiten und zentral verwalten
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; align-items:center;">
+      <!-- ✅ IMMER SICHTBAR: Sidebar Toggle -->
+      <button id="toggleLeftBtn" class="btn btn--ghost" type="button" title="Kursliste ein-/ausblenden">
+        ≡ Kurse ausblenden
+      </button>
+
+      <!-- Theme -->
+      <button id="themeToggle" class="theme" type="button" aria-label="Theme wechseln">
+        <span class="theme__dot"></span>
+        <span id="themeLabel" class="theme__label">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="card__head">
+        <h1>Kursvorlagen verwalten</h1>
+        <p class="muted">
+          Hier definierst du Kurse einmal zentral (Titel, Kategorie, Voraussetzungen, Gültigkeit).
+          Bei Mitgliedern wird nur noch der Status gespeichert.
+        </p>
+      </div>
+
+      <div class="form">
+        <div class="split" id="splitRoot">
+          <!-- ===== LINKS: Kurse Liste ===== -->
+          <div class="listCard">
+            <div class="listTop">
+              <div class="pill">Kurse</div>
+              <button class="btn btn--primary" id="newCourseBtn" type="button">
+                + Neuer Kurs <span class="btn__shine"></span>
+              </button>
+            </div>
+
+            <div class="grid" style="margin-top:8px;">
+              <div class="field field--span2">
+                <label for="filterText">Suche</label>
+                <input id="filterText" type="text" placeholder="z.B. BD10 oder Titel…" />
+              </div>
+
+              <div class="field">
+                <label for="filterCategory">Kategorie</label>
+                <select id="filterCategory">
+                  <option value="">Alle</option>
+                  <option value="BD">BD</option>
+                  <option value="TE">TE</option>
+                  <option value="EMA">EMA</option>
+                  <option value="ASM">ASM</option>
+                  <option value="FUE">FUE</option>
+                  <option value="WFBB">WFBB</option>
+                  <option value="TBS">TBS</option>
+                  <option value="TEST">TEST</option>
+                  <option value="SONST">SONST</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="filterActive">Status</label>
+                <select id="filterActive">
+                  <option value="">Alle</option>
+                  <option value="true">Aktiv</option>
+                  <option value="false">Inaktiv</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="courseList" style="margin-top:10px;"></div>
+          </div>
+
+          <!-- ===== RECHTS: Editor ===== -->
+          <div class="listCard">
+            <div class="listTop">
+              <div class="pill">Bearbeiten</div>
+              <div class="muted" id="selHint" style="font-weight:900; font-size:12.5px;">
+                Wähle links einen Kurs oder erstelle einen neuen.
+              </div>
+            </div>
+
+            <div class="tabs" role="tablist" aria-label="Kurs Editor Tabs">
+              <button type="button" class="tab tab--active" id="tabDetails" role="tab" aria-selected="true" aria-controls="panelDetails">Details</button>
+              <button type="button" class="tab" id="tabMaterials" role="tab" aria-selected="false" aria-controls="panelMaterials">Unterlagen <span class="tabCount" id="materialsCount">0</span></button>
+              <button type="button" class="tab" id="tabQuestions" role="tab" aria-selected="false" aria-controls="panelQuestions">Fragen <span class="tabCount" id="questionsCount">0</span></button>
+            </div>
+
+            <!-- ===== Details ===== -->
+            <div id="panelDetails" class="panel panel--active" role="tabpanel" aria-labelledby="tabDetails">
+              <form id="courseForm" autocomplete="off">
+                <div class="grid">
+                  <div class="field">
+                    <label for="courseId">courseId <span class="req">*</span></label>
+                    <input id="courseId" type="text" placeholder="z.B. bd10, te10, ema_c2" />
+                  </div>
+
+                  <div class="field">
+                    <label for="code">Code</label>
+                    <input id="code" type="text" placeholder="z.B. BD10" />
+                  </div>
+
+                  <div class="field field--span2">
+                    <label for="title">Titel <span class="req">*</span></label>
+                    <input id="title" type="text" placeholder="z.B. BD10 – Branddienst Basismodul" />
+                  </div>
+
+                  <div class="field">
+                    <label for="category">Kategorie</label>
+                    <select id="category">
+                      <option value="">–</option>
+                      <option value="BD">BD</option>
+                      <option value="TE">TE</option>
+                      <option value="EMA">EMA</option>
+                      <option value="ASM">ASM</option>
+                      <option value="FUE">FUE</option>
+                      <option value="WFBB">WFBB</option>
+                      <option value="TBS">TBS</option>
+                      <option value="TEST">TEST</option>
+                      <option value="SONST">SONST</option>
+                    </select>
+                  </div>
+
+                  <div class="field">
+                    <label for="sort">Sort</label>
+                    <input id="sort" type="number" step="1" placeholder="z.B. 100" />
+                  </div>
+
+                  <div class="field field--span2">
+                    <label for="description">Beschreibung</label>
+                    <input id="description" type="text" placeholder="optional" />
+                  </div>
+
+                  <div class="field">
+                    <label for="active">Status</label>
+                    <select id="active">
+                      <option value="true">Aktiv</option>
+                      <option value="false">Inaktiv</option>
+                    </select>
+                  </div>
+
+                  <div class="field">
+                    <label for="validityMonths">Gültigkeit (Monate)</label>
+                    <input id="validityMonths" type="number" step="1" placeholder="z.B. 24" />
+                  </div>
+
+                  <div class="field field--span2">
+                    <label>Voraussetzungen</label>
+                    <div class="muted" style="font-weight:900; font-size:12.5px; margin:6px 0 8px;">
+                      Hakerl setzen = muss vorher abgeschlossen sein.
+                    </div>
+                    <div id="prereqBox" class="prereqBox"></div>
+                  </div>
+                </div>
+
+                <div class="actions">
+                  <button class="btn btn--ghost" id="resetEditorBtn" type="button">Editor leeren</button>
+                  <button class="btn btn--danger" id="deactivateBtn" type="button">Deaktivieren</button>
+
+                  <!-- ✅ Kurs löschen -->
+                  <button class="btn btn--danger" id="deleteCourseBtn" type="button">Kurs löschen</button>
+
+                  <button class="btn btn--primary" id="saveBtn" type="submit">
+                    Speichern <span class="btn__shine"></span>
+                  </button>
+                </div>
+
+                <div id="msgOk" class="msg msg--ok" role="status" aria-live="polite"></div>
+                <div id="msgErr" class="msg msg--err" role="alert" aria-live="assertive"></div>
+              </form>
+            </div>
+
+            <!-- ===== Unterlagen ===== -->
+            <div id="panelMaterials" class="panel" role="tabpanel" aria-labelledby="tabMaterials">
+              <div class="panel__hint muted">Unterlagen sind Links. Reihenfolge via ↑↓ (optional).</div>
+
+              <div class="subCard">
+                <div class="subCard__head">Unterlage hinzufügen / bearbeiten</div>
+
+                <div class="grid">
+                  <div class="field field--span2">
+                    <label for="matTitle">Titel <span class="req">*</span></label>
+                    <input id="matTitle" type="text" placeholder="z.B. BD10 Skript (Google Doc)" />
+                  </div>
+
+                  <div class="field field--span2">
+                    <label for="matUrl">Link <span class="req">*</span></label>
+                    <input id="matUrl" type="url" placeholder="https://..." />
+                  </div>
+
+                  <div class="field">
+                    <label for="matType">Typ</label>
+                    <select id="matType">
+                      <option value="auto">Auto</option>
+                      <option value="gdoc">Google Doc</option>
+                      <option value="gsheet">Google Sheet</option>
+                      <option value="gslides">Google Slides</option>
+                      <option value="gform">Google Form</option>
+                      <option value="link">Link</option>
+                    </select>
+                  </div>
+
+                  <div class="field">
+                    <label for="matNote">Notiz</label>
+                    <input id="matNote" type="text" placeholder="optional" />
+                  </div>
+
+                  <input id="matId" type="hidden" />
+                </div>
+
+                <div class="actions actions--sub">
+                  <button class="btn btn--ghost" id="matResetBtn" type="button">Zurücksetzen</button>
+                  <button class="btn btn--primary" id="matSaveBtn" type="button">Unterlage speichern <span class="btn__shine"></span></button>
+                </div>
+              </div>
+
+              <div class="subCard" style="margin-top:10px;">
+                <div class="subCard__head">Unterlagen</div>
+                <div id="materialsList"></div>
+              </div>
+            </div>
+
+            <!-- ===== Fragen ===== -->
+            <div id="panelQuestions" class="panel" role="tabpanel" aria-labelledby="tabQuestions">
+              <div class="panel__hint muted">Single = 1 richtig, Multiple = mehrere richtig, R/F = wahr/falsch.</div>
+
+              <div class="subSplit">
+                <div class="subCard">
+                  <div class="subCard__head">Fragen</div>
+                  <div class="actions actions--sub" style="justify-content:flex-start;">
+                    <button class="btn btn--primary" id="qNewBtn" type="button">+ Neue Frage <span class="btn__shine"></span></button>
+                  </div>
+                  <div id="questionsList" style="margin-top:10px;"></div>
+                </div>
+
+                <div class="subCard">
+                  <div class="subCard__head">Frage bearbeiten</div>
+
+                  <div class="grid">
+                    <div class="field">
+                      <label for="qId">ID</label>
+                      <input id="qId" type="text" readonly placeholder="(automatisch)" />
+                    </div>
+
+                    <div class="field">
+                      <label for="qType">Typ</label>
+                      <select id="qType">
+                        <option value="single">Single Choice</option>
+                        <option value="multi">Multiple Choice</option>
+                        <option value="truefalse">Richtig / Falsch</option>
+                      </select>
+                    </div>
+
+                    <div class="field field--span2">
+                      <label for="qText">Frage <span class="req">*</span></label>
+                      <textarea id="qText" rows="3" placeholder="Fragetext..."></textarea>
+                    </div>
+
+                    <div class="field">
+                      <label for="qPoints">Punkte</label>
+                      <input id="qPoints" type="number" step="1" value="1" />
+                    </div>
+
+                    <div class="field">
+                      <label for="qActive">Status</label>
+                      <select id="qActive">
+                        <option value="true">Aktiv</option>
+                        <option value="false">Inaktiv</option>
+                      </select>
+                    </div>
+
+                    <div class="field field--span2">
+                      <label for="qExplanation">Erklärung / Feedback (optional)</label>
+                      <textarea id="qExplanation" rows="2" placeholder="Wird nach dem Beantworten angezeigt..."></textarea>
+                    </div>
+                  </div>
+
+                  <div class="subCard__head" style="margin-top:10px;">Antworten</div>
+                  <div id="answersBox"></div>
+
+                  <div class="actions actions--sub">
+                    <button class="btn btn--ghost" id="ansAddBtn" type="button">+ Antwort</button>
+                    <button class="btn btn--danger" id="qDeleteBtn" type="button">Löschen</button>
+                    <button class="btn btn--primary" id="qSaveBtn" type="button">Frage speichern <span class="btn__shine"></span></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="foot" style="margin-top:12px;">
+              <span class="muted">Tipp: Für neue Kurse einfach links „+ Neuer Kurs“ → ausfüllen → Speichern.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span class="muted">Feuerwehr Wiener Neustadt · Intranet System</span>
+    </footer>
+  </main>
+
+  <!-- ✅ Confirm Popout (Willst du wirklich löschen?) -->
+  <div id="confirmPopout" class="popout" aria-hidden="true">
+    <div class="popout__backdrop" id="confirmBackdrop"></div>
+
+    <div class="popout__card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="popout__badge" id="confirmBadge">BESTÄTIGEN</div>
+
+      <div class="popout__title" id="confirmTitle">Bestätigen</div>
+      <div class="popout__subtitle" id="confirmText">Willst du wirklich löschen?</div>
+
+      <div class="actions" style="margin-top:16px; justify-content:flex-end;">
+        <button class="btn btn--ghost" id="confirmCancel" type="button">Abbrechen</button>
+        <button class="btn btn--danger" id="confirmOk" type="button">Löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ Theme Toggle Script -->
+  <script>
+    (function(){
+      const root = document.documentElement;
+      const label = document.getElementById("themeLabel");
+      const btn = document.getElementById("themeToggle");
+
+      function setTheme(t){
+        root.setAttribute("data-theme", t);
+        if (label) label.textContent = t === "light" ? "Light" : "Dark";
+        localStorage.setItem("ffwn_theme", t);
+      }
+
+      const saved = localStorage.getItem("ffwn_theme");
+      if (saved === "light" || saved === "dark") setTheme(saved);
+      else setTheme(root.getAttribute("data-theme") || "dark");
+
+      btn?.addEventListener("click", () => {
+        const cur = root.getAttribute("data-theme") || "dark";
+        setTheme(cur === "dark" ? "light" : "dark");
+      });
+    })();
+  </script>
+
+  <script type="module" src="courses_admin.js"></script>
+</body>
+</html>
