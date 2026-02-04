@@ -93,6 +93,7 @@ async function detectExtForTileset(basePath){
   };
   if (await tryExt('jpg')) return 'jpg';
   if (await tryExt('png')) return 'png';
+  if (await tryExt('webp')) return 'webp';
   return 'jpg';
 }
 async function buildBasemaps(){
